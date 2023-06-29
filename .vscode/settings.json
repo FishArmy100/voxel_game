@@ -1,5 +1,12 @@
 {
     "cSpell.words": [
-        "WASD"
+        "multisample",
+        "multiview",
+        "swapchain",
+        "WASD",
+        "webgl",
+        "wgpu",
+        "wgsl",
+        "winit"
     ]
 }
