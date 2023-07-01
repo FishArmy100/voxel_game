@@ -2,12 +2,17 @@
     "cSpell.words": [
         "multisample",
         "multiview",
+        "repr",
         "srgb",
         "swapchain",
+        "unclipped",
         "WASD",
         "webgl",
         "wgpu",
         "wgsl",
         "winit"
+    ],
+    "rust-analyzer.linkedProjects": [
+        ".\\Cargo.toml"
     ]
 }
