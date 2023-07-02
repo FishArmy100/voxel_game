@@ -1,12 +1,12 @@
-use std::ops::{Add, Sub, Div, Mul};
+use std::{ops::{Add, Sub, Div, Mul}, fmt::Display};
 
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct Vec2<T>
 {
-    x: T,
-    y: T
+    pub x: T,
+    pub y: T
 }
 
 impl<T> Vec2<T>
@@ -66,13 +66,20 @@ impl<T> Div<T> for Vec2<T> where T : Div + Copy
     }
 }
 
+impl<T> Display for Vec2<T> where T : Display
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("({}, {})", self.x, self.y))
+    }
+}
+
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct Vec3<T>
 {
-    x: T,
-    y: T,
-    z: T
+    pub x: T,
+    pub y: T,
+    pub z: T
 }
 
 impl<T> Vec3<T>
@@ -129,6 +136,13 @@ impl<T> Div<T> for Vec3<T> where T : Div + Copy
 
     fn div(self, rhs: T) -> Self::Output {
         Vec3::new(self.x / rhs, self.y / rhs, self.z / rhs)
+    }
+}
+
+impl<T> Display for Vec3<T> where T : Display
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("({}, {}, {})", self.x, self.y, self.z))
     }
 }
 
