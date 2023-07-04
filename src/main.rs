@@ -1,9 +1,10 @@
-mod rendering;
+mod test;
 mod math;
 mod colors;
 mod texture;
 mod camera;
 mod application;
+mod rendering;
 
 use std::borrow::Cow;
 use winit::{
@@ -13,7 +14,7 @@ use winit::{
     window::WindowBuilder
 };
 
-use rendering::State;
+use test::State;
 
 async fn run() 
 {

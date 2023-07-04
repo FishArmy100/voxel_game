@@ -1,8 +1,8 @@
 use std::{time::SystemTime, str::FromStr};
 use crate::math::{Vec2};
 
-type WinitWindow = winit::window::Window;
-type WindowSize = winit::dpi::PhysicalSize<u32>;
+pub type WinitWindow = winit::window::Window;
+pub  type WindowSize = winit::dpi::PhysicalSize<u32>;
 
 pub struct App 
 {
@@ -13,7 +13,7 @@ pub struct App
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
-    size: winit::dpi::PhysicalSize<u32>,
+    size: WindowSize,
     window_handle: WinitWindow,
 
     event_loop: winit::event_loop::EventLoop<()>
