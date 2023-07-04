@@ -1,11 +1,16 @@
 mod rendering;
 mod math;
+mod colors;
+mod texture;
+mod camera;
+mod application;
 
 use std::borrow::Cow;
 use winit::{
     event::{Event, WindowEvent, KeyboardInput, VirtualKeyCode, ElementState},
     event_loop::{ControlFlow, EventLoop},
     window::Window,
+    window::WindowBuilder
 };
 
 use rendering::State;
@@ -13,7 +18,8 @@ use rendering::State;
 async fn run() 
 {
     let event_loop = EventLoop::new();
-    let window = winit::window::Window::new(&event_loop).unwrap();
+    
+    let window = WindowBuilder::new().build(&event_loop).unwrap();
 
     let mut state = State::new(window).await;
 
@@ -50,7 +56,7 @@ async fn run()
                 }
             }
 
-            Event::RedrawRequested(window_id) if window_id == state.window().id() =>{
+            Event::RedrawRequested(window_id) if window_id == state.window().id() => {
                 state.update();
                 match state.render()
                 {
@@ -60,6 +66,10 @@ async fn run()
                     Err(e) => eprintln!("{:?}", e)
                 }
             }
+
+            Event::MainEventsCleared => {
+                state.window().request_redraw();
+            },
             _ => {}
         }
     });
