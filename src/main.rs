@@ -7,6 +7,7 @@ mod application;
 mod rendering;
 
 use std::borrow::Cow;
+use application::App;
 use winit::{
     event::{Event, WindowEvent, KeyboardInput, VirtualKeyCode, ElementState},
     event_loop::{ControlFlow, EventLoop},
@@ -19,9 +20,7 @@ use test::State;
 async fn run() 
 {
     let event_loop = EventLoop::new();
-    
     let window = WindowBuilder::new().build(&event_loop).unwrap();
-
     let mut state = State::new(window).await;
 
     event_loop.run(move |event, _, control_flow| 
@@ -78,6 +77,6 @@ async fn run()
 
 fn main() 
 {
-    env_logger::init();
-    pollster::block_on(run());
+    let app = App::new("My App");
+    app.run();
 }
