@@ -5,9 +5,9 @@ mod texture;
 mod camera;
 mod application;
 mod rendering;
+mod world;
 
 use std::borrow::Cow;
-use application::App;
 use winit::{
     event::{Event, WindowEvent, KeyboardInput, VirtualKeyCode, ElementState},
     event_loop::{ControlFlow, EventLoop},
@@ -77,6 +77,6 @@ async fn run()
 
 fn main() 
 {
-    let app = App::new("My App");
-    app.run();
+    env_logger::init();
+    pollster::block_on(application::run());
 }
