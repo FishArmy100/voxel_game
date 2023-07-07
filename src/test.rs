@@ -159,7 +159,7 @@ impl State {
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&camera);
 
-        let camera_entity = CameraEntity::new(camera, 20.);
+        let camera_entity = CameraEntity::new(camera, 20., 20.);
 
         let camera_buffer = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {

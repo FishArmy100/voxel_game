@@ -156,7 +156,7 @@ impl AppState
             config,
             size,
             window_handle: window,
-            camera_entity: CameraEntity::new(camera, 20.)
+            camera_entity: CameraEntity::new(camera, 20., 20.)
         }
     }
 
@@ -169,7 +169,7 @@ impl AppState
                 window_id,
             } 
 
-            if window_id == self.window_handle.id() =>
+            if window_id == self.window_handle.id() => if !self.camera_entity.on_event(event)
             {
                 match event 
                 {
@@ -232,7 +232,7 @@ impl AppState
     fn on_update(&mut self)
     {
         let delta_time = self.current_time.elapsed().unwrap().as_secs_f32();
-        self.camera_entity.update(delta_time);
+        self.camera_entity.update(delta_time); 
         self.current_time = SystemTime::now();
     }
 }

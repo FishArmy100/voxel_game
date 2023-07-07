@@ -4,6 +4,7 @@ use crate::camera::{CameraUniform, Camera};
 use crate::texture::Texture;
 use wgpu::util::DeviceExt;
 
+#[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct Vertex
 {
