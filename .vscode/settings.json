@@ -1,5 +1,27 @@
 {
     "cSpell.words": [
-        "WASD"
+        "Bufferable",
+        "bytemuck",
+        "cgmath",
+        "mipmap",
+        "multisample",
+        "multiview",
+        "OPENGL",
+        "repr",
+        "rustfmt",
+        "srgb",
+        "swapchain",
+        "unclipped",
+        "WASD",
+        "webgl",
+        "wgpu",
+        "wgsl",
+        "winit",
+        "Zeroable"
+    ],
+    "rust-analyzer.linkedProjects": [
+        ".\\Cargo.toml",
+        ".\\Cargo.toml",
+        ".\\Cargo.toml"
     ]
 }
