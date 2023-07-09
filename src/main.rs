@@ -6,6 +6,7 @@ mod camera;
 mod application;
 mod rendering;
 mod world;
+mod voxel;
 
 use std::borrow::Cow;
 use winit::{

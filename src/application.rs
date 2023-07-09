@@ -1,23 +1,25 @@
-use std::{time::SystemTime};
+use std::{time::SystemTime, sync::Arc};
+use cgmath::Array;
 use winit::{event::{WindowEvent, Event, KeyboardInput, VirtualKeyCode, ElementState}, event_loop::{ControlFlow, EventLoop}};
-use crate::rendering::{Renderer, Vertex, Mesh, Triangle};
+use crate::{rendering::{Renderer, Vertex, Mesh, Triangle}, math::Point3D, voxel::{Voxel, VoxelData}};
 use crate::colors::Color;
 use crate::math::Vec3;
 use crate::camera::{Camera, CameraEntity};
+use crate::voxel::Chunk;
 
 pub type WinitWindow = winit::window::Window;
 pub type WindowSize = winit::dpi::PhysicalSize<u32>;
 
 const VERTICES: &[Vertex] = &[
-    Vertex {position: Vec3::new(-0.5, 0.5, 0.5), color: Color::RED},
-    Vertex {position: Vec3::new(0.5, 0.5, 0.5), color: Color::RED},
-    Vertex {position: Vec3::new(-0.5, -0.5, 0.5), color: Color::GREEN},
-    Vertex {position: Vec3::new(0.5, -0.5, 0.5), color: Color::GREEN},
+    Vertex {position: Point3D::new(-0.5, 0.5, 0.5), color: Color::RED},
+    Vertex {position: Point3D::new(0.5, 0.5, 0.5), color: Color::RED},
+    Vertex {position: Point3D::new(-0.5, -0.5, 0.5), color: Color::GREEN},
+    Vertex {position: Point3D::new(0.5, -0.5, 0.5), color: Color::GREEN},
 
-    Vertex {position: Vec3::new(-0.5, 0.5, -0.5), color: Color::RED},
-    Vertex {position: Vec3::new(0.5, 0.5, -0.5), color: Color::RED},
-    Vertex {position: Vec3::new(-0.5, -0.5, -0.5), color: Color::GREEN},
-    Vertex {position: Vec3::new(0.5, -0.5, -0.5), color: Color::GREEN} 
+    Vertex {position: Point3D::new(-0.5, 0.5, -0.5), color: Color::RED},
+    Vertex {position: Point3D::new(0.5, 0.5, -0.5), color: Color::RED},
+    Vertex {position: Point3D::new(-0.5, -0.5, -0.5), color: Color::GREEN},
+    Vertex {position: Point3D::new(0.5, -0.5, -0.5), color: Color::GREEN} 
 ];
 
 const TRIANGLES: &[Triangle] = &[
@@ -156,7 +158,7 @@ impl AppState
             config,
             size,
             window_handle: window,
-            camera_entity: CameraEntity::new(camera, 20., 20.)
+            camera_entity: CameraEntity::new(camera, 20., 50.)
         }
     }
 
@@ -225,7 +227,13 @@ impl AppState
     fn on_render(&mut self) -> Result<(), wgpu::SurfaceError>
     {
         let mut renderer = Renderer::new(&self.device, &self.surface, &mut self.queue, &self.config);
-        renderer.add_mesh(get_cube_mesh());
+        
+        let generator = |x, y, z| if y == 0 {Voxel::new(1)} else {Voxel::new(0)};
+        let voxels = Arc::new(vec![VoxelData::new(Color::BLACK, false), VoxelData::new(Color::GREEN, true)]);
+
+        let chunk = Chunk::<10>::new(&generator, Point3D::from_value(0.0), voxels, 1.0);
+        let mesh = (*chunk.mesh()).clone();
+        renderer.add_model(mesh);
         renderer.render(self.camera_entity.camera())
     }
 

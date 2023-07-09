@@ -14,8 +14,15 @@ struct CameraUniform {
     view_proj: mat4x4<f32>
 }
 
-@group(0) @binding(0) // 1.
+struct ModelUniform {
+    model: mat4x4<f32>
+}
+
+@group(0) @binding(0)
 var<uniform> camera: CameraUniform;
+
+@group(1) @binding(0)
+var<uniform> model: ModelUniform;
 
 @vertex
 fn vs_main(
@@ -31,6 +38,6 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return in.color ;
+    return in.color;
 }
  
