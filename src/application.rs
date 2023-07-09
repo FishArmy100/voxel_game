@@ -233,7 +233,7 @@ impl AppState
 
         let chunk = Chunk::<10>::new(&generator, Point3D::from_value(0.0), voxels, 1.0);
         let mesh = (*chunk.mesh()).clone();
-        renderer.add_model(mesh);
+        renderer.add_mesh(mesh);
         renderer.render(self.camera_entity.camera())
     }
 

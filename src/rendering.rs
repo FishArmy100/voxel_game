@@ -1,4 +1,4 @@
-use crate::math::{Vec3};
+use crate::math::{Vec3, Point3D};
 use crate::colors::*;
 use crate::camera::{CameraUniform, Camera};
 use crate::texture::Texture;
@@ -8,13 +8,13 @@ use wgpu::util::DeviceExt;
 #[derive(Clone, Copy, Debug)]
 pub struct Vertex
 {
-    pub position: Vec3<f32>,
+    pub position: Point3D<f32>,
     pub color: Color,
 }
 
 impl Vertex
 {
-    pub fn new(position: Vec3<f32>, color: Color) -> Self
+    pub fn new(position: Point3D<f32>, color: Color) -> Self
     {
         Self { position, color }
     }
@@ -57,6 +57,7 @@ pub struct MeshBufferData
     pub num_indices: u32
 }
 
+#[derive(Debug, Clone)]
 pub struct Mesh
 {
     pub vertices: Vec<Vertex>,
