@@ -1,3 +1,5 @@
+use std::usize;
+
 use crate::math::{Vec3, Point3D};
 use crate::colors::*;
 use crate::camera::{CameraUniform, Camera};
@@ -50,13 +52,6 @@ impl Triangle
     }
 }
 
-pub struct MeshBufferData
-{
-    pub vertex_buffer: wgpu::Buffer,
-    pub index_buffer: wgpu::Buffer,
-    pub num_indices: u32
-}
-
 #[derive(Debug, Clone)]
 pub struct Mesh
 {
@@ -76,26 +71,26 @@ impl Mesh
         self.triangles.iter().map(|t| t.indices).flatten().collect()
     }
 
-    pub fn get_buffers(&self, device: &wgpu::Device) -> MeshBufferData
+    pub fn get_vertex_buffer(device: &wgpu::Device, max_len: usize) -> wgpu::Buffer
     {
-        let vertex_buffer = device.create_buffer_init(
+        device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(self.vertices.as_slice()),
-                usage: wgpu::BufferUsages::VERTEX,
+                contents: &vec![0 as u8; max_len * std::mem::size_of::<Vertex>()],
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             }
-        );
+        )
+    }
 
-        let index_buffer = device.create_buffer_init(
+    pub fn get_index_buffer(device: &wgpu::Device, max_len: usize) -> wgpu::Buffer
+    {
+        device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Index Buffer"),
-                contents: bytemuck::cast_slice(self.get_triangles().as_slice()),
-                usage: wgpu::BufferUsages::INDEX,
+                contents: bytemuck::cast_slice::<u16, u8>(&vec![0 as u16; max_len]),
+                usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
             }
-        );
-
-        let num_indices = (self.triangles.len() * 3) as u32;
-        MeshBufferData { vertex_buffer, index_buffer, num_indices }
+        )
     }
 }
 
@@ -211,28 +206,41 @@ impl<'s, 'd, 'q, 'c> Renderer<'s, 'd, 'q, 'c>
         println!("Rendered: {} meshes", self.meshes.len());
         let output = self.surface.get_current_texture()?;
         let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
-        
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor 
-        {
-            label: Some("Render Encoder")
-        });
     
         let camera_bind_group = self.get_camera_bind_group(camera);
-        let mut buffer_data;
+
+        let max_num_vertices = self.meshes.iter().map(|m| m.vertices.len()).max().unwrap_or(0);
+        let vertex_buffer = Mesh::get_vertex_buffer(self.device, max_num_vertices);
+
+        let max_indices = self.meshes.iter().map(|m| m.triangles.len()).max().unwrap_or(0) * 3;
+        let index_buffer = Mesh::get_index_buffer(self.device, max_indices);
 
         for mesh in &self.meshes
         {
+            let index_count = (mesh.triangles.len() * 3) as u64;
+            let vertex_count = mesh.vertices.len() as u64;
+
+            let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor 
+            {
+                label: Some("Render Encoder")
+            });
+
+            self.queue.write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(mesh.vertices.as_slice()));
+            self.queue.write_buffer(&index_buffer, 0, bytemuck::cast_slice(mesh.get_triangles().as_slice()));
+
             let mut render_pass = self.get_render_pass(&mut encoder, &view);
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &camera_bind_group, &[]);
-    
-            buffer_data = mesh.get_buffers(self.device);
-            render_pass.set_vertex_buffer(0, buffer_data.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(buffer_data.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-            render_pass.draw_indexed(0..buffer_data.num_indices, 0, 0..1);
+
+            render_pass.set_vertex_buffer(0, vertex_buffer.slice(0..vertex_count));
+            render_pass.set_index_buffer(index_buffer.slice(0..((index_count as usize * std::mem::size_of::<u16>()) as u64)), wgpu::IndexFormat::Uint16);
+            render_pass.draw_indexed(0..(index_count as u32), 0, 0..1);
+            drop(render_pass);
+
+            self.queue.submit(std::iter::once(encoder.finish()));
         }
 
-        self.queue.submit(std::iter::once(encoder.finish()));
+        
         output.present();
         Ok(())
     }
