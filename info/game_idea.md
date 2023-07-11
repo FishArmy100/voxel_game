@@ -1,14 +1,49 @@
-# Game Idea:
-Like Minecraft, but with smaller voxels, and is more hard-core survival
-## World
-### Voxels:
-The game world is composed entirely of voxels and voxel objects. 
-The voxels are completely destructible, with different levels of hardness:
-- Only some tools can break some block and some blocks are easier to break
-- Voxels have health?
+# **Game Idea**:
+Like minecraft, but more hardcore.
 
-### Bioms:
+### **Smaller Voxels:**
+- Each voxel is smaller than the ones in minecraft (don't know the scale)
+- Voxels are of resources
+  - Don't have voxels like 'fence' and 'chiseled stone'
+  - Voxels more like: 'sand', 'wood', 'stone'
+- Voxel objects:
+  - Objects that take up more than one voxel
+  - Examples:
+    - Chest
+    - Furnace
+    - Crafting bench
+### **World Generation:**
+- Infinite in all three directions
+- Similar to Minecraft
+  - Add more continents
+  - Larger seas
+  - Floating islands???
+### **Dynamic Biomes:**
+- Biomes change depending on the blocks in them:
+  - Water + Sand = Ocean 
+  - Trees + Grass = Forest
+  - ect
+### **Hardcore Survival Mechanics:**
+- Food harder to come by
+- Stamina more in line with Monster Hunter?
+- Cold/Heat exposure?
+### **Crafting:**
+- Buildables:
+  - Can construct mini 'blocks' composed of multiple different voxel types
+    - Fence
+    - Pipes
+    - Pillars
+  - Can be placed in the world
+  - Can also be a recipe:
+    - Torches
+- Non Buildables
+  - Food?
+- Materials:
+  - Can make from raw resources or non buildables
+  - Iron ore --> Iron
+### **Borrowed from Minecraft:**
+- Modifying the world
+- Inventory (kind-of)
+- Day/Night cycle
 
-### Resources:
-### Procedural Generation:
 

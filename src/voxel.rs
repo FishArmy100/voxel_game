@@ -4,7 +4,7 @@ use cgmath::{Array, EuclideanSpace};
 
 use crate::colors::Color;
 use crate::math::{Vec3, Point3D};
-use crate::rendering::{Mesh, Vertex, Triangle};
+use crate::rendering::{Mesh, Vertex, Triangle, Model, Renderer};
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
@@ -148,7 +148,7 @@ pub struct Chunk<const S: usize>
     position: Point3D<f32>,
     voxels: Arc<Vec<VoxelData>>,
     voxel_size: f32,
-    mesh: Mesh,
+    model: Model,
 }
 
 impl<const S: usize> Chunk<S>
@@ -169,6 +169,7 @@ impl<const S: usize> Chunk<S>
         }
 
         let mesh = Self::get_mesh(&data, &voxels, voxel_size);
+        let model = Model::new(mesh, position.to_vec());
 
         Self 
         {
@@ -176,11 +177,11 @@ impl<const S: usize> Chunk<S>
             position,
             voxels,
             voxel_size,
-            mesh
+            model
         }
     }
 
-    pub fn mesh(&self) -> &Mesh { &self.mesh }
+    pub fn model(&self) -> &Model { &self.model }
 
     fn has_face(data: &VoxelArray<S>, voxels: &Vec<VoxelData>, x: usize, y: usize, z: usize, face_type: FaceType) -> bool
     {
@@ -355,7 +356,7 @@ impl<const S: usize> Chunk<S>
     }
 }
 
-pub struct VoxelTerrain<const S: usize>
+pub struct VoxelTerrain<const S: usize = 16>
 {
     chunks: Vec<Chunk<S>>,
     position: Point3D<f32>
@@ -363,6 +364,8 @@ pub struct VoxelTerrain<const S: usize>
 
 impl<const S: usize> VoxelTerrain<S>
 {
+    pub const fn chunk_size() -> usize {S}
+
     pub fn new<F>(position: Point3D<f32>, size_in_chunks: Vec3<usize>, voxel_size: f32, voxel_types: Arc<Vec<VoxelData>>, generator: &F) -> Self
         where F : Fn(Vec3<usize>) -> Voxel
     {
@@ -374,8 +377,9 @@ impl<const S: usize> VoxelTerrain<S>
             {
                 for chunk_z in 0..size_in_chunks.z
                 {
-                    let generator = |x, y, z| generator(Vec3::new(x + chunk_x, y + chunk_y, z + chunk_z));
-                    let chunk_pos = Point3D::new(chunk_x as f32, chunk_y as f32, chunk_z as f32) + position.to_vec();
+                    let generator = |x, y, z| generator(Vec3::new(x + chunk_x * S, y + chunk_y * S, z + chunk_z * S));
+                    let chunk_pos = Point3D::new(chunk_x as f32, chunk_y as f32, chunk_z as f32) * (S as f32 * voxel_size) + position.to_vec();
+                    
                     let chunk = Chunk::<S>::new(&generator, chunk_pos, voxel_types.clone(), voxel_size);
                     chunks.push(chunk);
                 }
@@ -386,6 +390,17 @@ impl<const S: usize> VoxelTerrain<S>
         { 
             chunks, 
             position 
+        }
+    }
+
+    pub fn render<'s, 'd, 'q, 'c, 'ms>(&'ms self, renderer: &mut Renderer<'s, 'd, 'q, 'c, 'ms>)
+    {
+        for chunk in &self.chunks
+        {
+            if chunk.model.mesh.vertices.len() > 0
+            {
+                renderer.add_model(&chunk.model);
+            }
         }
     }
 }
