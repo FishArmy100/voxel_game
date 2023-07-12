@@ -1,23 +1,26 @@
-use std::{time::SystemTime};
+use std::{time::SystemTime, sync::Arc};
+use cgmath::Array;
+use noise::{Perlin, NoiseFn, Seedable};
 use winit::{event::{WindowEvent, Event, KeyboardInput, VirtualKeyCode, ElementState}, event_loop::{ControlFlow, EventLoop}};
-use crate::rendering::{Renderer, Vertex, Mesh, Triangle};
+use crate::{rendering::{Renderer, Vertex, Mesh, Triangle}, math::Point3D, voxel::{Voxel, VoxelData}, debug_utils};
 use crate::colors::Color;
 use crate::math::Vec3;
 use crate::camera::{Camera, CameraEntity};
+use crate::voxel::VoxelTerrain;
 
 pub type WinitWindow = winit::window::Window;
 pub type WindowSize = winit::dpi::PhysicalSize<u32>;
 
 const VERTICES: &[Vertex] = &[
-    Vertex {position: Vec3::new(-0.5, 0.5, 0.5), color: Color::RED},
-    Vertex {position: Vec3::new(0.5, 0.5, 0.5), color: Color::RED},
-    Vertex {position: Vec3::new(-0.5, -0.5, 0.5), color: Color::GREEN},
-    Vertex {position: Vec3::new(0.5, -0.5, 0.5), color: Color::GREEN},
+    Vertex {position: Point3D::new(-0.5, 0.5, 0.5), color: Color::RED},
+    Vertex {position: Point3D::new(0.5, 0.5, 0.5), color: Color::RED},
+    Vertex {position: Point3D::new(-0.5, -0.5, 0.5), color: Color::GREEN},
+    Vertex {position: Point3D::new(0.5, -0.5, 0.5), color: Color::GREEN},
 
-    Vertex {position: Vec3::new(-0.5, 0.5, -0.5), color: Color::RED},
-    Vertex {position: Vec3::new(0.5, 0.5, -0.5), color: Color::RED},
-    Vertex {position: Vec3::new(-0.5, -0.5, -0.5), color: Color::GREEN},
-    Vertex {position: Vec3::new(0.5, -0.5, -0.5), color: Color::GREEN} 
+    Vertex {position: Point3D::new(-0.5, 0.5, -0.5), color: Color::RED},
+    Vertex {position: Point3D::new(0.5, 0.5, -0.5), color: Color::RED},
+    Vertex {position: Point3D::new(-0.5, -0.5, -0.5), color: Color::GREEN},
+    Vertex {position: Point3D::new(0.5, -0.5, -0.5), color: Color::GREEN} 
 ];
 
 const TRIANGLES: &[Triangle] = &[
@@ -64,7 +67,8 @@ struct AppState
     window_handle: WinitWindow,
 
     // TEMP
-    camera_entity: CameraEntity
+    camera_entity: CameraEntity,
+    terrain: VoxelTerrain
 }
 
 pub async fn run()
@@ -108,13 +112,15 @@ impl AppState
             }
         ).await.unwrap();
 
-        let (device, queue) = adapter.request_device(
+        let (device, queue) = adapter.request_device( 
             &wgpu::DeviceDescriptor
             {
                 features: wgpu::Features::empty(),
                 limits: wgpu::Limits::default(),
                 label: None
             }, None).await.unwrap();
+
+        println!("{:?}", adapter.get_info());
 
         let surface_caps = surface.get_capabilities(&adapter);
 
@@ -143,8 +149,43 @@ impl AppState
             aspect: config.width as f32 / config.height as f32,
             fov: 45.0,
             near: 0.1,
-            far: 100.0
+            far: 100000.0
         };
+
+        
+        let terrain_size_in_chunks = Vec3::new(10, 5, 10);
+
+        let perlin = Perlin::new(16);
+
+        let generator = |pos: Vec3<usize>| 
+        {
+            let noise_value = (perlin.get([pos.x as f64 / 30.494948, pos.z as f64 / 30.494948]) * (16 * terrain_size_in_chunks.y) as f64) as f32 / 3.;
+            
+            if noise_value > pos.y as f32
+            {
+                if (pos.x % 2 == 1) ^ (pos.z % 2 == 1)
+                {
+                    Voxel::new(1)
+                }
+                else 
+                {
+                    Voxel::new(2)
+                }
+            } 
+            else 
+            {
+                Voxel::new(0)
+            }
+        };
+        
+        let voxel_types = Arc::new(vec!
+        [
+            VoxelData::new(Color::BLACK, false), 
+            VoxelData::new(Color::GREEN, true),
+            VoxelData::new(Color::RED, true),
+        ]);
+
+        let terrain = VoxelTerrain::new(Point3D::from_value(0.0), terrain_size_in_chunks, 1., voxel_types, &generator);
 
         Self
         {
@@ -156,7 +197,8 @@ impl AppState
             config,
             size,
             window_handle: window,
-            camera_entity: CameraEntity::new(camera, 20., 20.)
+            camera_entity: CameraEntity::new(camera, 20., 50.),
+            terrain
         }
     }
 
@@ -224,15 +266,16 @@ impl AppState
 
     fn on_render(&mut self) -> Result<(), wgpu::SurfaceError>
     {
-        let mut renderer = Renderer::new(&self.device, &self.surface, &mut self.queue, &self.config);
-        renderer.add_mesh(get_cube_mesh());
-        renderer.render(self.camera_entity.camera())
+        let renderer = &mut Renderer::new(&self.device, &self.surface, &mut self.queue, &self.config);
+        self.terrain.render(renderer);
+        renderer.render(self.camera_entity.camera()) 
     }
 
     fn on_update(&mut self)
     {
         let delta_time = self.current_time.elapsed().unwrap().as_secs_f32();
         self.camera_entity.update(delta_time); 
+        //println!("{}ms", delta_time * 1000.0);
         self.current_time = SystemTime::now();
     }
 }

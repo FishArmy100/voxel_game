@@ -33,4 +33,9 @@ impl Color
     {
         Vec4::new(self.r, self.g, self.b, self.a)
     }
+
+    pub fn to_wgpu(self) -> wgpu::Color
+    {
+        wgpu::Color { r: self.r as f64, g: self.g as f64, b: self.b as f64, a: self.a as f64 }
+    }
 }
