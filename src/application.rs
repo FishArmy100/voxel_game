@@ -2,7 +2,7 @@ use std::{time::SystemTime, sync::Arc};
 use cgmath::Array;
 use noise::{Perlin, NoiseFn, Seedable};
 use winit::{event::{WindowEvent, Event, KeyboardInput, VirtualKeyCode, ElementState}, event_loop::{ControlFlow, EventLoop}};
-use crate::{rendering::{Renderer, Vertex, Mesh, Triangle}, math::Point3D, voxel::{Voxel, VoxelData}};
+use crate::{rendering::{Renderer, Vertex, Mesh, Triangle}, math::Point3D, voxel::{Voxel, VoxelData}, debug_utils};
 use crate::colors::Color;
 use crate::math::Vec3;
 use crate::camera::{Camera, CameraEntity};
@@ -112,13 +112,15 @@ impl AppState
             }
         ).await.unwrap();
 
-        let (device, queue) = adapter.request_device(
+        let (device, queue) = adapter.request_device( 
             &wgpu::DeviceDescriptor
             {
                 features: wgpu::Features::empty(),
                 limits: wgpu::Limits::default(),
                 label: None
             }, None).await.unwrap();
+
+        println!("{:?}", adapter.get_info());
 
         let surface_caps = surface.get_capabilities(&adapter);
 
@@ -264,16 +266,16 @@ impl AppState
 
     fn on_render(&mut self) -> Result<(), wgpu::SurfaceError>
     {
-        let mut renderer = Renderer::new(&self.device, &self.surface, &mut self.queue, &self.config);
-        self.terrain.render(&mut renderer);
-        renderer.render(self.camera_entity.camera())
+        let renderer = &mut Renderer::new(&self.device, &self.surface, &mut self.queue, &self.config);
+        self.terrain.render(renderer);
+        renderer.render(self.camera_entity.camera()) 
     }
 
     fn on_update(&mut self)
     {
         let delta_time = self.current_time.elapsed().unwrap().as_secs_f32();
         self.camera_entity.update(delta_time); 
-        println!("{}ms", delta_time * 1000.0);
+        //println!("{}ms", delta_time * 1000.0);
         self.current_time = SystemTime::now();
     }
 }

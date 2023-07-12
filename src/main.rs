@@ -7,6 +7,7 @@ mod application;
 mod rendering;
 mod world;
 mod voxel;
+mod debug_utils;
 
 use std::borrow::Cow;
 use winit::{

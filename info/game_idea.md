@@ -1,7 +1,7 @@
 # **Game Idea**:
 Like minecraft, but more hardcore.
 
-### **Smaller Voxels:**
+### **Voxels:**
 - Each voxel is smaller than the ones in minecraft (don't know the scale)
 - Voxels are of resources
   - Don't have voxels like 'fence' and 'chiseled stone'
@@ -12,6 +12,9 @@ Like minecraft, but more hardcore.
     - Chest
     - Furnace
     - Crafting bench
+- Voxels cut away from the terrain will become there own object?
+  - Voxels topple down?
+  - Voxels become there own object?
 ### **World Generation:**
 - Infinite in all three directions
 - Similar to Minecraft

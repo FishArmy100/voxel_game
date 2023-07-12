@@ -5,6 +5,7 @@ use crate::colors::*;
 use crate::camera::{CameraUniform, Camera};
 use crate::texture::Texture;
 use wgpu::util::DeviceExt;
+use crate::debug_utils::time_call;
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
@@ -265,6 +266,10 @@ impl<'s, 'd, 'q, 'c, 'ms> Renderer<'s, 'd, 'q, 'c, 'ms>
         let max_indices = self.models.iter().map(|m| m.mesh.triangles.len()).max().unwrap_or(0) * 3;
         let index_buffer = Mesh::get_index_buffer(self.device, max_indices);
 
+        let mut cumulative_time = 0.0;
+
+        let now = std::time::SystemTime::now();
+
         for model in &self.models
         {
             let index_count = (model.mesh.triangles.len() * 3) as u64;
@@ -272,15 +277,18 @@ impl<'s, 'd, 'q, 'c, 'ms> Renderer<'s, 'd, 'q, 'c, 'ms>
 
             self.queue.write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(model.mesh.vertices.as_slice()));
             self.queue.write_buffer(&index_buffer, 0, bytemuck::cast_slice(model.mesh.get_triangles().as_slice()));
+            
             let model_uniform = model.get_model_uniform();
+
             self.queue.write_buffer(&model_buffer, 0, bytemuck::cast_slice(&[model_uniform]));
 
             let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor 
             {
                 label: Some("Render Encoder")
             });
+            
+            let mut render_pass =  self.get_render_pass(&mut encoder, &view);
 
-            let mut render_pass = self.get_render_pass(&mut encoder, &view);
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &camera_bind_group, &[]);
             render_pass.set_bind_group(1, &model_bind_group, &[]);
@@ -288,11 +296,16 @@ impl<'s, 'd, 'q, 'c, 'ms> Renderer<'s, 'd, 'q, 'c, 'ms>
             render_pass.set_vertex_buffer(0, vertex_buffer.slice(0..vertex_count));
             render_pass.set_index_buffer(index_buffer.slice(0..((index_count as usize * std::mem::size_of::<u16>()) as u64)), wgpu::IndexFormat::Uint16);
             render_pass.draw_indexed(0..(index_count as u32), 0, 0..1);
-            drop(render_pass);
 
+            drop(render_pass);
+            
             self.queue.submit(std::iter::once(encoder.finish()));
         }
 
+        cumulative_time += now.elapsed().unwrap().as_secs_f32();
+
+        cumulative_time *= 1000.0;
+        println!("timer: {}, model count: {}", cumulative_time, self.models.len());
         
         output.present();
         self.models.clear();
