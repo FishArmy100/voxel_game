@@ -2,7 +2,7 @@ use std::{time::SystemTime, sync::Arc};
 use cgmath::Array;
 use noise::{Perlin, NoiseFn, Seedable};
 use winit::{event::{WindowEvent, Event, KeyboardInput, VirtualKeyCode, ElementState}, event_loop::{ControlFlow, EventLoop}};
-use crate::{rendering::{Renderer, Vertex, Mesh, Triangle}, math::Point3D, voxel::{Voxel, VoxelData}, debug_utils};
+use crate::{rendering::{Renderer, VoxelFaceData, VoxelFaces}, math::Point3D, voxel::{Voxel, VoxelData}, debug_utils};
 use crate::colors::Color;
 use crate::math::Vec3;
 use crate::camera::{Camera, CameraEntity};
@@ -11,57 +11,14 @@ use crate::voxel::VoxelTerrain;
 pub type WinitWindow = winit::window::Window;
 pub type WindowSize = winit::dpi::PhysicalSize<u32>;
 
-const VERTICES: &[Vertex] = &[
-    Vertex {position: Point3D::new(-0.5, 0.5, 0.5), color: Color::RED},
-    Vertex {position: Point3D::new(0.5, 0.5, 0.5), color: Color::RED},
-    Vertex {position: Point3D::new(-0.5, -0.5, 0.5), color: Color::GREEN},
-    Vertex {position: Point3D::new(0.5, -0.5, 0.5), color: Color::GREEN},
-
-    Vertex {position: Point3D::new(-0.5, 0.5, -0.5), color: Color::RED},
-    Vertex {position: Point3D::new(0.5, 0.5, -0.5), color: Color::RED},
-    Vertex {position: Point3D::new(-0.5, -0.5, -0.5), color: Color::GREEN},
-    Vertex {position: Point3D::new(0.5, -0.5, -0.5), color: Color::GREEN} 
-];
-
-const TRIANGLES: &[Triangle] = &[
-    // front face
-    Triangle::new([2, 1, 0]), 
-    Triangle::new([2, 3, 1]),
-
-    // back face
-    Triangle::new([4, 5, 6]), 
-    Triangle::new([5, 7, 6]),
-
-    // top face
-    Triangle::new([0, 5, 4]),
-    Triangle::new([0, 1, 5]),
-
-    // left face
-    Triangle::new([4, 6, 0]),
-    Triangle::new([6, 2, 0]),
-
-    // right face
-    Triangle::new([1, 7, 5]),
-    Triangle::new([1, 3, 7]),
-
-    // bottom face
-    Triangle::new([6, 7, 2]),
-    Triangle::new([7, 3, 2]),
-];
-
-fn get_cube_mesh() -> Mesh
-{
-    Mesh::new(Vec::from(VERTICES), Vec::from(TRIANGLES))
-}
-
 struct AppState
 {
     app_name: String,
     current_time: SystemTime,
 
-    surface: wgpu::Surface,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
+    surface: Arc<wgpu::Surface>,
+    device: Arc<wgpu::Device>,
+    queue: Arc<wgpu::Queue>,
     config: wgpu::SurfaceConfiguration,
     size: WindowSize,
     window_handle: WinitWindow,
@@ -120,8 +77,6 @@ impl AppState
                 label: None
             }, None).await.unwrap();
 
-        println!("{:?}", adapter.get_info());
-
         let surface_caps = surface.get_capabilities(&adapter);
 
         let surface_format = surface_caps.formats.iter()
@@ -155,12 +110,12 @@ impl AppState
         
         let terrain_size_in_chunks = Vec3::new(10, 5, 10);
 
-        let perlin = Perlin::new(16);
+        let perlin = Perlin::new(326236);
 
         let generator = |pos: Vec3<usize>| 
         {
             let noise_value = (perlin.get([pos.x as f64 / 30.494948, pos.z as f64 / 30.494948]) * (16 * terrain_size_in_chunks.y) as f64) as f32 / 3.;
-            
+
             if noise_value > pos.y as f32
             {
                 if (pos.x % 2 == 1) ^ (pos.z % 2 == 1)
@@ -191,9 +146,9 @@ impl AppState
         {
             app_name: String::from(name),
             current_time: SystemTime::now(),
-            surface,
-            device,
-            queue,
+            surface: Arc::new(surface),
+            device: Arc::new(device),
+            queue: Arc::new(queue),
             config,
             size,
             window_handle: window,
@@ -266,16 +221,15 @@ impl AppState
 
     fn on_render(&mut self) -> Result<(), wgpu::SurfaceError>
     {
-        let renderer = &mut Renderer::new(&self.device, &self.surface, &mut self.queue, &self.config);
-        self.terrain.render(renderer);
-        renderer.render(self.camera_entity.camera()) 
+        let renderer = &mut Renderer::new(self.device.clone(), self.surface.clone(), self.queue.clone(), &self.config);
+        self.terrain.render(renderer, self.camera_entity.camera())
     }
 
     fn on_update(&mut self)
     {
         let delta_time = self.current_time.elapsed().unwrap().as_secs_f32();
         self.camera_entity.update(delta_time); 
-        //println!("{}ms", delta_time * 1000.0);
+        println!("{}ms", delta_time * 1000.0);
         self.current_time = SystemTime::now();
     }
 }

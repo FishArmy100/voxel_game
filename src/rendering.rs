@@ -1,100 +1,91 @@
 use std::usize;
+use std::sync::Arc;
+use std::slice::*;
 
-use crate::math::{Vec3, Point3D, Mat4x4};
+use crate::math::{Vec3, Vec2, Mat4x4};
 use crate::colors::*;
 use crate::camera::{CameraUniform, Camera};
 use crate::texture::Texture;
 use wgpu::util::DeviceExt;
-use crate::debug_utils::time_call;
 
-#[repr(C)]
-#[derive(Clone, Copy, Debug)]
-pub struct Vertex
+const VOXEL_FACE_VERTICES: [VoxelVertex; 4] = [VoxelVertex::new(0, Color::WHITE), VoxelVertex::new(1, Color::RED), VoxelVertex::new(2, Color::GREEN), VoxelVertex::new(3, Color::BLUE)];
+const VOXEL_FACE_TRIANGLES: [u16; 6] = [2, 1, 0, 2, 3, 1];
+pub struct VoxelFaces();
+
+impl VoxelFaces
 {
-    pub position: Point3D<f32>,
-    pub color: Color,
+    pub const UP: u32 = 0;
+    pub const DOWN: u32 = 1;
+    pub const NORTH: u32 = 2;
+    pub const SOUTH: u32 = 3;
+    pub const EAST: u32 = 4;
+    pub const WEST: u32 = 5;
 }
 
-impl Vertex
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct VoxelVertex 
 {
-    pub fn new(position: Point3D<f32>, color: Color) -> Self
+    pub index: u32,
+    pub color: Color
+}
+
+impl VoxelVertex
+{
+    const ATTRIBUTES: [wgpu::VertexAttribute; 2] =
+            wgpu::vertex_attr_array![0 => Uint32, 1 => Float32x4];
+
+    pub fn desc() -> wgpu::VertexBufferLayout<'static>
     {
-        Self { position, color }
-    }
-
-    pub const ATTRIBUTES: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x4];
-
-    pub fn desc() -> wgpu::VertexBufferLayout<'static> {
-        use std::mem;
-
         wgpu::VertexBufferLayout {
-            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &Self::ATTRIBUTES,
         }
     }
+
+    pub const fn new(index: u32, color: Color) -> Self
+    {
+        Self { index, color }
+    }
 }
 
-unsafe impl bytemuck::Pod for Vertex {}
-unsafe impl bytemuck::Zeroable for Vertex {}
+unsafe impl bytemuck::Pod for VoxelVertex {}
+unsafe impl bytemuck::Zeroable for VoxelVertex {}
 
-#[derive(Clone, Copy, Debug)]
-pub struct Triangle 
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct VoxelFaceData
 {
-    pub indices: [u16; 3]
+    pub position: Vec3<u32>,
+    pub id: u32,
+    pub face_index: u32
 }
 
-impl Triangle
+impl VoxelFaceData
 {
-    pub const fn new(indices: [u16; 3]) -> Self
+    const ATTRIBUTES: [wgpu::VertexAttribute; 3] =
+            wgpu::vertex_attr_array![2 => Uint32x3, 3 => Uint32, 4 => Uint32];
+
+    pub fn desc() -> wgpu::VertexBufferLayout<'static>
     {
-        Self { indices }
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: &Self::ATTRIBUTES,
+        }
+    }
+
+    pub fn new(position: Vec3<u32>, id: u32, face_index: u32) -> Self
+    {
+        Self { position, id, face_index }
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Mesh
-{
-    pub vertices: Vec<Vertex>,
-    pub triangles: Vec<Triangle>
-}
+unsafe impl bytemuck::Pod for VoxelFaceData {}
+unsafe impl bytemuck::Zeroable for VoxelFaceData {}
 
-impl Mesh 
-{
-    pub fn new(vertices: Vec<Vertex>, triangles: Vec<Triangle>) -> Self
-    {
-        Self { vertices, triangles }
-    }
-
-    pub fn get_triangles(&self) -> Vec<u16>
-    {
-        self.triangles.iter().map(|t| t.indices).flatten().collect()
-    }
-
-    pub fn get_vertex_buffer(device: &wgpu::Device, max_len: usize) -> wgpu::Buffer
-    {
-        device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Vertex Buffer"),
-                contents: &vec![0 as u8; max_len * std::mem::size_of::<Vertex>()],
-                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            }
-        )
-    }
-
-    pub fn get_index_buffer(device: &wgpu::Device, max_len: usize) -> wgpu::Buffer
-    {
-        device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Index Buffer"),
-                contents: bytemuck::cast_slice::<u16, u8>(&vec![0 as u16; max_len]),
-                usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
-            }
-        )
-    }
-}
-
+#[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct ModelUniform
 {
@@ -104,45 +95,23 @@ pub struct ModelUniform
 unsafe impl bytemuck::Pod for ModelUniform {}
 unsafe impl bytemuck::Zeroable for ModelUniform {}
 
-
-#[derive(Clone, Debug)]
-pub struct Model 
+pub struct Renderer
 {
-    pub mesh: Mesh,
-    pub position: Vec3<f32>
-}
-
-impl Model
-{
-    pub fn new(mesh: Mesh, position: Vec3<f32>) -> Self
-    {
-        Self { mesh, position }
-    }
-
-    pub fn get_model_uniform(&self) -> ModelUniform
-    {
-        ModelUniform { model: Mat4x4::from_translation(self.position) }
-    }
-}
-
-pub struct Renderer<'s, 'd, 'q, 'c, 'ms>
-{
-    device: &'d wgpu::Device,
-    surface: &'s wgpu::Surface,
-    queue: &'q mut wgpu::Queue,
-    config: &'c wgpu::SurfaceConfiguration,
+    device: Arc<wgpu::Device>,
+    surface: Arc<wgpu::Surface>,
+    queue: Arc<wgpu::Queue>,
 
     render_pipeline: wgpu::RenderPipeline,
     camera_bind_group_layout: wgpu::BindGroupLayout,
-    model_bind_group_layout: wgpu::BindGroupLayout, 
     depth_texture: Texture,
 
-    models: Vec<&'ms Model>
+    faces_buffer: wgpu::Buffer,
+    face_buffer_capacity: u32,
 }
 
-impl<'s, 'd, 'q, 'c, 'ms> Renderer<'s, 'd, 'q, 'c, 'ms>
+impl Renderer
 {
-    pub fn new(device: &'d wgpu::Device, surface: &'s wgpu::Surface, queue: &'q mut wgpu::Queue, config: &'c wgpu::SurfaceConfiguration) -> Self
+    pub fn new(device: Arc<wgpu::Device>, surface: Arc<wgpu::Surface>, queue: Arc<wgpu::Queue>, config: &wgpu::SurfaceConfiguration) -> Self
     {
         let shader = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
 
@@ -182,7 +151,7 @@ impl<'s, 'd, 'q, 'c, 'ms> Renderer<'s, 'd, 'q, 'c, 'ms>
 
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Render Pipeline Layout"),
-            bind_group_layouts: &[&camera_bind_group_layout, &model_bind_group_layout],
+            bind_group_layouts: &[&camera_bind_group_layout],
             push_constant_ranges: &[]
         });
 
@@ -192,7 +161,7 @@ impl<'s, 'd, 'q, 'c, 'ms> Renderer<'s, 'd, 'q, 'c, 'ms>
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[Vertex::desc()]
+                buffers: &[VoxelVertex::desc(), VoxelFaceData::desc()]
             },
             
             fragment: Some(wgpu::FragmentState {
@@ -231,26 +200,28 @@ impl<'s, 'd, 'q, 'c, 'ms> Renderer<'s, 'd, 'q, 'c, 'ms>
             multiview: None
         });
 
+        let face_buffer_capacity = 65536;
+
+        let faces_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Instance Buffer"),
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                contents: &vec![0 as u8; std::mem::size_of::<VoxelFaceData>() * face_buffer_capacity as usize]
+            });
+
         Renderer 
         { 
             device, 
             surface, 
             queue, 
-            models: vec![],
-            config,
             render_pipeline,
             camera_bind_group_layout,
-            model_bind_group_layout,
-            depth_texture
+            depth_texture,
+            faces_buffer,
+            face_buffer_capacity
         }
     }
 
-    pub fn add_model<'m : 'ms>(&mut self, model: &'m Model)
-    {
-        self.models.push(model);
-    }
-
-    pub fn render(&mut self, camera: &Camera) -> Result<(), wgpu::SurfaceError>
+    pub fn render(&mut self, camera: &Camera, faces: &[VoxelFaceData]) -> Result<(), wgpu::SurfaceError>
     {
         let output = self.surface.get_current_texture()?;
         let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -258,57 +229,39 @@ impl<'s, 'd, 'q, 'c, 'ms> Renderer<'s, 'd, 'q, 'c, 'ms>
         self.clear_color(Color::new(0.1, 0.2, 0.3, 1.0), &view);
     
         let camera_bind_group = self.get_camera_bind_group(camera);
-        let (model_buffer, model_bind_group) = self.get_model_bind_group();
 
-        let max_num_vertices = self.models.iter().map(|m| m.mesh.vertices.len()).max().unwrap_or(0);
-        let vertex_buffer = Mesh::get_vertex_buffer(self.device, max_num_vertices);
+        let vertex_buffer = self.get_voxel_vertex_buffer();
+        let index_buffer = self.get_voxel_index_buffer();
+        
+        let mut ranges = vec![self.face_buffer_capacity; faces.len() / self.face_buffer_capacity as usize];
+        let remainder = faces.len() % self.face_buffer_capacity as usize;
+        if remainder != 0 { ranges.push(remainder as u32); }
 
-        let max_indices = self.models.iter().map(|m| m.mesh.triangles.len()).max().unwrap_or(0) * 3;
-        let index_buffer = Mesh::get_index_buffer(self.device, max_indices);
-
-        let mut cumulative_time = 0.0;
-
-        let now = std::time::SystemTime::now();
-
-        for model in &self.models
+        let mut current_face_index: usize = 0;
+        for slice in &ranges
         {
-            let index_count = (model.mesh.triangles.len() * 3) as u64;
-            let vertex_count = model.mesh.vertices.len() as u64;
+            self.queue.write_buffer(&self.faces_buffer, 0, bytemuck::cast_slice(&faces[current_face_index..(current_face_index + *slice as usize)])); 
 
-            self.queue.write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(model.mesh.vertices.as_slice()));
-            self.queue.write_buffer(&index_buffer, 0, bytemuck::cast_slice(model.mesh.get_triangles().as_slice()));
-            
-            let model_uniform = model.get_model_uniform();
-
-            self.queue.write_buffer(&model_buffer, 0, bytemuck::cast_slice(&[model_uniform]));
-
-            let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor 
-            {
-                label: Some("Render Encoder")
-            });
-            
-            let mut render_pass =  self.get_render_pass(&mut encoder, &view);
+            let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Command Encoder") });
+            let mut render_pass = self.get_render_pass(&mut encoder, &view);
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &camera_bind_group, &[]);
-            render_pass.set_bind_group(1, &model_bind_group, &[]);
 
-            render_pass.set_vertex_buffer(0, vertex_buffer.slice(0..vertex_count));
-            render_pass.set_index_buffer(index_buffer.slice(0..((index_count as usize * std::mem::size_of::<u16>()) as u64)), wgpu::IndexFormat::Uint16);
-            render_pass.draw_indexed(0..(index_count as u32), 0, 0..1);
+            render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+            render_pass.set_vertex_buffer(1, self.faces_buffer.slice(0..((faces.len() * std::mem::size_of::<VoxelFaceData>()) as u64)));
+            render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+
+            render_pass.draw_indexed(0..6, 0, 0..(faces.len() as u32));
 
             drop(render_pass);
-            
-            self.queue.submit(std::iter::once(encoder.finish()));
+            self.queue.submit(std::iter::once(encoder.finish())); 
+            current_face_index += *slice as usize
         }
-
-        cumulative_time += now.elapsed().unwrap().as_secs_f32();
-
-        cumulative_time *= 1000.0;
-        println!("timer: {}, model count: {}", cumulative_time, self.models.len());
-        
         output.present();
-        self.models.clear();
+
+        println!("rendered {} draw calls", ranges.len());
+
         Ok(())
     }
 
@@ -367,6 +320,26 @@ impl<'s, 'd, 'q, 'c, 'ms> Renderer<'s, 'd, 'q, 'c, 'ms>
         })
     }
 
+    fn get_voxel_vertex_buffer(&self) -> wgpu::Buffer
+    {
+        self.device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Vertex Buffer"),
+                contents: bytemuck::cast_slice(&VOXEL_FACE_VERTICES),
+                usage: wgpu::BufferUsages::VERTEX,
+            })
+    }
+
+    fn get_voxel_index_buffer(&self) -> wgpu::Buffer
+    {
+        self.device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Index Buffer"),
+                contents: bytemuck::cast_slice(&VOXEL_FACE_TRIANGLES),
+                usage: wgpu::BufferUsages::INDEX,
+            })
+    }
+
     fn get_camera_bind_group(&self, camera: &Camera) -> wgpu::BindGroup
     {
         let mut camera_uniform = CameraUniform::new();
@@ -390,29 +363,5 @@ impl<'s, 'd, 'q, 'c, 'ms> Renderer<'s, 'd, 'q, 'c, 'ms>
             ],
             label: Some("camera_bind_group"),
         })
-    }
-
-    fn get_model_bind_group(&self) -> (wgpu::Buffer, wgpu::BindGroup)
-    {
-        let model_buffer = self.device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Camera Buffer"),
-                contents: &vec![0 as u8; std::mem::size_of::<ModelUniform>()],
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            }
-        );
-
-        let model_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &self.model_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: model_buffer.as_entire_binding(),
-                }
-            ],
-            label: Some("camera_bind_group"),
-        });
-
-        (model_buffer, model_bind_group)
     }
 }

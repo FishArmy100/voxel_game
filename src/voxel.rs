@@ -2,9 +2,10 @@ use std::sync::Arc;
 
 use cgmath::{Array, EuclideanSpace};
 
+use crate::camera::Camera;
 use crate::colors::Color;
 use crate::math::{Vec3, Point3D};
-use crate::rendering::{Mesh, Vertex, Triangle, Model, Renderer};
+use crate::rendering::{VoxelFaceData, VoxelFaces, Renderer};
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
@@ -26,117 +27,14 @@ impl VoxelData
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Voxel 
 {
-    id: u16
+    id: u8
 }
 
 impl Voxel
 {
-    pub fn new(id: u16) -> Self
+    pub fn new(id: u8) -> Self
     {
         Self { id }
-    }
-}
-
-enum FaceType
-{
-    Front,
-    Back,
-    Left,
-    Right,
-    Top,
-    Bottom
-}
-
-struct VoxelFace
-{
-    pub triangles: [Triangle; 2],
-    pub vertices: [Vertex; 4]
-}
-
-impl VoxelFace
-{
-    fn back(current_index: u16, current_pos: Point3D<f32>, voxel_size: f32, color: Color) -> Self
-    {
-        let vertices = 
-        [
-            Vertex::new(current_pos + Vec3::new(0.0, 1.0, 0.0) * voxel_size, color), 
-            Vertex::new(current_pos + Vec3::new(1.0, 1.0, 0.0) * voxel_size, color),
-            Vertex::new(current_pos + Vec3::new(0.0, 0.0, 0.0) * voxel_size, color),
-            Vertex::new(current_pos + Vec3::new(1.0, 0.0, 0.0) * voxel_size, color)
-        ];
-
-        let triangles = [Triangle::new([0 + current_index, 1 + current_index, 2 + current_index]), Triangle::new([1 + current_index, 3 + current_index, 2 + current_index])];
-        Self { triangles, vertices }
-    }
-
-    fn front(current_index: u16, current_pos: Point3D<f32>, voxel_size: f32, color: Color) -> Self
-    {
-        let vertices = 
-        [
-            Vertex::new(current_pos + Vec3::new(0.0, 1.0, 1.0) * voxel_size, color), 
-            Vertex::new(current_pos + Vec3::new(1.0, 1.0, 1.0) * voxel_size, color),
-            Vertex::new(current_pos + Vec3::new(0.0, 0.0, 1.0) * voxel_size, color),
-            Vertex::new(current_pos + Vec3::new(1.0, 0.0, 1.0) * voxel_size, color)
-        ];
-
-        let triangles = [Triangle::new([2 + current_index, 1 + current_index, 0 + current_index]), Triangle::new([2 + current_index, 3 + current_index, 1 + current_index])];
-        Self { triangles, vertices }
-    }
-
-    fn right(current_index: u16, current_pos: Point3D<f32>, voxel_size: f32, color: Color) -> Self
-    {
-        let vertices = 
-        [
-            Vertex::new(current_pos + Vec3::new(1.0, 1.0, 0.0) * voxel_size, color), 
-            Vertex::new(current_pos + Vec3::new(1.0, 1.0, 1.0) * voxel_size, color),
-            Vertex::new(current_pos + Vec3::new(1.0, 0.0, 0.0) * voxel_size, color),
-            Vertex::new(current_pos + Vec3::new(1.0, 0.0, 1.0) * voxel_size, color)
-        ];
-
-        let triangles = [Triangle::new([0 + current_index, 1 + current_index, 2 + current_index]), Triangle::new([1 + current_index, 3 + current_index, 2 + current_index])];
-        Self { triangles, vertices }
-    }
-
-    fn left(current_index: u16, current_pos: Point3D<f32>, voxel_size: f32, color: Color) -> Self
-    {
-        let vertices = 
-        [
-            Vertex::new(current_pos + Vec3::new(0.0, 1.0, 0.0) * voxel_size, color), 
-            Vertex::new(current_pos + Vec3::new(0.0, 1.0, 1.0) * voxel_size, color),
-            Vertex::new(current_pos + Vec3::new(0.0, 0.0, 0.0) * voxel_size, color),
-            Vertex::new(current_pos + Vec3::new(0.0, 0.0, 1.0) * voxel_size, color)
-        ];
-
-        let triangles = [Triangle::new([2 + current_index, 1 + current_index, 0 + current_index]), Triangle::new([2 + current_index, 3 + current_index, 1 + current_index])];
-        Self { triangles, vertices }
-    }
-
-    fn top(current_index: u16, current_pos: Point3D<f32>, voxel_size: f32, color: Color) -> Self
-    {
-        let vertices = 
-        [
-            Vertex::new(current_pos + Vec3::new(0.0, 1.0, 0.0) * voxel_size, color), 
-            Vertex::new(current_pos + Vec3::new(1.0, 1.0, 0.0) * voxel_size, color),
-            Vertex::new(current_pos + Vec3::new(0.0, 1.0, 1.0) * voxel_size, color),
-            Vertex::new(current_pos + Vec3::new(1.0, 1.0, 1.0) * voxel_size, color)
-        ];
-
-        let triangles = [Triangle::new([2 + current_index, 1 + current_index, 0 + current_index]), Triangle::new([2 + current_index, 3 + current_index, 1 + current_index])];
-        Self { triangles, vertices }
-    }
-
-    fn bottom(current_index: u16, current_pos: Point3D<f32>, voxel_size: f32, color: Color) -> Self
-    {
-        let vertices = 
-        [
-            Vertex::new(current_pos + Vec3::new(0.0, 1.0, 0.0) * voxel_size, color), 
-            Vertex::new(current_pos + Vec3::new(1.0, 1.0, 0.0) * voxel_size, color),
-            Vertex::new(current_pos + Vec3::new(0.0, 1.0, 1.0) * voxel_size, color),
-            Vertex::new(current_pos + Vec3::new(1.0, 1.0, 1.0) * voxel_size, color)
-        ];
-
-        let triangles = [Triangle::new([0 + current_index, 1 + current_index, 2 + current_index]), Triangle::new([1 + current_index, 3 + current_index, 2 + current_index])];
-        Self { triangles, vertices }
     }
 }
 
@@ -145,15 +43,13 @@ type VoxelArray<const S: usize> = [[[Voxel; S]; S]; S];
 pub struct Chunk<const S: usize>
 {
     data: VoxelArray<S>,
-    position: Point3D<f32>,
+    position: Vec3<usize>,
     voxels: Arc<Vec<VoxelData>>,
-    voxel_size: f32,
-    model: Model,
 }
 
 impl<const S: usize> Chunk<S>
 {
-    pub fn new<F>(generator: &F, position: Point3D<f32>, voxels: Arc<Vec<VoxelData>>, voxel_size: f32) -> Self 
+    pub fn new<F>(generator: &F, position: Vec3<usize>, voxels: Arc<Vec<VoxelData>>) -> Self 
         where F : Fn(usize, usize, usize) -> Voxel
     {
         let mut data = [[[Voxel::default(); S]; S]; S];
@@ -168,26 +64,37 @@ impl<const S: usize> Chunk<S>
             }
         }
 
-        let mesh = Self::get_mesh(&data, &voxels, voxel_size);
-        let model = Model::new(mesh, position.to_vec());
-
         Self 
         {
             data,
             position,
             voxels,
-            voxel_size,
-            model
         }
     }
 
-    pub fn model(&self) -> &Model { &self.model }
-
-    fn has_face(data: &VoxelArray<S>, voxels: &Vec<VoxelData>, x: usize, y: usize, z: usize, face_type: FaceType) -> bool
+    pub fn get_voxel_faces(&self) -> Vec<VoxelFaceData>
     {
-        match face_type
+        let mut faces = vec![];
+
+        for x in 0..S
         {
-            FaceType::Front => 
+            for y in 0..S
+            {
+                for z in 0..S 
+                {
+                    Self::add_faces(&self.data, &self.voxels, x, y, z, self.position, &mut faces);
+                }
+            }
+        }
+
+        faces
+    }
+
+    fn has_face(data: &VoxelArray<S>, voxels: &Vec<VoxelData>, x: usize, y: usize, z: usize, face_id: u32) -> bool
+    {
+        match face_id
+        {
+            VoxelFaces::SOUTH => 
             {
                 if z > S
                 {
@@ -203,7 +110,7 @@ impl<const S: usize> Chunk<S>
                     !voxels[id as usize].is_solid
                 }
             },
-            FaceType::Back => 
+            VoxelFaces::NORTH => 
             {
                 if z == 0
                 {
@@ -215,7 +122,7 @@ impl<const S: usize> Chunk<S>
                     !voxels[id as usize].is_solid
                 }
             },
-            FaceType::Left => 
+            VoxelFaces::WEST => 
             {
                 if x == 0
                 {
@@ -227,7 +134,7 @@ impl<const S: usize> Chunk<S>
                     !voxels[id as usize].is_solid
                 }
             },
-            FaceType::Right => 
+            VoxelFaces::EAST => 
             {
                 if x > S
                 {
@@ -243,7 +150,7 @@ impl<const S: usize> Chunk<S>
                     !voxels[id as usize].is_solid
                 }
             },
-            FaceType::Top => 
+            VoxelFaces::UP => 
             {
                 if y > S
                 {
@@ -259,7 +166,7 @@ impl<const S: usize> Chunk<S>
                     !voxels[id as usize].is_solid
                 }
             },
-            FaceType::Bottom => 
+            VoxelFaces::DOWN => 
             {
                 if y == 0
                 {
@@ -271,10 +178,11 @@ impl<const S: usize> Chunk<S>
                     !voxels[id as usize].is_solid
                 }
             },
+            _ => panic!("This should not be reached")
         }
     }
 
-    fn add_faces(data: &VoxelArray<S>, voxels: &Vec<VoxelData>, voxel_size: f32, x: usize, y: usize, z: usize, vertices: &mut Vec<Vertex>, triangles: &mut Vec<Triangle>)
+    fn add_faces(data: &VoxelArray<S>, voxels: &Vec<VoxelData>, x: usize, y: usize, z: usize, chunk_pos: Vec3<usize>, faces: &mut Vec<VoxelFaceData>)
     {
         if x >= S || y >= S || z >= S
         {
@@ -282,84 +190,56 @@ impl<const S: usize> Chunk<S>
         }
 
         let id = data[x][y][z].id;
-        let color = if voxels[id as usize].is_solid
-        {
-            voxels[id as usize].color
-        }
-        else 
+        if !voxels[id as usize].is_solid
         {
             return;
-        };
-
-        let pos = Point3D::from_value(0.0) + (Vec3::new(x as f32, y as f32, z as f32) * voxel_size);
-
-        if Self::has_face(data, voxels, x, y, z, FaceType::Front)
-        {
-            let face = VoxelFace::front(vertices.len() as u16, pos, voxel_size, color);
-            vertices.extend(face.vertices.iter());
-            triangles.extend(face.triangles.iter());
         }
 
-        if Self::has_face(data, voxels, x, y, z, FaceType::Back)
+        let pos = chunk_pos.map(|v| v as u32) + Vec3::new(x as u32, y as u32, z as u32);
+
+        if Self::has_face(data, voxels, x, y, z, VoxelFaces::SOUTH)
         {
-            let face = VoxelFace::back(vertices.len() as u16, pos, voxel_size, color);
-            vertices.extend(face.vertices.iter());
-            triangles.extend(face.triangles.iter());
+            let face = VoxelFaceData::new(pos, id as u32, VoxelFaces::SOUTH);
+            faces.push(face);
         }
 
-        if Self::has_face(data, voxels, x, y, z, FaceType::Left)
+        if Self::has_face(data, voxels, x, y, z, VoxelFaces::NORTH)
         {
-            let face = VoxelFace::left(vertices.len() as u16, pos, voxel_size, color);
-            vertices.extend(face.vertices.iter());
-            triangles.extend(face.triangles.iter());
+            let face = VoxelFaceData::new(pos, id as u32, VoxelFaces::NORTH);
+            faces.push(face);
         }
 
-        if Self::has_face(data, voxels, x, y, z, FaceType::Right)
+        if Self::has_face(data, voxels, x, y, z, VoxelFaces::EAST)
         {
-            let face = VoxelFace::right(vertices.len() as u16, pos, voxel_size, color);
-            vertices.extend(face.vertices.iter());
-            triangles.extend(face.triangles.iter());
+            let face = VoxelFaceData::new(pos, id as u32, VoxelFaces::EAST);
+            faces.push(face);
         }
 
-        if Self::has_face(data, voxels, x, y, z, FaceType::Top)
+        if Self::has_face(data, voxels, x, y, z, VoxelFaces::WEST)
         {
-            let face = VoxelFace::top(vertices.len() as u16, pos, voxel_size, color);
-            vertices.extend(face.vertices.iter());
-            triangles.extend(face.triangles.iter());
+            let face = VoxelFaceData::new(pos, id as u32, VoxelFaces::WEST);
+            faces.push(face);
         }
 
-        if Self::has_face(data, voxels, x, y, z, FaceType::Bottom)
+        if Self::has_face(data, voxels, x, y, z, VoxelFaces::UP)
         {
-            let face = VoxelFace::bottom(vertices.len() as u16, pos, voxel_size, color);
-            vertices.extend(face.vertices.iter());
-            triangles.extend(face.triangles.iter());
-        }
-    }
-
-    fn get_mesh(data: &VoxelArray<S>, voxels: &Vec<VoxelData>, voxel_size: f32) -> Mesh
-    {
-        let mut vertices = vec![];
-        let mut triangles = vec![];
-
-        for x in 0..S
-        {
-            for y in 0..S 
-            {
-                for z in 0..S
-                {
-                    Self::add_faces(data, voxels, voxel_size, x, y, z, &mut vertices, &mut triangles);
-                }
-            }
+            let face = VoxelFaceData::new(pos, id as u32, VoxelFaces::UP);
+            faces.push(face);
         }
 
-        Mesh::new(vertices, triangles)
+        if Self::has_face(data, voxels, x, y, z, VoxelFaces::DOWN)
+        {
+            let face = VoxelFaceData::new(pos, id as u32, VoxelFaces::DOWN);
+            faces.push(face);
+        }
     }
 }
 
 pub struct VoxelTerrain<const S: usize = 16>
 {
     chunks: Vec<Chunk<S>>,
-    position: Point3D<f32>
+    position: Point3D<f32>,
+    faces: Vec<VoxelFaceData>,
 }
 
 impl<const S: usize> VoxelTerrain<S>
@@ -377,30 +257,32 @@ impl<const S: usize> VoxelTerrain<S>
             {
                 for chunk_z in 0..size_in_chunks.z
                 {
+                    let chunk_pos = Vec3::new(chunk_x * S, chunk_y * S, chunk_z * S);
                     let generator = |x, y, z| generator(Vec3::new(x + chunk_x * S, y + chunk_y * S, z + chunk_z * S));
-                    let chunk_pos = Point3D::new(chunk_x as f32, chunk_y as f32, chunk_z as f32) * (S as f32 * voxel_size) + position.to_vec();
                     
-                    let chunk = Chunk::<S>::new(&generator, chunk_pos, voxel_types.clone(), voxel_size);
+                    let chunk = Chunk::<S>::new(&generator, chunk_pos, voxel_types.clone());
                     chunks.push(chunk);
                 }
             }
         }
 
+        let mut faces = vec![];
+
+        for chunk in &chunks
+        {
+            faces.extend(chunk.get_voxel_faces());
+        }
+
         Self 
         { 
             chunks, 
-            position 
+            position,
+            faces
         }
     }
 
-    pub fn render<'s, 'd, 'q, 'c, 'ms>(&'ms self, renderer: &mut Renderer<'s, 'd, 'q, 'c, 'ms>)
+    pub fn render(&self, renderer: &mut Renderer, camera: &Camera) -> Result<(), wgpu::SurfaceError>
     {
-        for chunk in &self.chunks
-        {
-            if chunk.model.mesh.vertices.len() > 0
-            {
-                renderer.add_model(&chunk.model);
-            }
-        }
+        renderer.render(camera, &self.faces)
     }
 }

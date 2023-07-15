@@ -1,0 +1,54 @@
+<html>
+	<head><meta charset="UTF-8" /></head>
+	<body>
+        <script>
+            var device;
+
+			async function Main()
+			{
+                console.log("Main...");
+				if (!navigator.gpu)
+				{
+					alert('WebGPU is not supported, see https://webgpu.io or use Chrome Canary with chrome://flags/#enable-unsafe-webgpu');
+					return;
+				}
+				device = await (await navigator.gpu.requestAdapter()).requestDevice();
+			}
+			Main();
+
+            async function recompile(){
+                console.log("Recompiling...");
+
+                const codeTextbox = document.getElementById('codeTextbox');
+                const shaderErrors = document.getElementById('shaderErrors');
+
+                const format = navigator.gpu.getPreferredCanvasFormat();
+
+                const code = codeTextbox.textContent;
+                if (code == null){
+                    code = "";
+                }
+
+                const shaderModule = device.createShaderModule({ code: code })
+                const compilationInfo = await shaderModule.getCompilationInfo();
+
+                let formattedMessage = '';
+                for (const message of compilationInfo.messages) {
+                    if (message.lineNum) {
+                        formattedMessage += `Line ${message.lineNum}:${message.linePos} - "${code.substr(message.offset, message.length)}"\n`;
+                    }
+                    formattedMessage += message.message;
+                    formattedMessage += '\n\n';
+                }
+                shaderErrors.textContent = formattedMessage;
+            }
+		</script>
+
+        <h3>Shader code:</h3>
+        <p contenteditable="true" id="codeTextbox" oninput="recompile()" spellcheck="false" style="min-height:400px; background:lightblue"></p>
+
+        <h3>Shader Errors:</h3>
+        <p id="shaderErrors" style="min-height:100px; background:lightgrey; white-space: pre-line;"></p>
+
+	</body>
+</html>
