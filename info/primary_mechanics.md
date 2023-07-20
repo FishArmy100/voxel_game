@@ -1,7 +1,15 @@
 # Primary Mechanics:
 ## Building:
 ### World Editing/Structures:
-### Vehicles:
+- Player can edit terrain voxels
+- Voxels have different properties
+  - Strength
+  - Color
+  - Opacity
+  - Luminence
+### Vehicles (?):
+- Are seperate objects
+- 
 ## Crafting:
 ### Tools:
 ### Building Materials:
