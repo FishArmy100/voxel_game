@@ -31,9 +31,23 @@
 - Blast furnace: Metal/Stone
 - Can get better ones for each 
 ## Exploring:
-### World Generation 
+### World Generation:
+- Biomes generates based off of base values
+- Seedable
+- Enemies spawn in different areas
+  - Distance from spawn determins strength of enemies 
 ### Dynamic Bioms
+- Are determined by:
+    - Temperature
+    - Rainfall
+    - Light from sun
+    - Blocks in area
+ - Can be changed by player
+ - Are sepperated by chunk boarders?
 ### Resource Generation 
+- Defeating enemies gives resources
+  - stronger the enemies, better the loot
+- rarer resources are farther from spawn?
 ## Combat:
 ### Equipment:
 ### Mobs:
