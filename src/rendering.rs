@@ -2,7 +2,7 @@ use std::usize;
 use std::sync::Arc;
 use std::slice::*;
 
-use crate::math::{Vec3, Vec2, Mat4x4};
+use crate::math::{Vec3, Vec2, Mat4x4, Point3D};
 use crate::colors::*;
 use crate::camera::{CameraUniform, Camera};
 use crate::texture::Texture;
@@ -87,9 +87,59 @@ unsafe impl bytemuck::Zeroable for VoxelFaceData {}
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
+pub struct VoxelRenderData 
+{
+    pub color: Color
+}
+
+impl VoxelRenderData 
+{
+    pub fn new(color: Color) -> Self 
+    {
+        Self { color }
+    }
+}
+
+unsafe impl bytemuck::Pod for VoxelRenderData {}
+unsafe impl bytemuck::Zeroable for VoxelRenderData {}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct VoxelRenderDataUniform<const S: usize>
+{
+    pub data: [VoxelRenderData; S]
+}
+
+impl<const S: usize> VoxelRenderDataUniform<S>
+{
+    pub fn new(data: [VoxelRenderData; S]) -> Self
+    {
+        Self { data }
+    }
+}
+
+unsafe impl<const S: usize> bytemuck::Pod for VoxelRenderDataUniform<S> {}
+unsafe impl<const S: usize> bytemuck::Zeroable for VoxelRenderDataUniform<S> {}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
 pub struct ModelUniform
 {
     pub model: Mat4x4<f32>
+}
+
+impl ModelUniform
+{
+    pub fn new(mat: Mat4x4<f32>) -> Self
+    {
+        Self { model: mat }
+    }
+
+    pub fn from_position(position: Point3D<f32>) -> Self
+    {
+        let mat = Mat4x4::from_translation(Vec3::new(position.x, position.y, position.z));
+        Self::new(mat)
+    }
 }
 
 unsafe impl bytemuck::Pod for ModelUniform {}
@@ -103,6 +153,8 @@ pub struct Renderer
 
     render_pipeline: wgpu::RenderPipeline,
     camera_bind_group_layout: wgpu::BindGroupLayout,
+    model_bind_group_layout: wgpu::BindGroupLayout,
+    render_voxel_bind_group_layout: wgpu::BindGroupLayout,
     depth_texture: Texture,
 
     faces_buffer: wgpu::Buffer,
@@ -147,11 +199,27 @@ impl Renderer
             label: Some("model_bind_group_layout"),
         });
 
+        let render_voxel_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }
+            ],
+            label: Some("render_voxel_bind_group_layout"),
+        });
+
         let depth_texture = Texture::create_depth_texture(&device, &config, "depth_texture");
 
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Render Pipeline Layout"),
-            bind_group_layouts: &[&camera_bind_group_layout],
+            bind_group_layouts: &[&camera_bind_group_layout, &model_bind_group_layout, &render_voxel_bind_group_layout],
             push_constant_ranges: &[]
         });
 
@@ -200,12 +268,12 @@ impl Renderer
             multiview: None
         });
 
-        let face_buffer_capacity = 65536;
+        const FACE_BUFFER_CAPACITY: u32 = 65545;
 
         let faces_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Instance Buffer"),
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                contents: &vec![0 as u8; std::mem::size_of::<VoxelFaceData>() * face_buffer_capacity as usize]
+                contents: &vec![0 as u8; std::mem::size_of::<VoxelFaceData>() * FACE_BUFFER_CAPACITY as usize]
             });
 
         Renderer 
@@ -215,13 +283,15 @@ impl Renderer
             queue, 
             render_pipeline,
             camera_bind_group_layout,
+            model_bind_group_layout,
+            render_voxel_bind_group_layout,
             depth_texture,
             faces_buffer,
-            face_buffer_capacity
+            face_buffer_capacity: FACE_BUFFER_CAPACITY
         }
     }
 
-    pub fn render(&mut self, camera: &Camera, faces: &[VoxelFaceData]) -> Result<(), wgpu::SurfaceError>
+    pub fn render<const N: usize>(&mut self, camera: &Camera, faces: &[VoxelFaceData], render_voxels: VoxelRenderDataUniform<N>, transform: ModelUniform) -> Result<(), wgpu::SurfaceError>
     {
         let output = self.surface.get_current_texture()?;
         let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -229,6 +299,8 @@ impl Renderer
         self.clear_color(Color::new(0.1, 0.2, 0.3, 1.0), &view);
     
         let camera_bind_group = self.get_camera_bind_group(camera);
+        let model_bind_group = self.get_model_bind_group(transform);
+        let render_voxel_bind_group = self.get_render_voxel_bind_group(render_voxels);
 
         let vertex_buffer = self.get_voxel_vertex_buffer();
         let index_buffer = self.get_voxel_index_buffer();
@@ -247,6 +319,8 @@ impl Renderer
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &camera_bind_group, &[]);
+            render_pass.set_bind_group(1, &model_bind_group, &[]);
+            render_pass.set_bind_group(2, &render_voxel_bind_group, &[]);
 
             render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
             render_pass.set_vertex_buffer(1, self.faces_buffer.slice(0..((faces.len() * std::mem::size_of::<VoxelFaceData>()) as u64)));
@@ -362,6 +436,50 @@ impl Renderer
                 }
             ],
             label: Some("camera_bind_group"),
+        })
+    }
+
+    fn get_model_bind_group(&self, model: ModelUniform) -> wgpu::BindGroup
+    {
+        let model_buffer = self.device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Model Buffer"),
+                contents: bytemuck::cast_slice(&[model]),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            }
+        );
+
+        self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &self.model_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: model_buffer.as_entire_binding(),
+                }
+            ],
+            label: Some("model_bind_group"),
+        })
+    }
+
+    fn get_render_voxel_bind_group<const S: usize>(&self, render_voxels: VoxelRenderDataUniform<S>) -> wgpu::BindGroup
+    {
+        let render_voxel_buffer = self.device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Render Voxel Buffer"),
+                contents: bytemuck::cast_slice(&[render_voxels]),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            }
+        );
+
+        self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &self.render_voxel_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: render_voxel_buffer.as_entire_binding(),
+                }
+            ],
+            label: Some("render_voxel_group"),
         })
     }
 }

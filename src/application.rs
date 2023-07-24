@@ -25,7 +25,7 @@ struct AppState
 
     // TEMP
     camera_entity: CameraEntity,
-    terrain: VoxelTerrain
+    terrain: VoxelTerrain<16, 4>
 }
 
 pub async fn run()
@@ -107,24 +107,30 @@ impl AppState
             far: 100000.0
         };
 
-        
         let terrain_size_in_chunks = Vec3::new(10, 5, 10);
+        let terrain_size = terrain_size_in_chunks * 16;
 
         let perlin = Perlin::new(326236);
 
         let generator = |pos: Vec3<usize>| 
         {
-            let noise_value = (perlin.get([pos.x as f64 / 30.494948, pos.z as f64 / 30.494948]) * (16 * terrain_size_in_chunks.y) as f64) as f32 / 3.;
+            let noise_value = (perlin.get([pos.x as f64 / 30.494948, pos.z as f64 / 30.494948]) * (16 * terrain_size_in_chunks.y) as f64) as f32 / 4.;
+            let water_height = terrain_size_in_chunks.y as f32 * 16. / 10.0;
+            let sand_height = water_height + 2.0;
 
-            if noise_value > pos.y as f32
+            if pos.y as f32 <= water_height
             {
-                if (pos.x % 2 == 1) ^ (pos.z % 2 == 1)
+                Voxel::new(1)
+            }
+            else if pos.y as f32 <= noise_value
+            {
+                if pos.y as f32 <= sand_height
                 {
-                    Voxel::new(1)
+                    Voxel::new(2)
                 }
                 else 
                 {
-                    Voxel::new(2)
+                    Voxel::new(3)
                 }
             } 
             else 
@@ -133,14 +139,18 @@ impl AppState
             }
         };
         
-        let voxel_types = Arc::new(vec!
+        let sand_color = Color::new(0.76, 0.698, 0.502, 1.0);
+
+        let voxel_types = Arc::new(
         [
-            VoxelData::new(Color::BLACK, false), 
-            VoxelData::new(Color::GREEN, true),
-            VoxelData::new(Color::RED, true),
+            VoxelData::new(Color::WHITE, false), 
+            VoxelData::new(Color::BLUE, true),
+            VoxelData::new(sand_color, true),
+            VoxelData::new(Color::GREEN, true)
         ]);
 
-        let terrain = VoxelTerrain::new(Point3D::from_value(0.0), terrain_size_in_chunks, 1., voxel_types, &generator);
+        let terrain_pos = Point3D::new(-((terrain_size.y / 2) as f32), -((terrain_size.y / 2) as f32), -((terrain_size.y / 2) as f32));
+        let terrain = VoxelTerrain::<16, 4>::new(terrain_pos, terrain_size_in_chunks, 1., voxel_types, &generator);
 
         Self
         {

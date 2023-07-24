@@ -12,6 +12,7 @@
         "perlin",
         "repr",
         "rustfmt",
+        "Seedable",
         "srgb",
         "swapchain",
         "unclipped",

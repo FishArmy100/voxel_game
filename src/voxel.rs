@@ -1,11 +1,9 @@
 use std::sync::Arc;
 
-use cgmath::{Array, EuclideanSpace};
-
 use crate::camera::Camera;
 use crate::colors::Color;
 use crate::math::{Vec3, Point3D};
-use crate::rendering::{VoxelFaceData, VoxelFaces, Renderer};
+use crate::rendering::{VoxelFaceData, VoxelFaces, Renderer, VoxelRenderData, ModelUniform, VoxelRenderDataUniform};
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
@@ -20,6 +18,11 @@ impl VoxelData
     pub fn new(color: Color, is_solid: bool) -> Self
     {
         Self { color, is_solid }
+    }
+
+    pub fn get_render_data(&self) -> VoxelRenderData
+    {
+        VoxelRenderData::new(self.color)
     }
 }
 
@@ -40,16 +43,16 @@ impl Voxel
 
 type VoxelArray<const S: usize> = [[[Voxel; S]; S]; S];
 
-pub struct Chunk<const S: usize>
+pub struct Chunk<const S: usize, const N: usize>
 {
     data: VoxelArray<S>,
     position: Vec3<usize>,
-    voxels: Arc<Vec<VoxelData>>,
+    voxels: Arc<[VoxelData; N]>,
 }
 
-impl<const S: usize> Chunk<S>
+impl<const S: usize, const N: usize> Chunk<S, N>
 {
-    pub fn new<F>(generator: &F, position: Vec3<usize>, voxels: Arc<Vec<VoxelData>>) -> Self 
+    pub fn new<F>(generator: &F, position: Vec3<usize>, voxels: Arc<[VoxelData; N]>) -> Self 
         where F : Fn(usize, usize, usize) -> Voxel
     {
         let mut data = [[[Voxel::default(); S]; S]; S];
@@ -82,7 +85,7 @@ impl<const S: usize> Chunk<S>
             {
                 for z in 0..S 
                 {
-                    Self::add_faces(&self.data, &self.voxels, x, y, z, self.position, &mut faces);
+                    Self::add_faces(&self.data, self.voxels.as_slice(), x, y, z, self.position, &mut faces);
                 }
             }
         }
@@ -90,7 +93,7 @@ impl<const S: usize> Chunk<S>
         faces
     }
 
-    fn has_face(data: &VoxelArray<S>, voxels: &Vec<VoxelData>, x: usize, y: usize, z: usize, face_id: u32) -> bool
+    fn has_face(data: &VoxelArray<S>, voxels: &[VoxelData], x: usize, y: usize, z: usize, face_id: u32) -> bool
     {
         match face_id
         {
@@ -182,7 +185,7 @@ impl<const S: usize> Chunk<S>
         }
     }
 
-    fn add_faces(data: &VoxelArray<S>, voxels: &Vec<VoxelData>, x: usize, y: usize, z: usize, chunk_pos: Vec3<usize>, faces: &mut Vec<VoxelFaceData>)
+    fn add_faces(data: &VoxelArray<S>, voxels: &[VoxelData], x: usize, y: usize, z: usize, chunk_pos: Vec3<usize>, faces: &mut Vec<VoxelFaceData>)
     {
         if x >= S || y >= S || z >= S
         {
@@ -235,18 +238,19 @@ impl<const S: usize> Chunk<S>
     }
 }
 
-pub struct VoxelTerrain<const S: usize = 16>
+pub struct VoxelTerrain<const S: usize, const N: usize>
 {
-    chunks: Vec<Chunk<S>>,
+    chunks: Vec<Chunk<S, N>>,
     position: Point3D<f32>,
     faces: Vec<VoxelFaceData>,
+    voxel_types: Arc<[VoxelData; N]>
 }
 
-impl<const S: usize> VoxelTerrain<S>
+impl<const S: usize, const N: usize> VoxelTerrain<S, N>
 {
     pub const fn chunk_size() -> usize {S}
 
-    pub fn new<F>(position: Point3D<f32>, size_in_chunks: Vec3<usize>, voxel_size: f32, voxel_types: Arc<Vec<VoxelData>>, generator: &F) -> Self
+    pub fn new<F>(position: Point3D<f32>, size_in_chunks: Vec3<usize>, voxel_size: f32, voxel_types: Arc<[VoxelData; N]>, generator: &F) -> Self
         where F : Fn(Vec3<usize>) -> Voxel
     {
         let mut chunks = vec![];
@@ -260,7 +264,7 @@ impl<const S: usize> VoxelTerrain<S>
                     let chunk_pos = Vec3::new(chunk_x * S, chunk_y * S, chunk_z * S);
                     let generator = |x, y, z| generator(Vec3::new(x + chunk_x * S, y + chunk_y * S, z + chunk_z * S));
                     
-                    let chunk = Chunk::<S>::new(&generator, chunk_pos, voxel_types.clone());
+                    let chunk = Chunk::<S, N>::new(&generator, chunk_pos, voxel_types.clone());
                     chunks.push(chunk);
                 }
             }
@@ -277,12 +281,19 @@ impl<const S: usize> VoxelTerrain<S>
         { 
             chunks, 
             position,
-            faces
+            faces,
+            voxel_types
         }
     }
 
     pub fn render(&self, renderer: &mut Renderer, camera: &Camera) -> Result<(), wgpu::SurfaceError>
     {
-        renderer.render(camera, &self.faces)
+        let model_uniform = ModelUniform::from_position(self.position);
+
+        let voxel_uniform = VoxelRenderDataUniform::<N>::new(self.voxel_types.into_iter().map(|v| {
+            VoxelRenderData::new(v.color)
+        }).collect::<Vec<VoxelRenderData>>().try_into().unwrap());
+
+        renderer.render(camera, &self.faces, voxel_uniform, model_uniform)
     }
 }
