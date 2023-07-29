@@ -4,9 +4,9 @@ mod texture;
 mod camera;
 mod application;
 mod rendering;
-mod world;
 mod voxel;
 mod debug_utils;
+mod utils;
 fn main() 
 {
     env_logger::init();

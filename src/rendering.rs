@@ -334,8 +334,6 @@ impl Renderer
         }
         output.present();
 
-        println!("rendered {} draw calls", ranges.len());
-
         Ok(())
     }
 

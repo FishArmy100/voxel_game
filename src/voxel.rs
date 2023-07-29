@@ -1,3 +1,5 @@
+mod octree;
+
 use std::sync::Arc;
 
 use crate::camera::Camera;
