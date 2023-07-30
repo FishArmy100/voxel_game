@@ -1,3 +1,5 @@
+mod renderer;
+
 use std::usize;
 use std::sync::Arc;
 use std::slice::*;
