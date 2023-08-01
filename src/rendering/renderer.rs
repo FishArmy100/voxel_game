@@ -1,11 +1,16 @@
+use std::sync::Arc;
+
 use wgpu::util::DeviceExt;
-use std::any::TypeId;
+
+use crate::texture::Texture; 
 
 pub trait RenderStage
 {
     fn new();
     fn bind_groups(&self) -> &[BindGroupData];
     fn render_pipeline(&self) -> &wgpu::RenderPipeline;
+    fn on_render<'pass, F>(&self, render_pass_generator: &'pass F) -> wgpu::RenderPass
+        where F : Fn() -> wgpu::RenderPass<'pass>;
 }
 
 pub struct BindGroupData 
@@ -76,5 +81,16 @@ impl BindGroupData
 
 pub struct Renderer
 {
+    device: Arc<wgpu::Device>,
+    surface: Arc<wgpu::Surface>,
+    queue: Arc<wgpu::Queue>,
+    depth_texture: Texture,
+}
 
+impl Renderer
+{
+    pub fn new(device: Arc<wgpu::Device>, surface: Arc<wgpu::Surface>, queue: Arc<wgpu::Queue>) -> Self
+    {
+        
+    }
 }
