@@ -89,8 +89,8 @@ pub struct Renderer
 
 impl Renderer
 {
-    pub fn new(device: Arc<wgpu::Device>, surface: Arc<wgpu::Surface>, queue: Arc<wgpu::Queue>) -> Self
-    {
+    // pub fn new(device: Arc<wgpu::Device>, surface: Arc<wgpu::Surface>, queue: Arc<wgpu::Queue>) -> Self
+    // {
         
-    }
+    // }
 }
