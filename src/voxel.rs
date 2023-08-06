@@ -251,6 +251,9 @@ pub struct VoxelTerrain<const S: usize, const N: usize>
 impl<const S: usize, const N: usize> VoxelTerrain<S, N>
 {
     pub const fn chunk_size() -> usize {S}
+    pub fn position(&self) -> Point3D<f32> {self.position}
+    pub fn faces(&self) -> &[VoxelFaceData] {&self.faces}
+    pub fn voxel_types(&self) -> &[VoxelData; N] {&self.voxel_types}
 
     pub fn new<F>(position: Point3D<f32>, size_in_chunks: Vec3<usize>, voxel_size: f32, voxel_types: Arc<[VoxelData; N]>, generator: &F) -> Self
         where F : Fn(Vec3<usize>) -> Voxel

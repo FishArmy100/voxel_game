@@ -113,16 +113,16 @@ pub struct VoxelRenderDataUniform<const S: usize>
     pub data: [VoxelRenderData; S]
 }
 
-impl<const S: usize> VoxelRenderDataUniform<S>
+impl<const N: usize> VoxelRenderDataUniform<N>
 {
-    pub fn new(data: [VoxelRenderData; S]) -> Self
+    pub fn new(data: [VoxelRenderData; N]) -> Self
     {
         Self { data }
     }
 }
 
-unsafe impl<const S: usize> bytemuck::Pod for VoxelRenderDataUniform<S> {}
-unsafe impl<const S: usize> bytemuck::Zeroable for VoxelRenderDataUniform<S> {}
+unsafe impl<const N: usize> bytemuck::Pod for VoxelRenderDataUniform<N> {}
+unsafe impl<const N: usize> bytemuck::Zeroable for VoxelRenderDataUniform<N> {}
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
