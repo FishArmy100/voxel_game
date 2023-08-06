@@ -1,4 +1,5 @@
-mod renderer;
+pub mod renderer;
+pub mod voxel_render_stage;
 
 use std::usize;
 use std::sync::Arc;
@@ -10,8 +11,8 @@ use crate::camera::{CameraUniform, Camera};
 use crate::texture::Texture;
 use wgpu::util::DeviceExt;
 
-const VOXEL_FACE_VERTICES: [VoxelVertex; 4] = [VoxelVertex::new(0, Color::WHITE), VoxelVertex::new(1, Color::RED), VoxelVertex::new(2, Color::GREEN), VoxelVertex::new(3, Color::BLUE)];
-const VOXEL_FACE_TRIANGLES: [u16; 6] = [2, 1, 0, 2, 3, 1];
+pub const VOXEL_FACE_VERTICES: [VoxelVertex; 4] = [VoxelVertex::new(0, Color::WHITE), VoxelVertex::new(1, Color::RED), VoxelVertex::new(2, Color::GREEN), VoxelVertex::new(3, Color::BLUE)];
+pub const VOXEL_FACE_TRIANGLES: [u16; 6] = [2, 1, 0, 2, 3, 1];
 pub struct VoxelFaces();
 
 impl VoxelFaces

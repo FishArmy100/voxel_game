@@ -233,8 +233,10 @@ impl AppState
 
     fn on_render(&mut self) -> Result<(), wgpu::SurfaceError>
     {
-        let renderer = &mut Renderer::new(self.device.clone(), self.surface.clone(), self.queue.clone(), &self.config);
-        self.terrain.render(renderer, self.camera_entity.camera())
+        let clear_color = Color::new(0.1, 0.2, 0.3, 1.0);
+        let renderer = &mut crate::rendering::renderer::Renderer::new(self.device.clone(), self.surface.clone(), self.queue.clone(), &self.config, clear_color);
+        renderer.render(&[])
+        //self.terrain.render(renderer, self.camera_entity.camera())
     }
 
     fn on_update(&mut self)
