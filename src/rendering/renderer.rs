@@ -74,13 +74,13 @@ pub trait RenderStage
 {
     fn bind_groups(&self) -> &[BindGroupData];
     fn render_pipeline(&self) -> &wgpu::RenderPipeline;
-    fn get_draw_calls(&self) -> &[&dyn DrawCall];
+    fn get_draw_calls<'s>(&'s self) -> Vec<Box<(dyn DrawCall + 's)>>;
 }
 
-pub trait DrawCall 
+pub trait DrawCall
 {
     fn on_pre_draw(&self, queue: &wgpu::Queue);
-    fn on_draw<'pass>(&self, render_pass: &mut wgpu::RenderPass<'pass>);
+    fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>);
 }
 
 pub struct Renderer

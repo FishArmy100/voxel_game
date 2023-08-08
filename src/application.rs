@@ -2,7 +2,7 @@ use std::{time::SystemTime, sync::Arc};
 use cgmath::Array;
 use noise::{Perlin, NoiseFn, Seedable};
 use winit::{event::{WindowEvent, Event, KeyboardInput, VirtualKeyCode, ElementState}, event_loop::{ControlFlow, EventLoop}};
-use crate::{rendering::{Renderer, VoxelFaceData, VoxelFaces}, math::Point3D, voxel::{Voxel, VoxelData}, debug_utils};
+use crate::{rendering::{Renderer, VoxelFaceData, VoxelFaces, voxel_render_stage::{VoxelRenderStage, self}}, math::Point3D, voxel::{Voxel, VoxelData}, debug_utils};
 use crate::colors::Color;
 use crate::math::Vec3;
 use crate::camera::{Camera, CameraEntity};
@@ -233,10 +233,14 @@ impl AppState
 
     fn on_render(&mut self) -> Result<(), wgpu::SurfaceError>
     {
-        let clear_color = Color::new(0.1, 0.2, 0.3, 1.0);
-        let renderer = &mut crate::rendering::renderer::Renderer::new(self.device.clone(), self.surface.clone(), self.queue.clone(), &self.config, clear_color);
-        renderer.render(&[])
-        //self.terrain.render(renderer, self.camera_entity.camera())
+        // let clear_color = Color::new(0.1, 0.2, 0.3, 1.0);
+        // let renderer = &mut crate::rendering::renderer::Renderer::new(self.device.clone(), self.surface.clone(), self.queue.clone(), &self.config, clear_color);
+        // let voxel_render_stage = VoxelRenderStage::new(&self.terrain, self.camera_entity.camera(), &self.device, &self.config);
+        
+        // renderer.render(&[&voxel_render_stage])
+
+        let mut renderer_old = crate::rendering::Renderer::new(self.device.clone(), self.surface.clone(), self.queue.clone(), &self.config);
+        self.terrain.render(&mut renderer_old, self.camera_entity.camera())
     }
 
     fn on_update(&mut self)
