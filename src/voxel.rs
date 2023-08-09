@@ -1,11 +1,9 @@
 mod octree;
 
 use std::sync::Arc;
-
-use crate::camera::Camera;
 use crate::colors::Color;
 use crate::math::{Vec3, Point3D};
-use crate::rendering::{VoxelFaceData, VoxelFaces, Renderer, VoxelRenderData, ModelUniform, VoxelRenderDataUniform};
+use crate::rendering::voxel_render_stage::{VoxelFaceData, VoxelFaces, VoxelRenderData};
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
@@ -289,16 +287,5 @@ impl<const S: usize, const N: usize> VoxelTerrain<S, N>
             faces,
             voxel_types
         }
-    }
-
-    pub fn render(&self, renderer: &mut Renderer, camera: &Camera) -> Result<(), wgpu::SurfaceError>
-    {
-        let model_uniform = ModelUniform::from_position(self.position);
-
-        let voxel_uniform = VoxelRenderDataUniform::<N>::new(self.voxel_types.into_iter().map(|v| {
-            VoxelRenderData::new(v.color)
-        }).collect::<Vec<VoxelRenderData>>().try_into().unwrap());
-
-        renderer.render(camera, &self.faces, voxel_uniform, model_uniform)
     }
 }

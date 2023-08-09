@@ -3,12 +3,126 @@ use std::sync::Arc;
 use wgpu::util::DeviceExt;
 
 use crate::camera::{Camera, CameraUniform};
+use crate::math::Vec3;
+use crate::rendering::ModelUniform;
 use crate::texture::Texture;
 use crate::voxel::{VoxelData, VoxelTerrain};
 
-use super::{VoxelFaceData, VoxelRenderDataUniform, ModelUniform, VoxelVertex};
-use super::renderer::{RenderStage, DrawCall, BindGroupData};
+use crate::colors::Color;
+use super::{RenderStage, DrawCall, BindGroupData};
 
+pub const VOXEL_FACE_VERTICES: [VoxelVertex; 4] = [VoxelVertex::new(0, Color::WHITE), VoxelVertex::new(1, Color::RED), VoxelVertex::new(2, Color::GREEN), VoxelVertex::new(3, Color::BLUE)];
+pub const VOXEL_FACE_TRIANGLES: [u16; 6] = [2, 1, 0, 2, 3, 1];
+pub struct VoxelFaces();
+
+impl VoxelFaces
+{
+    pub const UP: u32 = 0;
+    pub const DOWN: u32 = 1;
+    pub const NORTH: u32 = 2;
+    pub const SOUTH: u32 = 3;
+    pub const EAST: u32 = 4;
+    pub const WEST: u32 = 5;
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct VoxelVertex 
+{
+    pub index: u32,
+    pub color: Color
+}
+
+impl VoxelVertex
+{
+    const ATTRIBUTES: [wgpu::VertexAttribute; 2] =
+            wgpu::vertex_attr_array![0 => Uint32, 1 => Float32x4];
+
+    pub fn desc() -> wgpu::VertexBufferLayout<'static>
+    {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &Self::ATTRIBUTES,
+        }
+    }
+
+    pub const fn new(index: u32, color: Color) -> Self
+    {
+        Self { index, color }
+    }
+}
+
+unsafe impl bytemuck::Pod for VoxelVertex {}
+unsafe impl bytemuck::Zeroable for VoxelVertex {}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct VoxelFaceData
+{
+    pub position: Vec3<u32>,
+    pub id: u32,
+    pub face_index: u32
+}
+
+impl VoxelFaceData
+{
+    const ATTRIBUTES: [wgpu::VertexAttribute; 3] =
+            wgpu::vertex_attr_array![2 => Uint32x3, 3 => Uint32, 4 => Uint32];
+
+    pub fn desc() -> wgpu::VertexBufferLayout<'static>
+    {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: &Self::ATTRIBUTES,
+        }
+    }
+
+    pub fn new(position: Vec3<u32>, id: u32, face_index: u32) -> Self
+    {
+        Self { position, id, face_index }
+    }
+}
+
+unsafe impl bytemuck::Pod for VoxelFaceData {}
+unsafe impl bytemuck::Zeroable for VoxelFaceData {}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct VoxelRenderData 
+{
+    pub color: Color
+}
+
+impl VoxelRenderData 
+{
+    pub fn new(color: Color) -> Self 
+    {
+        Self { color }
+    }
+}
+
+unsafe impl bytemuck::Pod for VoxelRenderData {}
+unsafe impl bytemuck::Zeroable for VoxelRenderData {}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct VoxelRenderDataUniform<const S: usize>
+{
+    pub data: [VoxelRenderData; S]
+}
+
+impl<const N: usize> VoxelRenderDataUniform<N>
+{
+    pub fn new(data: [VoxelRenderData; N]) -> Self
+    {
+        Self { data }
+    }
+}
+
+unsafe impl<const N: usize> bytemuck::Pod for VoxelRenderDataUniform<N> {}
+unsafe impl<const N: usize> bytemuck::Zeroable for VoxelRenderDataUniform<N> {}
 
 pub struct VoxelRenderStage<'terrain, const S: usize, const N: usize>
 {
@@ -62,7 +176,7 @@ impl<'terrain, const S: usize, const N: usize> VoxelRenderStage<'terrain, S, N>
         device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(&crate::rendering::VOXEL_FACE_VERTICES),
+                contents: bytemuck::cast_slice(&VOXEL_FACE_VERTICES),
                 usage: wgpu::BufferUsages::VERTEX,
             })
     }
@@ -72,7 +186,7 @@ impl<'terrain, const S: usize, const N: usize> VoxelRenderStage<'terrain, S, N>
         device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Index Buffer"),
-                contents: bytemuck::cast_slice(&crate::rendering::VOXEL_FACE_TRIANGLES),
+                contents: bytemuck::cast_slice(&VOXEL_FACE_TRIANGLES),
                 usage: wgpu::BufferUsages::INDEX,
             })
     }
@@ -146,7 +260,7 @@ impl<'terrain, const S: usize, const N: usize> VoxelRenderStage<'terrain, S, N>
 
 impl<'terrain, const S: usize, const N: usize> RenderStage for VoxelRenderStage<'terrain, S, N>
 {
-    fn bind_groups(&self) -> &[super::renderer::BindGroupData] 
+    fn bind_groups(&self) -> &[BindGroupData]
     {
         &self.bind_groups
     }
