@@ -203,10 +203,10 @@ impl<'vox, 'buffer> DrawCall for VoxelDrawCall<'vox, 'buffer>
 
     fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>)
     {
-        let buffer_segment_length = (self.voxels.len() * std::mem::size_of::<VoxelFaceData>()) as u64;
-        
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         render_pass.set_vertex_buffer(1, self.faces_buffer.slice(0..((self.faces_length as usize * std::mem::size_of::<VoxelFaceData>()) as u64)));
         render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+
+        render_pass.draw_indexed(0..6, 0, 0..(self.faces_length as u32));
     }
 }

@@ -233,14 +233,16 @@ impl AppState
 
     fn on_render(&mut self) -> Result<(), wgpu::SurfaceError>
     {
-        // let clear_color = Color::new(0.1, 0.2, 0.3, 1.0);
-        // let renderer = &mut crate::rendering::renderer::Renderer::new(self.device.clone(), self.surface.clone(), self.queue.clone(), &self.config, clear_color);
-        // let voxel_render_stage = VoxelRenderStage::new(&self.terrain, self.camera_entity.camera(), &self.device, &self.config);
+        // NEW VERSION
+        let clear_color = Color::new(0.1, 0.2, 0.3, 1.0);
+        let renderer = &mut crate::rendering::renderer::Renderer::new(self.device.clone(), self.surface.clone(), self.queue.clone(), &self.config, clear_color);
+        let voxel_render_stage = VoxelRenderStage::new(&self.terrain, self.camera_entity.camera(), &self.device, &self.config);
         
-        // renderer.render(&[&voxel_render_stage])
+        renderer.render(&[&voxel_render_stage])
 
-        let mut renderer_old = crate::rendering::Renderer::new(self.device.clone(), self.surface.clone(), self.queue.clone(), &self.config);
-        self.terrain.render(&mut renderer_old, self.camera_entity.camera())
+        // OLD VERSION:
+        // let mut renderer_old = crate::rendering::Renderer::new(self.device.clone(), self.surface.clone(), self.queue.clone(), &self.config);
+        // self.terrain.render(&mut renderer_old, self.camera_entity.camera())
     }
 
     fn on_update(&mut self)

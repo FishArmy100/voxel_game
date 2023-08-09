@@ -16,13 +16,29 @@ impl BindGroupData
 {
     pub fn name(&self) -> &str { &self.name }
     pub fn layout(&self) -> &wgpu::BindGroupLayout { &self.layout }
-    pub fn bind_group(&self) -> &wgpu::BindGroup { &self.bind_group }
     pub fn buffer(&self) -> &wgpu::Buffer { &self.buffer }
+    pub fn bind_group(&self) -> &wgpu::BindGroup { &self.bind_group }
 
     pub fn uniform<T>(name: String, data: T, shader_stages: wgpu::ShaderStages, device: &wgpu::Device) -> Self 
         where T : bytemuck::Pod + bytemuck::Zeroable 
     {
-        let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        let layout = Self::get_uniform_layout(shader_stages, device);
+        Self::uniform_with_layout(name, data, layout, device)
+    }
+
+    pub fn uniform_with_layout<T>(name: String, data: T, layout: wgpu::BindGroupLayout, device: &wgpu::Device) -> Self
+        where T : bytemuck::Pod + bytemuck::Zeroable 
+    {
+        let data_array = &[data];
+        let data: &[u8] = bytemuck::cast_slice(data_array);
+
+        let (buffer, bind_group) = Self::get_bind_group(&layout, data, device);
+        Self { name, layout, buffer, bind_group }
+    }
+
+    pub fn get_uniform_layout(shader_stages: wgpu::ShaderStages, device: &wgpu::Device) -> wgpu::BindGroupLayout
+    {
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
@@ -35,14 +51,14 @@ impl BindGroupData
                     count: None,
                 }
             ],
-            label: Some(&(name.clone() + "_layout")),
-        });
+            label: None,
+        })
+    }
 
-        let data_array = &[data];
-        let data: &[u8] = bytemuck::cast_slice(data_array);
-
-        let (buffer, bind_group) = Self::get_bind_group(&layout, data, device);
-        Self { name, layout, buffer, bind_group }
+    pub fn enqueue_set_data<T>(&self, queue: &wgpu::Queue, data: T) 
+        where T : bytemuck::Pod + bytemuck::Zeroable 
+    {
+        queue.write_buffer(self.buffer(), 0, bytemuck::cast_slice(&[data]));
     }
 
     fn get_bind_group(layout: &wgpu::BindGroupLayout, data: &[u8], device: &wgpu::Device) -> (wgpu::Buffer, wgpu::BindGroup)
@@ -56,7 +72,7 @@ impl BindGroupData
         );
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: layout,
+            layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
