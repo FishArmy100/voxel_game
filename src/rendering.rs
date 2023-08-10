@@ -1,5 +1,6 @@
 pub mod renderer;
 pub mod voxel_render_stage;
+pub mod debug_render_stage;
 
 use crate::math::{Vec3, Mat4x4, Point3D};
 use wgpu::util::DeviceExt;

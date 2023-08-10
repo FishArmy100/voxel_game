@@ -3,6 +3,7 @@ use noise::{Perlin, NoiseFn};
 use winit::event::{WindowEvent, Event, KeyboardInput, VirtualKeyCode, ElementState};
 use winit::event_loop::{ControlFlow, EventLoop};
 
+use crate::rendering::debug_render_stage::{DebugLine, self, DebugRenderStage};
 use crate::rendering::renderer::Renderer;
 use crate::rendering::voxel_render_stage::VoxelRenderStage;
 use crate::voxel::{Voxel, VoxelData};
@@ -95,7 +96,7 @@ impl AppState
             format: surface_format,
             width: size.width,
             height: size.height,
-            present_mode: surface_caps.present_modes[0],
+            present_mode: wgpu::PresentMode::Immediate,
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![]
         };
@@ -239,9 +240,14 @@ impl AppState
     {
         let clear_color = Color::new(0.1, 0.2, 0.3, 1.0);
         let renderer = &mut crate::rendering::renderer::Renderer::new(self.device.clone(), self.surface.clone(), self.queue.clone(), &self.config, clear_color);
+        
         let voxel_render_stage = VoxelRenderStage::new(&self.terrain, self.camera_entity.camera(), &self.device, &self.config);
         
-        renderer.render(&[&voxel_render_stage])
+        let debug_line = DebugLine::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 100.0, 0.0), Color::RED);
+        let debug_lines = vec![debug_line];
+        let debug_render_stage = DebugRenderStage::new(&self.device, &self.config, self.camera_entity.camera(), &debug_lines);
+
+        renderer.render(&[&voxel_render_stage, &debug_render_stage])
     }
 
     fn on_update(&mut self)

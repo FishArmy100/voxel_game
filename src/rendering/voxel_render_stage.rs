@@ -3,6 +3,7 @@ use std::sync::Arc;
 use wgpu::util::DeviceExt;
 
 use crate::camera::{Camera, CameraUniform};
+use crate::debug_utils;
 use crate::math::Vec3;
 use crate::rendering::ModelUniform;
 use crate::texture::Texture;
@@ -151,7 +152,7 @@ impl<'terrain, const S: usize, const N: usize> VoxelRenderStage<'terrain, S, N>
         let model_uniform = ModelUniform::from_position(terrain.position());
         let model_bind_group = BindGroupData::uniform("model_bind_group".into(), model_uniform, wgpu::ShaderStages::VERTEX, device);
 
-        let render_pipeline = Self::gen_render_pipeline(device, config, &camera_bind_group, &voxel_bind_group, &model_bind_group);
+        let render_pipeline = debug_utils::time_call(|| Self::gen_render_pipeline(device, config, &camera_bind_group, &voxel_bind_group, &model_bind_group), "Constructing Render Pipeline") ;
 
         let vertex_buffer = Self::get_voxel_vertex_buffer(device);
         let index_buffer = Self::get_voxel_index_buffer(device);
@@ -202,15 +203,15 @@ impl<'terrain, const S: usize, const N: usize> VoxelRenderStage<'terrain, S, N>
 
     fn gen_render_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, camera_bind_group: &BindGroupData, voxel_bind_group: &BindGroupData, model_bind_group: &BindGroupData) -> wgpu::RenderPipeline
     {
-        let shader = device.create_shader_module(wgpu::include_wgsl!("../shader.wgsl"));
+        let shader = device.create_shader_module(wgpu::include_wgsl!("../shaders/voxel_shader.wgsl"));
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Render Pipeline Layout"),
+            label: Some("Voxel Render Pipeline Layout"),
             bind_group_layouts: &[&camera_bind_group.layout(), &model_bind_group.layout(), &voxel_bind_group.layout()],
             push_constant_ranges: &[]
         });
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
+            label: Some("Voxel Render Pipeline"),
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
