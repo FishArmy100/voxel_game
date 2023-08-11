@@ -1,10 +1,17 @@
 use std::{time::SystemTime, sync::Arc};
-use cgmath::Array;
-use noise::{Perlin, NoiseFn, Seedable};
-use winit::{event::{WindowEvent, Event, KeyboardInput, VirtualKeyCode, ElementState}, event_loop::{ControlFlow, EventLoop}};
-use crate::{rendering::{Renderer, VoxelFaceData, VoxelFaces}, math::Point3D, voxel::{Voxel, VoxelData}, debug_utils};
+use cgmath::Zero;
+use noise::{Perlin, NoiseFn};
+use winit::event::{WindowEvent, Event, KeyboardInput, VirtualKeyCode, ElementState};
+use winit::event_loop::{ControlFlow, EventLoop};
+
+use crate::rendering::GameRenderer;
+use crate::rendering::debug_render_stage::{DebugLine, self, DebugRenderStage, DebugObject, DebugCube};
+use crate::rendering::renderer::Renderer;
+use crate::rendering::voxel_render_stage::VoxelRenderStage;
+use crate::voxel::{Voxel, VoxelData};
+
 use crate::colors::Color;
-use crate::math::Vec3;
+use crate::math::{Vec3, Point3D};
 use crate::camera::{Camera, CameraEntity};
 use crate::voxel::VoxelTerrain;
 
@@ -22,10 +29,11 @@ struct AppState
     config: wgpu::SurfaceConfiguration,
     size: WindowSize,
     window_handle: WinitWindow,
+    renderer: GameRenderer,
 
     // TEMP
     camera_entity: CameraEntity,
-    terrain: VoxelTerrain<16, 4>
+    terrain: Arc<VoxelTerrain>
 }
 
 pub async fn run()
@@ -68,6 +76,8 @@ impl AppState
                 force_fallback_adapter: false
             }
         ).await.unwrap();
+
+        println!("Name: {:?}\nBackend: {:?}", adapter.get_info().name, adapter.get_info().backend);
 
         let (device, queue) = adapter.request_device( 
             &wgpu::DeviceDescriptor
@@ -141,27 +151,35 @@ impl AppState
         
         let sand_color = Color::new(0.76, 0.698, 0.502, 1.0);
 
-        let voxel_types = Arc::new(
+        let voxel_types = vec!
         [
             VoxelData::new(Color::WHITE, false), 
             VoxelData::new(Color::BLUE, true),
             VoxelData::new(sand_color, true),
             VoxelData::new(Color::GREEN, true)
-        ]);
+        ];
+        
+        const CHUNK_SIZE: usize = 16;
+        let terrain_pos = Point3D::new(-((terrain_size.x / 2) as f32), -((terrain_size.y / 2) as f32), -((terrain_size.z / 2) as f32));
+        let terrain = Arc::new(VoxelTerrain::new(terrain_pos, terrain_size_in_chunks, CHUNK_SIZE, 1., voxel_types, &generator));
 
-        let terrain_pos = Point3D::new(-((terrain_size.y / 2) as f32), -((terrain_size.y / 2) as f32), -((terrain_size.y / 2) as f32));
-        let terrain = VoxelTerrain::<16, 4>::new(terrain_pos, terrain_size_in_chunks, 1., voxel_types, &generator);
+        let surface = Arc::new(surface);
+        let device = Arc::new(device);
+        let queue = Arc::new(queue);
+
+        let renderer = GameRenderer::new(terrain.clone(), camera.clone(), device.clone(), surface.clone(), queue.clone(), &config);
 
         Self
         {
-            app_name: String::from(name),
+            app_name: name.into(),
             current_time: SystemTime::now(),
-            surface: Arc::new(surface),
-            device: Arc::new(device),
-            queue: Arc::new(queue),
+            surface,
+            device,
+            queue,
             config,
             size,
             window_handle: window,
+            renderer,
             camera_entity: CameraEntity::new(camera, 20., 50.),
             terrain
         }
@@ -226,13 +244,20 @@ impl AppState
             self.config.width = new_size.width;
             self.config.height = new_size.height;
             self.surface.configure(&self.device, &self.config);
+            self.renderer.resize(&self.config);
+
+            self.camera_entity.mut_camera().aspect = new_size.width as f32 / new_size.height as f32;
         }
     }
 
     fn on_render(&mut self) -> Result<(), wgpu::SurfaceError>
     {
-        let renderer = &mut Renderer::new(self.device.clone(), self.surface.clone(), self.queue.clone(), &self.config);
-        self.terrain.render(renderer, self.camera_entity.camera())
+        let debug_line = DebugLine::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 100.0, 0.0), Color::RED);
+        let debug_cube = DebugCube::new(Vec3::zero(), Vec3::new(20.0, 20.0, 20.0), Color::BLACK);
+        
+        self.renderer.update(self.camera_entity.camera(), &[DebugObject::Line(debug_line), DebugObject::Cube(debug_cube)]);
+
+        self.renderer.render()
     }
 
     fn on_update(&mut self)

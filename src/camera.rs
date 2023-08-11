@@ -3,6 +3,7 @@ use winit::event::{WindowEvent, KeyboardInput, ElementState, VirtualKeyCode};
 
 use crate::math::*;
 
+#[derive(Debug, Clone)]
 pub struct Camera 
 {
     pub eye: Point3D<f32>,
@@ -47,6 +48,7 @@ impl CameraUniform {
 unsafe impl bytemuck::Pod for CameraUniform {}
 unsafe impl bytemuck::Zeroable for CameraUniform {}
 
+#[derive(Debug, Clone)]
 pub struct CameraEntity
 {
     camera: Camera,
