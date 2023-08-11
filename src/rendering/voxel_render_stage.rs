@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
+use cgmath::EuclideanSpace;
 use wgpu::util::DeviceExt;
 
-use crate::camera::{Camera, CameraUniform};
+use crate::camera::{Camera, CameraUniform, self};
 use crate::debug_utils;
-use crate::math::Vec3;
+use crate::math::{Vec3, Mat4x4, Point3D};
 use crate::rendering::ModelUniform;
 use crate::texture::Texture;
 use crate::voxel::{VoxelData, VoxelTerrain};
@@ -125,11 +126,13 @@ impl<const N: usize> VoxelRenderDataUniform<N>
 unsafe impl<const N: usize> bytemuck::Pod for VoxelRenderDataUniform<N> {}
 unsafe impl<const N: usize> bytemuck::Zeroable for VoxelRenderDataUniform<N> {}
 
-pub struct VoxelRenderStage<'terrain, const S: usize, const N: usize>
+pub struct VoxelRenderStage<const S: usize, const N: usize>
 {
-    terrain: &'terrain VoxelTerrain<S, N>,
+    terrain: Arc<VoxelTerrain<S, N>>,
     bind_groups: [BindGroupData; 3],
     render_pipeline: wgpu::RenderPipeline,
+
+    camera: Camera,
 
     faces_buffer: wgpu::Buffer,
     face_buffer_capacity: u32,
@@ -138,12 +141,12 @@ pub struct VoxelRenderStage<'terrain, const S: usize, const N: usize>
     index_buffer: wgpu::Buffer
 }
 
-impl<'terrain, const S: usize, const N: usize> VoxelRenderStage<'terrain, S, N>
+impl<const S: usize, const N: usize> VoxelRenderStage<S, N>
 {
-    pub fn new(terrain: &'terrain VoxelTerrain<S, N>, camera: &Camera, device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Self
+    pub fn new(terrain: Arc<VoxelTerrain<S, N>>, camera: Camera, device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Self
     {
         let mut camera_uniform = CameraUniform::new();
-        camera_uniform.update_view_proj(camera);
+        camera_uniform.update_view_proj(&camera);
         let camera_bind_group = BindGroupData::uniform("camera_bind_group".into(), camera_uniform, wgpu::ShaderStages::VERTEX, device);
 
         let voxel_uniform = VoxelRenderDataUniform::new(terrain.voxel_types().map(|v| v.get_render_data()).clone());
@@ -165,11 +168,17 @@ impl<'terrain, const S: usize, const N: usize> VoxelRenderStage<'terrain, S, N>
             terrain, 
             bind_groups: [camera_bind_group, model_bind_group, voxel_bind_group], 
             render_pipeline,
+            camera,
             faces_buffer,
             face_buffer_capacity: FACE_BUFFER_CAPACITY,
             vertex_buffer,
             index_buffer
         }
+    }
+
+    pub fn update(&mut self, camera: Camera)
+    {
+        self.camera = camera;
     }
 
     fn get_voxel_vertex_buffer(device: &wgpu::Device) -> wgpu::Buffer
@@ -259,7 +268,7 @@ impl<'terrain, const S: usize, const N: usize> VoxelRenderStage<'terrain, S, N>
     }
 }
 
-impl<'terrain, const S: usize, const N: usize> RenderStage for VoxelRenderStage<'terrain, S, N>
+impl<const S: usize, const N: usize> RenderStage for VoxelRenderStage<S, N>
 {
     fn bind_groups(&self) -> &[BindGroupData]
     {
@@ -285,7 +294,19 @@ impl<'terrain, const S: usize, const N: usize> RenderStage for VoxelRenderStage<
             let old = current_index;
             current_index += range as usize;
             let slice = &self.terrain.faces()[old..current_index];
-            let draw_call = VoxelDrawCall::new(slice, &self.faces_buffer, &self.vertex_buffer, &self.index_buffer, faces_count as u64);
+            let draw_call = VoxelDrawCall
+            {
+                voxels: slice,
+                faces_buffer: &self.faces_buffer,
+                vertex_buffer: &self.vertex_buffer,
+                index_buffer: &self.index_buffer,
+                faces_length: self.terrain.faces().len() as u64,
+                camera: self.camera.clone(),
+                position: self.terrain.position(),
+                camera_bind_group: &self.bind_groups[0],
+                model_bind_group: &self.bind_groups[1]
+            };
+
             draw_calls.push(Box::new(draw_call));
         }
 
@@ -293,27 +314,33 @@ impl<'terrain, const S: usize, const N: usize> RenderStage for VoxelRenderStage<
     }
 }
 
-pub struct VoxelDrawCall<'vox, 'buffer>
+pub struct VoxelDrawCall<'vox, 'buffer, 'bind_group>
 {
     voxels: &'vox [VoxelFaceData],
     faces_buffer: &'buffer wgpu::Buffer,
     vertex_buffer: &'buffer wgpu::Buffer,
     index_buffer: &'buffer wgpu::Buffer,
-    faces_length: u64
+    faces_length: u64,
+
+    camera: Camera,
+    position: Point3D<f32>,
+
+    camera_bind_group: &'bind_group BindGroupData,
+    model_bind_group: &'bind_group BindGroupData
 }
 
-impl<'vox, 'buffer> VoxelDrawCall<'vox, 'buffer>
-{
-    pub fn new(voxels: &'vox [VoxelFaceData], faces_buffer: &'buffer wgpu::Buffer, vertex_buffer: &'buffer wgpu::Buffer, index_buffer: &'buffer wgpu::Buffer, faces_length: u64) -> Self {
-        Self { voxels, faces_buffer, vertex_buffer, index_buffer, faces_length }
-    }
-}
-
-impl<'vox, 'buffer> DrawCall for VoxelDrawCall<'vox, 'buffer>
+impl<'vox, 'buffer, 'bind_group> DrawCall for VoxelDrawCall<'vox, 'buffer, 'bind_group>
 {
     fn on_pre_draw(&self, queue: &wgpu::Queue) 
     {
         queue.write_buffer(&self.faces_buffer, 0, bytemuck::cast_slice(self.voxels));
+
+        let mut camera_uniform = CameraUniform::new();
+        camera_uniform.update_view_proj(&self.camera);
+        self.camera_bind_group.enqueue_set_data(queue, camera_uniform);
+
+        let model_uniform = ModelUniform::from_position(self.position);
+        self.model_bind_group.enqueue_set_data(queue, model_uniform);
     }
 
     fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>)

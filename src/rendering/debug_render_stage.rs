@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use wgpu::util::DeviceExt;
 
 use super::{RenderStage, DrawCall, BindGroupData};
@@ -60,8 +62,12 @@ unsafe impl bytemuck::Zeroable for DebugLineVertex {}
 
 pub struct DebugRenderStage
 {
+    device: Arc<wgpu::Device>,
+
     render_pipeline: wgpu::RenderPipeline,
     bind_groups: [BindGroupData; 1],
+
+    camera: Camera,
 
     vertex_buffer: wgpu::Buffer,
     vertex_count: u32
@@ -69,7 +75,28 @@ pub struct DebugRenderStage
 
 impl DebugRenderStage
 {
-    pub fn new(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, camera: &Camera, debug_lines: &[DebugLine]) -> Self
+    pub fn new(device: Arc<wgpu::Device>, config: &wgpu::SurfaceConfiguration, default_camera: Camera, debug_lines: &[DebugLine]) -> Self
+    {
+        let mut camera_uniform = CameraUniform::new();
+        let camera_bind_group = BindGroupData::uniform("camera_bind_group".into(), camera_uniform, wgpu::ShaderStages::VERTEX, &device);
+
+        let render_pipeline = Self::gen_render_pipeline(&device, config, &camera_bind_group);
+
+        let (vertex_buffer, vertex_count) = Self::get_vertex_buffer(&device, debug_lines);
+
+        Self { device: device.clone(), render_pipeline, bind_groups: [camera_bind_group], camera: default_camera, vertex_buffer, vertex_count: 0}
+    }
+
+    pub fn update(&mut self, debug_lines: &[DebugLine], camera: Camera)
+    {
+        let (vertex_buffer, vertex_count) = Self::get_vertex_buffer(&self.device, debug_lines);
+        
+        self.vertex_buffer = vertex_buffer;
+        self.vertex_count = vertex_count;
+        self.camera = camera;
+    }
+
+    fn get_vertex_buffer(device: &wgpu::Device, debug_lines: &[DebugLine]) -> (wgpu::Buffer, u32)
     {
         let vertices = debug_lines.iter()
             .map(|l| l.get_vertices())
@@ -80,24 +107,14 @@ impl DebugRenderStage
                 vec
             });
 
-        let mut camera_uniform = CameraUniform::new();
-        camera_uniform.update_view_proj(camera);
-        let camera_bind_group = BindGroupData::uniform("camera_bind_group".into(), camera_uniform, wgpu::ShaderStages::VERTEX, device);
-
-        let render_pipeline = Self::gen_render_pipeline(device, config, &camera_bind_group);
-        let vertex_buffer = Self::get_vertex_buffer(device, &vertices);
-
-        Self { render_pipeline, bind_groups: [camera_bind_group], vertex_buffer, vertex_count: vertices.len() as u32 }
-    }
-
-    fn get_vertex_buffer(device: &wgpu::Device, data: &[DebugLineVertex]) -> wgpu::Buffer
-    {
-        device.create_buffer_init(
+        let buffer = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(data),
+                contents: bytemuck::cast_slice(&vertices),
                 usage: wgpu::BufferUsages::VERTEX,
-            })
+            });
+
+        (buffer, vertices.len() as u32)
     }
 
     fn gen_render_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, camera_bind_group: &BindGroupData) -> wgpu::RenderPipeline
@@ -170,27 +187,35 @@ impl RenderStage for DebugRenderStage
 
     fn get_draw_calls<'s>(&'s self) -> Vec<Box<(dyn DrawCall + 's)>> 
     {
-        vec![Box::new(DebugDrawCall::new(&self.vertex_buffer, self.vertex_count))]
+        vec![Box::new(DebugDrawCall::new(self.camera.clone(), &self.bind_groups[0], &self.vertex_buffer, self.vertex_count))]
     }
 }
 
-pub struct DebugDrawCall<'buffer>
+pub struct DebugDrawCall<'buffer, 'group>
 {
+    camera: Camera,
+    camera_bind_group: &'group BindGroupData,
+
     vertex_buffer: &'buffer wgpu::Buffer,
     vertex_count: u32
 }
 
-impl<'buffer> DebugDrawCall<'buffer>
+impl<'buffer, 'group> DebugDrawCall<'buffer, 'group>
 {
-    pub fn new(vertex_buffer: &'buffer wgpu::Buffer, vertex_count: u32) -> Self
+    pub fn new(camera: Camera, camera_bind_group: &'group BindGroupData, vertex_buffer: &'buffer wgpu::Buffer, vertex_count: u32) -> Self
     {
-        Self { vertex_buffer, vertex_count }
+        Self { camera, camera_bind_group, vertex_buffer, vertex_count }
     }
 }
 
-impl<'buffer> DrawCall for DebugDrawCall<'buffer>
+impl<'buffer, 'group> DrawCall for DebugDrawCall<'buffer, 'group>
 {
-    fn on_pre_draw(&self, _queue: &wgpu::Queue) {}
+    fn on_pre_draw(&self, queue: &wgpu::Queue) 
+    {
+        let mut camera_uniform = CameraUniform::new();
+        camera_uniform.update_view_proj(&self.camera);
+        self.camera_bind_group.enqueue_set_data(queue, camera_uniform);
+    }
 
     fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>) 
     {

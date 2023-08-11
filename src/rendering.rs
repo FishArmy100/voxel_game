@@ -2,8 +2,12 @@ pub mod renderer;
 pub mod voxel_render_stage;
 pub mod debug_render_stage;
 
-use crate::math::{Vec3, Mat4x4, Point3D};
+use std::sync::Arc;
+
+use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::VoxelTerrain, camera::Camera, colors::Color};
 use wgpu::util::DeviceExt;
+
+use self::{renderer::Renderer, debug_render_stage::{DebugRenderStage, DebugLine}, voxel_render_stage::VoxelRenderStage};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -122,4 +126,36 @@ pub trait DrawCall
 {
     fn on_pre_draw(&self, queue: &wgpu::Queue);
     fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>);
+}
+
+pub struct GameRenderer<const CHUNK_SIZE: usize, const NUM_VOXEL_TYPES: usize>
+{
+    renderer: Renderer,
+    voxel_stage: VoxelRenderStage<CHUNK_SIZE, NUM_VOXEL_TYPES>,
+    debug_stage: DebugRenderStage
+}
+
+impl<const CHUNK_SIZE: usize, const NUM_VOXEL_TYPES: usize> GameRenderer<CHUNK_SIZE, NUM_VOXEL_TYPES> 
+{
+    pub fn new(terrain: Arc<VoxelTerrain<CHUNK_SIZE, NUM_VOXEL_TYPES>>, camera: Camera, device: Arc<wgpu::Device>, surface: Arc<wgpu::Surface>, queue: Arc<wgpu::Queue>, config: &wgpu::SurfaceConfiguration) -> Self
+    {
+        let clear_color = Color::new(0.1, 0.2, 0.3, 1.0);
+        let renderer = Renderer::new(device.clone(), surface, queue, config, clear_color);
+
+        let voxel_stage = VoxelRenderStage::new(terrain, camera.clone(), &device, config);
+        let debug_stage = DebugRenderStage::new(device.clone(), config, camera.clone(), &[]);
+
+        Self { renderer, voxel_stage, debug_stage }
+    }
+
+    pub fn update(&mut self, camera: &Camera, debug_lines: &[DebugLine])
+    {
+        self.voxel_stage.update(camera.clone());
+        self.debug_stage.update(debug_lines, camera.clone());
+    }
+
+    pub fn render(&self) -> Result<(), wgpu::SurfaceError>
+    {
+        self.renderer.render(&[&self.voxel_stage, &self.debug_stage])
+    }
 }

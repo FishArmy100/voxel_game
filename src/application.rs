@@ -3,6 +3,7 @@ use noise::{Perlin, NoiseFn};
 use winit::event::{WindowEvent, Event, KeyboardInput, VirtualKeyCode, ElementState};
 use winit::event_loop::{ControlFlow, EventLoop};
 
+use crate::rendering::GameRenderer;
 use crate::rendering::debug_render_stage::{DebugLine, self, DebugRenderStage};
 use crate::rendering::renderer::Renderer;
 use crate::rendering::voxel_render_stage::VoxelRenderStage;
@@ -27,10 +28,11 @@ struct AppState
     config: wgpu::SurfaceConfiguration,
     size: WindowSize,
     window_handle: WinitWindow,
+    renderer: GameRenderer<16, 4>,
 
     // TEMP
     camera_entity: CameraEntity,
-    terrain: VoxelTerrain<16, 4>
+    terrain: Arc<VoxelTerrain<16, 4>>
 }
 
 pub async fn run()
@@ -156,19 +158,26 @@ impl AppState
             VoxelData::new(Color::GREEN, true)
         ]);
 
-        let terrain_pos = Point3D::new(-((terrain_size.y / 2) as f32), -((terrain_size.y / 2) as f32), -((terrain_size.y / 2) as f32));
-        let terrain = VoxelTerrain::<16, 4>::new(terrain_pos, terrain_size_in_chunks, 1., voxel_types, &generator);
+        let terrain_pos = Point3D::new(-((terrain_size.x / 2) as f32), -((terrain_size.y / 2) as f32), -((terrain_size.z / 2) as f32));
+        let terrain = Arc::new(VoxelTerrain::<16, 4>::new(terrain_pos, terrain_size_in_chunks, 1., voxel_types, &generator));
+
+        let surface = Arc::new(surface);
+        let device = Arc::new(device);
+        let queue = Arc::new(queue);
+
+        let renderer = GameRenderer::new(terrain.clone(), camera.clone(), device.clone(), surface.clone(), queue.clone(), &config);
 
         Self
         {
             app_name: String::from(name),
             current_time: SystemTime::now(),
-            surface: Arc::new(surface),
-            device: Arc::new(device),
-            queue: Arc::new(queue),
+            surface,
+            device,
+            queue,
             config,
             size,
             window_handle: window,
+            renderer,
             camera_entity: CameraEntity::new(camera, 20., 50.),
             terrain
         }
@@ -238,16 +247,10 @@ impl AppState
 
     fn on_render(&mut self) -> Result<(), wgpu::SurfaceError>
     {
-        let clear_color = Color::new(0.1, 0.2, 0.3, 1.0);
-        let renderer = &mut crate::rendering::renderer::Renderer::new(self.device.clone(), self.surface.clone(), self.queue.clone(), &self.config, clear_color);
-        
-        let voxel_render_stage = VoxelRenderStage::new(&self.terrain, self.camera_entity.camera(), &self.device, &self.config);
-        
         let debug_line = DebugLine::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 100.0, 0.0), Color::RED);
-        let debug_lines = vec![debug_line];
-        let debug_render_stage = DebugRenderStage::new(&self.device, &self.config, self.camera_entity.camera(), &debug_lines);
+        self.renderer.update(self.camera_entity.camera(), &[debug_line]);
 
-        renderer.render(&[&voxel_render_stage, &debug_render_stage])
+        self.renderer.render()
     }
 
     fn on_update(&mut self)
