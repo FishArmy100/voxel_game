@@ -1,10 +1,11 @@
 use std::{time::SystemTime, sync::Arc};
+use cgmath::Zero;
 use noise::{Perlin, NoiseFn};
 use winit::event::{WindowEvent, Event, KeyboardInput, VirtualKeyCode, ElementState};
 use winit::event_loop::{ControlFlow, EventLoop};
 
 use crate::rendering::GameRenderer;
-use crate::rendering::debug_render_stage::{DebugLine, self, DebugRenderStage};
+use crate::rendering::debug_render_stage::{DebugLine, self, DebugRenderStage, DebugObject, DebugCube};
 use crate::rendering::renderer::Renderer;
 use crate::rendering::voxel_render_stage::VoxelRenderStage;
 use crate::voxel::{Voxel, VoxelData};
@@ -28,11 +29,11 @@ struct AppState
     config: wgpu::SurfaceConfiguration,
     size: WindowSize,
     window_handle: WinitWindow,
-    renderer: GameRenderer<16, 4>,
+    renderer: GameRenderer,
 
     // TEMP
     camera_entity: CameraEntity,
-    terrain: Arc<VoxelTerrain<16, 4>>
+    terrain: Arc<VoxelTerrain>
 }
 
 pub async fn run()
@@ -98,7 +99,7 @@ impl AppState
             format: surface_format,
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::Immediate,
+            present_mode: surface_caps.present_modes[0],
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![]
         };
@@ -150,16 +151,17 @@ impl AppState
         
         let sand_color = Color::new(0.76, 0.698, 0.502, 1.0);
 
-        let voxel_types = Arc::new(
+        let voxel_types = vec!
         [
             VoxelData::new(Color::WHITE, false), 
             VoxelData::new(Color::BLUE, true),
             VoxelData::new(sand_color, true),
             VoxelData::new(Color::GREEN, true)
-        ]);
-
+        ];
+        
+        const CHUNK_SIZE: usize = 16;
         let terrain_pos = Point3D::new(-((terrain_size.x / 2) as f32), -((terrain_size.y / 2) as f32), -((terrain_size.z / 2) as f32));
-        let terrain = Arc::new(VoxelTerrain::<16, 4>::new(terrain_pos, terrain_size_in_chunks, 1., voxel_types, &generator));
+        let terrain = Arc::new(VoxelTerrain::new(terrain_pos, terrain_size_in_chunks, CHUNK_SIZE, 1., voxel_types, &generator));
 
         let surface = Arc::new(surface);
         let device = Arc::new(device);
@@ -169,7 +171,7 @@ impl AppState
 
         Self
         {
-            app_name: String::from(name),
+            app_name: name.into(),
             current_time: SystemTime::now(),
             surface,
             device,
@@ -242,13 +244,18 @@ impl AppState
             self.config.width = new_size.width;
             self.config.height = new_size.height;
             self.surface.configure(&self.device, &self.config);
+            self.renderer.resize(&self.config);
+
+            self.camera_entity.mut_camera().aspect = new_size.width as f32 / new_size.height as f32;
         }
     }
 
     fn on_render(&mut self) -> Result<(), wgpu::SurfaceError>
     {
         let debug_line = DebugLine::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 100.0, 0.0), Color::RED);
-        self.renderer.update(self.camera_entity.camera(), &[debug_line]);
+        let debug_cube = DebugCube::new(Vec3::zero(), Vec3::new(20.0, 20.0, 20.0), Color::BLACK);
+        
+        self.renderer.update(self.camera_entity.camera(), &[DebugObject::Line(debug_line), DebugObject::Cube(debug_cube)]);
 
         self.renderer.render()
     }

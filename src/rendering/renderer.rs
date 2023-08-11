@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use crate::application::WindowSize;
 use crate::texture::Texture; 
 use crate::colors::Color;
 use super::RenderStage;
@@ -42,6 +43,11 @@ impl Renderer
         output.present();
 
         Ok(())
+    }
+
+    pub fn resize(&mut self, config: &wgpu::SurfaceConfiguration)
+    {
+        self.depth_texture = Texture::create_depth_texture(&self.device, config, "depth_texture");
     }
 
     fn render_stage(&self, stage: &dyn RenderStage, view: &wgpu::TextureView)

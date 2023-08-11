@@ -7,7 +7,7 @@ use std::sync::Arc;
 use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::VoxelTerrain, camera::Camera, colors::Color};
 use wgpu::util::DeviceExt;
 
-use self::{renderer::Renderer, debug_render_stage::{DebugRenderStage, DebugLine}, voxel_render_stage::VoxelRenderStage};
+use self::{renderer::Renderer, debug_render_stage::{DebugRenderStage, DebugLine, DebugObject}, voxel_render_stage::VoxelRenderStage};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -55,12 +55,24 @@ impl BindGroupData
         Self::uniform_with_layout(name, data, layout, device)
     }
 
+    pub fn uniform_bytes(name: String, data: &[u8], shader_stages: wgpu::ShaderStages, device: &wgpu::Device) -> Self
+    {
+        let layout = Self::get_uniform_layout(shader_stages, device);
+        Self::uniform_with_layout_bytes(name, data, layout, device)
+    }
+
     pub fn uniform_with_layout<T>(name: String, data: T, layout: wgpu::BindGroupLayout, device: &wgpu::Device) -> Self
         where T : bytemuck::Pod + bytemuck::Zeroable 
     {
         let data_array = &[data];
         let data: &[u8] = bytemuck::cast_slice(data_array);
 
+        let (buffer, bind_group) = Self::get_bind_group(&layout, data, device);
+        Self { name, layout, buffer, bind_group }
+    }
+
+    pub fn uniform_with_layout_bytes(name: String, data: &[u8], layout: wgpu::BindGroupLayout, device: &wgpu::Device) -> Self
+    {
         let (buffer, bind_group) = Self::get_bind_group(&layout, data, device);
         Self { name, layout, buffer, bind_group }
     }
@@ -128,16 +140,16 @@ pub trait DrawCall
     fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>);
 }
 
-pub struct GameRenderer<const CHUNK_SIZE: usize, const NUM_VOXEL_TYPES: usize>
+pub struct GameRenderer
 {
     renderer: Renderer,
-    voxel_stage: VoxelRenderStage<CHUNK_SIZE, NUM_VOXEL_TYPES>,
+    voxel_stage: VoxelRenderStage,
     debug_stage: DebugRenderStage
 }
 
-impl<const CHUNK_SIZE: usize, const NUM_VOXEL_TYPES: usize> GameRenderer<CHUNK_SIZE, NUM_VOXEL_TYPES> 
+impl GameRenderer
 {
-    pub fn new(terrain: Arc<VoxelTerrain<CHUNK_SIZE, NUM_VOXEL_TYPES>>, camera: Camera, device: Arc<wgpu::Device>, surface: Arc<wgpu::Surface>, queue: Arc<wgpu::Queue>, config: &wgpu::SurfaceConfiguration) -> Self
+    pub fn new(terrain: Arc<VoxelTerrain>, camera: Camera, device: Arc<wgpu::Device>, surface: Arc<wgpu::Surface>, queue: Arc<wgpu::Queue>, config: &wgpu::SurfaceConfiguration) -> Self
     {
         let clear_color = Color::new(0.1, 0.2, 0.3, 1.0);
         let renderer = Renderer::new(device.clone(), surface, queue, config, clear_color);
@@ -148,14 +160,19 @@ impl<const CHUNK_SIZE: usize, const NUM_VOXEL_TYPES: usize> GameRenderer<CHUNK_S
         Self { renderer, voxel_stage, debug_stage }
     }
 
-    pub fn update(&mut self, camera: &Camera, debug_lines: &[DebugLine])
+    pub fn update(&mut self, camera: &Camera, debug_objects: &[DebugObject])
     {
         self.voxel_stage.update(camera.clone());
-        self.debug_stage.update(debug_lines, camera.clone());
+        self.debug_stage.update(debug_objects, camera.clone());
     }
 
     pub fn render(&self) -> Result<(), wgpu::SurfaceError>
     {
         self.renderer.render(&[&self.voxel_stage, &self.debug_stage])
+    }
+
+    pub fn resize(&mut self, config: &wgpu::SurfaceConfiguration)
+    {
+        self.renderer.resize(config);
     }
 }

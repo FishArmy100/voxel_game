@@ -109,26 +109,28 @@ unsafe impl bytemuck::Pod for VoxelRenderData {}
 unsafe impl bytemuck::Zeroable for VoxelRenderData {}
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
-pub struct VoxelRenderDataUniform<const S: usize>
+#[derive(Debug, Clone)]
+pub struct VoxelRenderDataUniform
 {
-    pub data: [VoxelRenderData; S]
+    pub data: Box<[VoxelRenderData]>
 }
 
-impl<const N: usize> VoxelRenderDataUniform<N>
+impl VoxelRenderDataUniform
 {
-    pub fn new(data: [VoxelRenderData; N]) -> Self
+    pub fn new(data: Box<[VoxelRenderData]>) -> Self
     {
         Self { data }
     }
+
+    pub fn as_bytes(&self) -> &[u8]
+    {
+        bytemuck::cast_slice(&self.data)
+    }
 }
 
-unsafe impl<const N: usize> bytemuck::Pod for VoxelRenderDataUniform<N> {}
-unsafe impl<const N: usize> bytemuck::Zeroable for VoxelRenderDataUniform<N> {}
-
-pub struct VoxelRenderStage<const S: usize, const N: usize>
+pub struct VoxelRenderStage
 {
-    terrain: Arc<VoxelTerrain<S, N>>,
+    terrain: Arc<VoxelTerrain>,
     bind_groups: [BindGroupData; 3],
     render_pipeline: wgpu::RenderPipeline,
 
@@ -141,16 +143,16 @@ pub struct VoxelRenderStage<const S: usize, const N: usize>
     index_buffer: wgpu::Buffer
 }
 
-impl<const S: usize, const N: usize> VoxelRenderStage<S, N>
+impl VoxelRenderStage
 {
-    pub fn new(terrain: Arc<VoxelTerrain<S, N>>, camera: Camera, device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Self
+    pub fn new(terrain: Arc<VoxelTerrain>, camera: Camera, device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Self
     {
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&camera);
         let camera_bind_group = BindGroupData::uniform("camera_bind_group".into(), camera_uniform, wgpu::ShaderStages::VERTEX, device);
 
-        let voxel_uniform = VoxelRenderDataUniform::new(terrain.voxel_types().map(|v| v.get_render_data()).clone());
-        let voxel_bind_group = BindGroupData::uniform("voxel_bind_group".into(), voxel_uniform, wgpu::ShaderStages::VERTEX, device);
+        let voxel_uniform = VoxelRenderDataUniform::new(terrain.voxel_types().iter().map(|v| v.get_render_data()).collect());
+        let voxel_bind_group = BindGroupData::uniform_bytes("voxel_bind_group".into(), voxel_uniform.as_bytes(), wgpu::ShaderStages::VERTEX, device);
 
         let model_uniform = ModelUniform::from_position(terrain.position());
         let model_bind_group = BindGroupData::uniform("model_bind_group".into(), model_uniform, wgpu::ShaderStages::VERTEX, device);
@@ -268,7 +270,7 @@ impl<const S: usize, const N: usize> VoxelRenderStage<S, N>
     }
 }
 
-impl<const S: usize, const N: usize> RenderStage for VoxelRenderStage<S, N>
+impl RenderStage for VoxelRenderStage
 {
     fn bind_groups(&self) -> &[BindGroupData]
     {

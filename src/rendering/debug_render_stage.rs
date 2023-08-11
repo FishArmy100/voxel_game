@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use cgmath::{Zero, ElementWise};
 use wgpu::util::DeviceExt;
 
 use super::{RenderStage, DrawCall, BindGroupData};
@@ -23,9 +24,146 @@ impl DebugLine
         DebugLine { a, b, color }
     }
 
-    fn get_vertices(&self) -> [DebugLineVertex; 2]
+    fn append_vertices(&self, vec: &mut Vec<DebugLineVertex>)
     {
-        [DebugLineVertex::new(self.a, self.color), DebugLineVertex::new(self.b, self.color)]
+        vec.push(DebugLineVertex::new(self.a, self.color));
+        vec.push(DebugLineVertex::new(self.b, self.color));
+    }
+}
+
+pub struct DebugCube
+{
+    pub position: Vec3<f32>,
+    pub extents: Vec3<f32>,
+    pub color: Color
+}
+
+impl DebugCube
+{
+    pub fn new(position: Vec3<f32>, extents: Vec3<f32>, color: Color) -> Self
+    {
+        Self { position, extents, color }
+    }
+
+    fn append_vertices(&self, vec: &mut Vec<DebugLineVertex>)
+    {
+        let base_a = DebugLine
+        {
+            a: self.position + Vec3::new(0.0, 0.0, 0.0).mul_element_wise(self.extents),
+            b: self.position + Vec3::new(1.0, 0.0, 0.0).mul_element_wise(self.extents),
+            color: self.color
+        };
+
+        let base_b = DebugLine
+        {
+            a: self.position + Vec3::new(0.0, 0.0, 0.0).mul_element_wise(self.extents),
+            b: self.position + Vec3::new(0.0, 0.0, 1.0).mul_element_wise(self.extents),
+            color: self.color
+        };
+
+        let base_c = DebugLine
+        {
+            a: self.position + Vec3::new(0.0, 0.0, 1.0).mul_element_wise(self.extents),
+            b: self.position + Vec3::new(1.0, 0.0, 1.0).mul_element_wise(self.extents),
+            color: self.color
+        };
+
+        let base_d = DebugLine
+        {
+            a: self.position + Vec3::new(1.0, 0.0, 0.0).mul_element_wise(self.extents),
+            b: self.position + Vec3::new(1.0, 0.0, 1.0).mul_element_wise(self.extents),
+            color: self.color
+        };
+
+
+        let top_a = DebugLine
+        {
+            a: self.position + Vec3::new(0.0, 1.0, 0.0).mul_element_wise(self.extents),
+            b: self.position + Vec3::new(1.0, 1.0, 0.0).mul_element_wise(self.extents),
+            color: self.color
+        };
+
+        let top_b = DebugLine
+        {
+            a: self.position + Vec3::new(0.0, 1.0, 0.0).mul_element_wise(self.extents),
+            b: self.position + Vec3::new(0.0, 1.0, 1.0).mul_element_wise(self.extents),
+            color: self.color
+        };
+
+        let top_c = DebugLine
+        {
+            a: self.position + Vec3::new(0.0, 1.0, 1.0).mul_element_wise(self.extents),
+            b: self.position + Vec3::new(1.0, 1.0, 1.0).mul_element_wise(self.extents),
+            color: self.color
+        };
+
+        let top_d = DebugLine
+        {
+            a: self.position + Vec3::new(1.0, 1.0, 0.0).mul_element_wise(self.extents),
+            b: self.position + Vec3::new(1.0, 1.0, 1.0).mul_element_wise(self.extents),
+            color: self.color
+        };
+
+        let middle_a = DebugLine
+        {
+            a: self.position + Vec3::new(0.0, 0.0, 0.0).mul_element_wise(self.extents),
+            b: self.position + Vec3::new(0.0, 1.0, 0.0).mul_element_wise(self.extents),
+            color: self.color
+        };
+
+        let middle_b = DebugLine
+        {
+            a: self.position + Vec3::new(1.0, 0.0, 0.0).mul_element_wise(self.extents),
+            b: self.position + Vec3::new(1.0, 1.0, 0.0).mul_element_wise(self.extents),
+            color: self.color
+        };
+
+        let middle_c = DebugLine
+        {
+            a: self.position + Vec3::new(0.0, 0.0, 1.0).mul_element_wise(self.extents),
+            b: self.position + Vec3::new(0.0, 1.0, 1.0).mul_element_wise(self.extents),
+            color: self.color
+        };
+
+        let middle_d = DebugLine
+        {
+            a: self.position + Vec3::new(1.0, 0.0, 1.0).mul_element_wise(self.extents),
+            b: self.position + Vec3::new(1.0, 1.0, 1.0).mul_element_wise(self.extents),
+            color: self.color
+        };
+
+        base_a.append_vertices(vec);
+        base_b.append_vertices(vec);
+        base_c.append_vertices(vec);
+        base_d.append_vertices(vec);
+
+        top_a.append_vertices(vec);
+        top_b.append_vertices(vec);
+        top_c.append_vertices(vec);
+        top_d.append_vertices(vec);
+
+        middle_a.append_vertices(vec);
+        middle_b.append_vertices(vec);
+        middle_c.append_vertices(vec);
+        middle_d.append_vertices(vec);
+    }
+}
+
+pub enum DebugObject
+{
+    Line(DebugLine),
+    Cube(DebugCube)
+}
+
+impl DebugObject
+{
+    fn append_vertices(&self, vec: &mut Vec<DebugLineVertex>)
+    {
+        match self 
+        {
+            Self::Line(l) => l.append_vertices(vec),
+            Self::Cube(c) => c.append_vertices(vec)
+        }
     }
 }
 
@@ -75,37 +213,34 @@ pub struct DebugRenderStage
 
 impl DebugRenderStage
 {
-    pub fn new(device: Arc<wgpu::Device>, config: &wgpu::SurfaceConfiguration, default_camera: Camera, debug_lines: &[DebugLine]) -> Self
+    pub fn new(device: Arc<wgpu::Device>, config: &wgpu::SurfaceConfiguration, default_camera: Camera, debug_objects: &[DebugObject]) -> Self
     {
-        let mut camera_uniform = CameraUniform::new();
+        let camera_uniform = CameraUniform::new();
         let camera_bind_group = BindGroupData::uniform("camera_bind_group".into(), camera_uniform, wgpu::ShaderStages::VERTEX, &device);
 
         let render_pipeline = Self::gen_render_pipeline(&device, config, &camera_bind_group);
 
-        let (vertex_buffer, vertex_count) = Self::get_vertex_buffer(&device, debug_lines);
+        let (vertex_buffer, vertex_count) = Self::get_vertex_buffer(&device, debug_objects);
 
-        Self { device: device.clone(), render_pipeline, bind_groups: [camera_bind_group], camera: default_camera, vertex_buffer, vertex_count: 0}
+        Self { device: device.clone(), render_pipeline, bind_groups: [camera_bind_group], camera: default_camera, vertex_buffer, vertex_count}
     }
 
-    pub fn update(&mut self, debug_lines: &[DebugLine], camera: Camera)
+    pub fn update(&mut self, debug_objects: &[DebugObject], camera: Camera)
     {
-        let (vertex_buffer, vertex_count) = Self::get_vertex_buffer(&self.device, debug_lines);
+        let (vertex_buffer, vertex_count) = Self::get_vertex_buffer(&self.device, debug_objects);
         
         self.vertex_buffer = vertex_buffer;
         self.vertex_count = vertex_count;
         self.camera = camera;
     }
 
-    fn get_vertex_buffer(device: &wgpu::Device, debug_lines: &[DebugLine]) -> (wgpu::Buffer, u32)
+    fn get_vertex_buffer(device: &wgpu::Device, debug_objects: &[DebugObject]) -> (wgpu::Buffer, u32)
     {
-        let vertices = debug_lines.iter()
-            .map(|l| l.get_vertices())
-            .fold(vec![], |mut vec, vs| 
-            {
-                vec.push(vs[0]); 
-                vec.push(vs[1]); 
-                vec
-            });
+        let mut vertices = vec![];
+        for object in debug_objects
+        {
+            object.append_vertices(&mut vertices);
+        }
 
         let buffer = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
