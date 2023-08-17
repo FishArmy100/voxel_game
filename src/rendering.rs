@@ -4,7 +4,7 @@ pub mod debug_render_stage;
 
 use std::sync::Arc;
 
-use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::VoxelTerrain, camera::Camera, colors::Color};
+use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::terrain::VoxelTerrain, camera::Camera, colors::Color};
 use wgpu::util::DeviceExt;
 
 use self::{renderer::Renderer, debug_render_stage::{DebugRenderStage, DebugLine, DebugObject}, voxel_render_stage::VoxelRenderStage};
@@ -168,7 +168,7 @@ impl GameRenderer
 
     pub fn render(&self) -> Result<(), wgpu::SurfaceError>
     {
-        self.renderer.render(&[&self.voxel_stage, &self.debug_stage])
+        self.renderer.render(&[/*&self.voxel_stage,*/ &self.debug_stage])
     }
 
     pub fn resize(&mut self, config: &wgpu::SurfaceConfiguration)

@@ -8,7 +8,7 @@ use crate::debug_utils;
 use crate::math::{Vec3, Mat4x4, Point3D};
 use crate::rendering::ModelUniform;
 use crate::texture::Texture;
-use crate::voxel::{VoxelData, VoxelTerrain};
+use crate::voxel::{VoxelData, terrain::VoxelTerrain};
 
 use crate::colors::Color;
 use super::{RenderStage, DrawCall, BindGroupData};

@@ -1,151 +1,267 @@
-use crate::{utils::Array3D, math::Vec3};
+use cgmath::Array;
 
-// depth is equal to the number of tree nodes needed to access a point
-fn length_from_depth(depth: u32) -> u32
+use crate::math::Vec3;
+
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Octant
 {
-    assert!(depth != 0, "Depth cannot be 0");
-    (2 as u32).pow(depth - 1)
+    LeftRearBase    = 0,
+    RightRearBase   = 1,
+    LeftRearTop     = 2,
+    RightRearTop    = 3,
+    LeftFrontBase   = 4,
+    RightFrontBase  = 5,
+    LeftFrontTop    = 6,
+    RightFrontTop   = 7,
 }
 
-fn offset_3d_of_branch_index(index: u8) -> Vec3<usize>
+pub enum VisitedNodeType<T> where T : Copy + Clone + Eq
 {
-    match index 
-    {
-        0 => Vec3::new(0, 0, 0),
-        1 => Vec3::new(1, 0, 0),
-        2 => Vec3::new(0, 1, 0),
-        3 => Vec3::new(1, 1, 0),
-        4 => Vec3::new(0, 0, 1),
-        5 => Vec3::new(1, 0, 1),
-        6 => Vec3::new(0, 1, 1),
-        7 => Vec3::new(1, 1, 1),
-        _ => panic!("Invalid branch index {}", index)
+    Branch,
+    Leaf(Option<T>)
+}
+
+impl TryFrom<usize> for Octant
+{
+    type Error = ();
+
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::LeftRearBase),
+            1 => Ok(Self::RightRearBase),
+            2 => Ok(Self::LeftRearTop),
+            3 => Ok(Self::RightRearTop),
+            4 => Ok(Self::LeftFrontBase),
+            5 => Ok(Self::RightFrontBase),
+            6 => Ok(Self::LeftFrontTop),
+            7 => Ok(Self::RightFrontTop),
+            _ => Err(()),
+        }
     }
 }
 
-pub struct VoxelArray<T> where T : Clone
+pub struct Octree<T> where T : Copy + Clone + Eq
 {
-    depth: u32,
-    length: u32,
-    data: Array3D<T>
+    depth: usize,
+    length: usize,
+    root: Node<T>
 }
 
-impl<T> VoxelArray<T> where T : Clone
+impl<T> Octree<T> where T : Copy + Clone + Eq
 {
-    pub fn new_from_array(depth: u32, data: Array3D<T>) -> Self
+    pub fn new(depth: usize) -> Self
     {
-        let length = length_from_depth(depth);
-        assert!(data.width() == length as usize && data.height() == length as usize && data.depth() == length as usize, "All array dimensions must be 2^{}", depth);
+        let length = (2 as usize).pow(depth as u32);
+        let bounds = NodeBounds::new_from_max(depth);
+        let root = Node::new(bounds);
 
-        Self { depth, length, data }
+        Self { depth, length, root }
     }
 
-    pub fn new<F>(depth: u32, gen: &F) -> Self 
-        where F : Fn(usize, usize, usize) -> T 
+    pub fn insert(&mut self, position: Vec3<usize>, value: Option<T>)
     {
-        let length = length_from_depth(depth);
-        let data = Array3D::new(length as usize, length as usize, length as usize, gen);
-        Self { depth, length, data }
+        let was_inserted = self.root.insert(position, value);
+        assert!(was_inserted, "Position {:?} was outside this bounds.", position);
+        self.root.simplify();
+    }
+
+    pub fn visit<F>(&self, f: &mut F) 
+        where F : FnMut(Vec3<usize>, usize, VisitedNodeType<T>) -> ()
+    {
+        self.root.visit(f);
+    }
+
+    pub fn get(&self, position: Vec3<u32>) -> T 
+    {
+        todo!()
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum VoxelTree<T>
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct NodeBounds
+{
+    max_depth: usize,
+    current_depth: usize,
+    position_relative: Vec3<usize>
+}
+
+impl NodeBounds
+{
+    fn new_from_max(max_depth: usize) -> Self
+    {
+        Self { max_depth, current_depth: 0, position_relative: Vec3::from_value(0) }
+    }
+
+    fn contains_point(&self, point: Vec3<usize>) -> bool
+    {
+        let (position, sub_voxel_size) = self.get_bounds_location();
+
+        point.x >= position.x && point.x < position.x + sub_voxel_size &&
+        point.y >= position.y && point.y < position.y + sub_voxel_size &&
+        point.z >= position.z && point.z < position.z + sub_voxel_size
+    }
+
+    fn get_child_bounds(&self) -> [Self; 8]
+    {
+        assert!(!self.is_max_depth(), "Cannot get children from max depth node bounds");
+        let child_depth = self.current_depth + 1;
+
+        [
+            Self { max_depth: self.max_depth, current_depth: child_depth, position_relative: self.position_relative * 2 + Vec3::new(0, 0, 0) },
+            Self { max_depth: self.max_depth, current_depth: child_depth, position_relative: self.position_relative * 2 + Vec3::new(1, 0, 0) },
+            Self { max_depth: self.max_depth, current_depth: child_depth, position_relative: self.position_relative * 2 + Vec3::new(0, 1, 0) },
+            Self { max_depth: self.max_depth, current_depth: child_depth, position_relative: self.position_relative * 2 + Vec3::new(1, 1, 0) },
+            Self { max_depth: self.max_depth, current_depth: child_depth, position_relative: self.position_relative * 2 + Vec3::new(0, 0, 1) },
+            Self { max_depth: self.max_depth, current_depth: child_depth, position_relative: self.position_relative * 2 + Vec3::new(1, 0, 1) },
+            Self { max_depth: self.max_depth, current_depth: child_depth, position_relative: self.position_relative * 2 + Vec3::new(0, 1, 1) },
+            Self { max_depth: self.max_depth, current_depth: child_depth, position_relative: self.position_relative * 2 + Vec3::new(1, 1, 1) },
+        ]
+    }
+
+    fn get_bounds_location(&self) -> (Vec3<usize>, usize)
+    {
+        let sub_voxel_size = (2 as usize).pow(self.max_depth as u32) / (2 as usize).pow(self.current_depth as u32);
+        let position = self.position_relative * sub_voxel_size;
+
+        (position, sub_voxel_size)
+    }
+
+    fn is_max_depth(&self) -> bool
+    {
+        self.current_depth == self.max_depth
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum NodeType<T> where T : Copy + Clone + Eq
 {
     Empty,
     Leaf(T),
-    Branches(Box<[VoxelTree<T>; 8]>)
+    Branches(Box<[Node<T>; 8]>)
 }
 
-impl<T> VoxelTree<T>
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Node<T> where T : Copy + Clone + Eq
 {
-    // If is a leaf, returns Some(value), else returns None
-    pub fn try_get_leaf(&self) -> Option<&T>
+    data: NodeType<T>,
+    bounds: NodeBounds, 
+}
+
+impl<T> Node<T> where T : Copy + Clone + Eq
+{
+    fn new(bounds: NodeBounds) -> Self
     {
-        match self
+        Self { data: NodeType::Empty, bounds }
+    }
+
+    fn insert(&mut self, index: Vec3<usize>, value: Option<T>) -> bool
+    {
+        if !self.bounds.contains_point(index)
         {
-            VoxelTree::Empty => None,
-            VoxelTree::Leaf(l) => Some(l),
-            VoxelTree::Branches(_) => None,
+            false
+        }
+        else if self.bounds.is_max_depth() && self.bounds.position_relative == index
+        {
+            match value 
+            {
+                Some(value) => self.data = NodeType::Leaf(value),
+                None => self.data = NodeType::Empty,
+            }
+
+            true
+        }
+        else if !self.bounds.is_max_depth()
+        {
+            match &mut self.data
+            {
+                NodeType::Empty =>
+                {
+                    let mut branches = Box::new(self.get_empty_children(None));
+                    let was_found = branches.iter_mut().any(|b| b.insert(index, value));
+                    assert!(was_found, "Index should have been found in this sub voxel");
+                    self.data = NodeType::Branches(branches);
+                    true
+                },
+                NodeType::Leaf(leaf) => 
+                {
+                    let leaf = *leaf;
+                    let mut branches = Box::new(self.get_empty_children(Some(leaf)));
+                    let was_found = branches.iter_mut().any(|b| b.insert(index, value));
+                    assert!(was_found, "Index should have been found in this sub voxel");
+                    self.data = NodeType::Branches(branches);
+                    true
+                },
+                NodeType::Branches(branches) => 
+                {
+                    branches.iter_mut().any(|b| b.insert(index, value))
+                }
+            }
+        }
+        else 
+        {
+            panic!("The developer did something very wrong :)")
         }
     }
 
-    
-}
-
-impl<T> VoxelTree<T> where T : Clone 
-{
-    // Generates a full empty tree based on the given depth
-    pub fn gen_from_depth(depth: u32) -> Self
+    fn get_empty_children(&self, value: Option<T>) -> [Node<T>; 8]
     {
-        assert!(depth != 0, "Depth cannot be 0");
-        if depth > 1
-        {
-            let current = Self::gen_from_depth(depth - 1);
-            Self::Branches(Box::new(
-                [
-                    current.clone(), 
-                    current.clone(), 
-                    current.clone(), 
-                    current.clone(), 
-                    current.clone(), 
-                    current.clone(), 
-                    current.clone(), 
-                    current.clone(),
-                ]))
-        }
-        else
-        {
-            Self::Empty    
-        }
-    }
-}
+        let child_bounds = self.bounds.get_child_bounds();
+        let children: [Node<T>; 8] = std::array::from_fn(|i| {
+            let data = match value 
+            {
+                Some(leaf) => NodeType::Leaf(leaf),
+                None => NodeType::Empty,
+            };
+            Self { data, bounds: child_bounds[i] }
+        });
 
-impl<T> VoxelTree<T> where T : Clone + PartialEq
-{
-    pub fn merge(&mut self)
-    {
-        match self
-        {
-            VoxelTree::Empty => {},
-            VoxelTree::Leaf(_) => todo!(),
-            VoxelTree::Branches(_) => todo!(),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Octree<T> where T : Clone
-{
-    depth: u32,
-    tree: VoxelTree<T>
-}
-
-impl<T> Octree<T> where T : Clone
-{
-    pub fn length(&self) -> u32 { length_from_depth(self.depth) }
-    pub fn root(&self) -> &VoxelTree<T> { &self.tree }
-
-    pub fn new_empty(depth: u32) -> Self
-    {
-        Self { depth, tree: VoxelTree::Empty }
+        children
     }
 
-    // pub fn from_voxel_array(array: VoxelArray<T>) -> Self
-    // {
-    //     let mut tree = VoxelTree::<T>::gen_from_depth(array.depth);
-
-    // }
-
-    fn location_from_tree_indexes(&self, indexes: &[u8]) -> Vec3<usize>
+    fn simplify(&mut self) -> bool
     {
-        let mut offset = Vec3::new(0, 0, 0);
-        for i in 0..indexes.len()
+        match &mut self.data 
         {
-            let offset_scale = length_from_depth(self.depth - i as u32) as usize;
-            offset += offset_3d_of_branch_index(indexes[i]) * offset_scale;
+            NodeType::Branches(branches) => 
+            {
+                let was_simplified = branches.iter_mut().all(|b| b.simplify());
+                if was_simplified
+                {
+                    let first = branches[0].clone(); // should never clone a `Branches` node
+                    let are_all_same = branches.iter().all(|b| b.data == first.data);
+                    if are_all_same
+                    {
+                        self.data = first.data;
+                        true
+                    }
+                    else 
+                    {
+                        false
+                    }
+                }
+                else 
+                {
+                    false
+                }
+            },
+            _ => true
         }
+    }
 
-        offset
+    fn visit<F>(&self, f: &mut F) 
+        where F : FnMut(Vec3<usize>, usize, VisitedNodeType<T>) -> ()
+    {
+        let (position, size) = self.bounds.get_bounds_location();
+        match &self.data
+        {
+            NodeType::Empty => f(position, size, VisitedNodeType::Leaf(None)),
+            NodeType::Leaf(leaf) => f(position, size, VisitedNodeType::Leaf(Some(*leaf))),
+            NodeType::Branches(branches) => 
+            {
+                f(position, size, VisitedNodeType::Branch);
+                branches.iter().for_each(|b| b.visit(f))
+            },
+        }
     }
 }

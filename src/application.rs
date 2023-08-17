@@ -1,5 +1,5 @@
 use std::{time::SystemTime, sync::Arc};
-use cgmath::Zero;
+use cgmath::{Zero, Array};
 use noise::{Perlin, NoiseFn};
 use winit::event::{WindowEvent, Event, KeyboardInput, VirtualKeyCode, ElementState};
 use winit::event_loop::{ControlFlow, EventLoop};
@@ -8,12 +8,13 @@ use crate::rendering::GameRenderer;
 use crate::rendering::debug_render_stage::{DebugLine, self, DebugRenderStage, DebugObject, DebugCube};
 use crate::rendering::renderer::Renderer;
 use crate::rendering::voxel_render_stage::VoxelRenderStage;
+use crate::voxel::octree::{Octree, VisitedNodeType};
 use crate::voxel::{Voxel, VoxelData};
 
 use crate::colors::Color;
 use crate::math::{Vec3, Point3D};
 use crate::camera::{Camera, CameraEntity};
-use crate::voxel::VoxelTerrain;
+use crate::voxel::terrain::VoxelTerrain;
 
 pub type WinitWindow = winit::window::Window;
 pub type WindowSize = winit::dpi::PhysicalSize<u32>;
@@ -33,7 +34,9 @@ struct AppState
 
     // TEMP
     camera_entity: CameraEntity,
-    terrain: Arc<VoxelTerrain>
+    terrain: Arc<VoxelTerrain>,
+
+    octree: Octree<u32>
 }
 
 pub async fn run()
@@ -117,8 +120,7 @@ impl AppState
             far: 100000.0
         };
 
-        let terrain_size_in_chunks = Vec3::new(10, 5, 10);
-        let terrain_size = terrain_size_in_chunks * 16;
+        let terrain_size_in_chunks = Vec3::new(1, 1, 1);
 
         let perlin = Perlin::new(326236);
 
@@ -160,14 +162,20 @@ impl AppState
         ];
         
         const CHUNK_SIZE: usize = 16;
-        let terrain_pos = Point3D::new(-((terrain_size.x / 2) as f32), -((terrain_size.y / 2) as f32), -((terrain_size.z / 2) as f32));
-        let terrain = Arc::new(VoxelTerrain::new(terrain_pos, terrain_size_in_chunks, CHUNK_SIZE, 1., voxel_types, &generator));
+        const VOXEL_SIZE: f32 = 1.0;
+
+        let terrain_pos = Point3D::new(0.0, 0.0, 0.0);
+        let terrain = Arc::new(VoxelTerrain::new(terrain_pos, terrain_size_in_chunks, CHUNK_SIZE, VOXEL_SIZE, voxel_types, &generator));
 
         let surface = Arc::new(surface);
         let device = Arc::new(device);
         let queue = Arc::new(queue);
 
         let renderer = GameRenderer::new(terrain.clone(), camera.clone(), device.clone(), surface.clone(), queue.clone(), &config);
+
+        let mut octree = Octree::new(4);
+        octree.insert(Vec3::new(0, 0, 0), Some(0));
+        //octree.insert(Vec3::new(0, 0, 0), None);
 
         Self
         {
@@ -181,7 +189,8 @@ impl AppState
             window_handle: window,
             renderer,
             camera_entity: CameraEntity::new(camera, 20., 50.),
-            terrain
+            terrain,
+            octree
         }
     }
 
@@ -251,20 +260,39 @@ impl AppState
     }
 
     fn on_render(&mut self) -> Result<(), wgpu::SurfaceError>
-    {
-        let debug_line = DebugLine::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 100.0, 0.0), Color::RED);
-        let debug_cube = DebugCube::new(Vec3::zero(), Vec3::new(20.0, 20.0, 20.0), Color::BLACK);
-        
-        self.renderer.update(self.camera_entity.camera(), &[DebugObject::Line(debug_line), DebugObject::Cube(debug_cube)]);
+    {        
+        let mut debug_objs = vec![];
 
-        self.renderer.render()
+        self.octree.visit(&mut |pos, size, node_type| {
+            let pos = pos.cast().unwrap();
+            let size = Vec3::from_value(size).cast().unwrap();
+            let color = match node_type 
+            {
+                VisitedNodeType::Branch => Color::RED,
+                VisitedNodeType::Leaf(l) => 
+                {
+                    match l 
+                    {
+                        Some(_) => Color::BLACK,
+                        None => Color::WHITE,
+                    }
+                },
+            };
+
+            debug_objs.push(DebugObject::Cube(DebugCube::new(pos, size, color)));
+        });
+
+        self.renderer.update(self.camera_entity.camera(), &debug_objs);
+
+        self.renderer.render()?;
+        Ok(())
     }
 
     fn on_update(&mut self)
     {
         let delta_time = self.current_time.elapsed().unwrap().as_secs_f32();
         self.camera_entity.update(delta_time); 
-        println!("{}ms", delta_time * 1000.0);
+        //println!("{}ms", delta_time * 1000.0);
         self.current_time = SystemTime::now();
     }
 }
