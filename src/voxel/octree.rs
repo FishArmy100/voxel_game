@@ -50,6 +50,9 @@ pub struct Octree<T> where T : Copy + Clone + Eq
 
 impl<T> Octree<T> where T : Copy + Clone + Eq
 {
+    pub fn depth(&self) -> usize {self.depth}
+    pub fn length(&self) -> usize {self.length}
+
     pub fn new(depth: usize) -> Self
     {
         let length = (2 as usize).pow(depth as u32);
@@ -72,9 +75,9 @@ impl<T> Octree<T> where T : Copy + Clone + Eq
         self.root.visit(f);
     }
 
-    pub fn get(&self, position: Vec3<u32>) -> T 
+    pub fn get(&self, position: Vec3<usize>) -> Option<T> 
     {
-        todo!()
+        self.root.get(position)
     }
 }
 
@@ -201,6 +204,20 @@ impl<T> Node<T> where T : Copy + Clone + Eq
         else 
         {
             panic!("The developer did something very wrong :)")
+        }
+    }
+
+    fn get(&self, index: Vec3<usize>) -> Option<T>
+    {
+        assert!(self.bounds.contains_point(index));
+        match &self.data 
+        {
+            NodeType::Empty => None,
+            NodeType::Leaf(leaf) => Some(*leaf),
+            NodeType::Branches(branches) => 
+            {
+                branches.iter().find(|b| b.bounds.contains_point(index)).unwrap().get(index)
+            },
         }
     }
 

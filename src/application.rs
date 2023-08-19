@@ -35,8 +35,6 @@ struct AppState
     // TEMP
     camera_entity: CameraEntity,
     terrain: Arc<VoxelTerrain>,
-
-    octree: Octree<u32>
 }
 
 pub async fn run()
@@ -132,22 +130,33 @@ impl AppState
 
             if pos.y as f32 <= water_height
             {
-                Voxel::new(1)
+                Some(Voxel::new(1))
             }
             else if pos.y as f32 <= noise_value
             {
                 if pos.y as f32 <= sand_height
                 {
-                    Voxel::new(2)
+                    Some(Voxel::new(2))
                 }
                 else 
                 {
-                    Voxel::new(3)
+                    Some(Voxel::new(3))
                 }
             } 
             else 
             {
-                Voxel::new(0)
+                None
+            }
+        };
+
+        let generator2 = |position: Vec3<usize>| {
+            if (position.x % 2 == 0) ^ (position.z % 2 == 0) && position.y == 0
+            {
+                Some(Voxel::new(1))
+            }
+            else 
+            {
+                None
             }
         };
         
@@ -155,17 +164,17 @@ impl AppState
 
         let voxel_types = vec!
         [
-            VoxelData::new(Color::WHITE, false), 
-            VoxelData::new(Color::BLUE, true),
-            VoxelData::new(sand_color, true),
-            VoxelData::new(Color::GREEN, true)
+            VoxelData::new(Color::WHITE), 
+            VoxelData::new(Color::BLUE),
+            VoxelData::new(sand_color),
+            VoxelData::new(Color::GREEN)
         ];
         
-        const CHUNK_SIZE: usize = 16;
+        const CHUNK_DEPTH: usize = 4;
         const VOXEL_SIZE: f32 = 1.0;
 
         let terrain_pos = Point3D::new(0.0, 0.0, 0.0);
-        let terrain = Arc::new(VoxelTerrain::new(terrain_pos, terrain_size_in_chunks, CHUNK_SIZE, VOXEL_SIZE, voxel_types, &generator));
+        let terrain = Arc::new(VoxelTerrain::new(terrain_pos, terrain_size_in_chunks, CHUNK_DEPTH, VOXEL_SIZE, voxel_types, &generator2));
 
         let surface = Arc::new(surface);
         let device = Arc::new(device);
@@ -174,8 +183,9 @@ impl AppState
         let renderer = GameRenderer::new(terrain.clone(), camera.clone(), device.clone(), surface.clone(), queue.clone(), &config);
 
         let mut octree = Octree::new(4);
-        octree.insert(Vec3::new(0, 0, 0), Some(0));
-        //octree.insert(Vec3::new(0, 0, 0), None);
+        octree.insert(Vec3::new(0, 4, 2), Some(0));
+        
+        println!("Value: {:?}", octree.get(Vec3::new(0, 7, 2)));
 
         Self
         {
@@ -190,7 +200,6 @@ impl AppState
             renderer,
             camera_entity: CameraEntity::new(camera, 20., 50.),
             terrain,
-            octree
         }
     }
 
@@ -261,27 +270,7 @@ impl AppState
 
     fn on_render(&mut self) -> Result<(), wgpu::SurfaceError>
     {        
-        let mut debug_objs = vec![];
-
-        self.octree.visit(&mut |pos, size, node_type| {
-            let pos = pos.cast().unwrap();
-            let size = Vec3::from_value(size).cast().unwrap();
-            let color = match node_type 
-            {
-                VisitedNodeType::Branch => Color::RED,
-                VisitedNodeType::Leaf(l) => 
-                {
-                    match l 
-                    {
-                        Some(_) => Color::BLACK,
-                        None => Color::WHITE,
-                    }
-                },
-            };
-
-            debug_objs.push(DebugObject::Cube(DebugCube::new(pos, size, color)));
-        });
-
+        let debug_objs = vec![];
         self.renderer.update(self.camera_entity.camera(), &debug_objs);
 
         self.renderer.render()?;

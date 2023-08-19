@@ -12,14 +12,13 @@ use crate::utils::Array3D;
 pub struct VoxelData
 {
     color: Color,
-    is_solid: bool
 }
 
 impl VoxelData
 {
-    pub fn new(color: Color, is_solid: bool) -> Self
+    pub fn new(color: Color) -> Self
     {
-        Self { color, is_solid }
+        Self { color }
     }
 
     pub fn get_render_data(&self) -> VoxelRenderData
@@ -29,7 +28,7 @@ impl VoxelData
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Voxel 
 {
     id: u8

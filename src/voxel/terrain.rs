@@ -1,27 +1,37 @@
 use crate::utils::Array3D;
-use super::*;
+use super::{*, octree::Octree};
 
 pub struct Chunk
 {
-    data: Array3D<Voxel>,
+    data: Octree<Voxel>,
     position: Vec3<usize>,
-    voxels: Vec<VoxelData>,
-    size: usize
+    voxels: Vec<VoxelData>
 }
 
 impl Chunk
 {
-    pub fn new<F>(generator: &F, position: Vec3<usize>, voxels: Vec<VoxelData>, size: usize) -> Self 
-        where F : Fn(usize, usize, usize) -> Voxel
+    pub fn size(&self) -> usize {self.data.length()} 
+
+    pub fn new<F>(generator: &F, position: Vec3<usize>, voxels: Vec<VoxelData>, chunk_depth: usize) -> Self 
+        where F : Fn(usize, usize, usize) -> Option<Voxel>
     {
-        let data = Array3D::new(size, size, size, generator);
+        let mut data = Octree::new(chunk_depth);
+        for x in 0..data.length()
+        {
+            for y in 0..data.length()
+            {
+                for z in 0..data.length()
+                {
+                    data.insert([x, y, z].into(), generator(x, y, z))
+                }
+            }
+        }
 
         Self 
         {
             data,
             position,
-            voxels,
-            size
+            voxels
         }
     }
 
@@ -29,11 +39,11 @@ impl Chunk
     {
         let mut faces = vec![];
 
-        for x in 0..self.size
+        for x in 0..self.size()
         {
-            for y in 0..self.size
+            for y in 0..self.size()
             {
-                for z in 0..self.size 
+                for z in 0..self.size() 
                 {
                     self.add_faces(x, y, z, self.position, &mut faces);
                 }
@@ -49,18 +59,17 @@ impl Chunk
         {
             VoxelFaces::SOUTH => 
             {
-                if z > self.size
+                if z > self.size()
                 {
                     panic!("Index (x: {}, y: {}, z: {}) is not inside the chunk", x, y, z)
                 }
-                else if z == self.size - 1
+                else if z == self.size() - 1
                 {
                     true
                 }
                 else 
                 {
-                    let id = self.data[(x, y, z + 1)].id;
-                    !self.voxels[id as usize].is_solid
+                    self.data.get([x, y, z + 1].into()).is_some()
                 }
             },
             VoxelFaces::NORTH => 
@@ -71,8 +80,7 @@ impl Chunk
                 }
                 else 
                 {
-                    let id = self.data[(x, y, z - 1)].id;
-                    !self.voxels[id as usize].is_solid
+                    self.data.get([x, y, z - 1].into()).is_some()
                 }
             },
             VoxelFaces::WEST => 
@@ -83,40 +91,37 @@ impl Chunk
                 }
                 else 
                 {
-                    let id = self.data[(x - 1, y, z)].id;
-                    !self.voxels[id as usize].is_solid
+                    self.data.get([x - 1, y, z].into()).is_some()
                 }
             },
             VoxelFaces::EAST => 
             {
-                if x > self.size
+                if x > self.size()
                 {
                     panic!("Index (x: {}, y: {}, z: {}) is not inside the chunk", x, y, z)
                 }
-                else if x == self.size - 1
+                else if x == self.size() - 1
                 {
                     true
                 }
                 else 
                 {
-                    let id = self.data[(x + 1, y, z)].id;
-                    !self.voxels[id as usize].is_solid
+                    self.data.get([x + 1, y, z].into()).is_some()
                 }
             },
             VoxelFaces::UP => 
             {
-                if y > self.size
+                if y > self.size()
                 {
                     panic!("Index (x: {}, y: {}, z: {}) is not inside the chunk", x, y, z)
                 }
-                else if y == self.size - 1
+                else if y == self.size() - 1
                 {
                     true
                 }
                 else 
                 {
-                    let id = self.data[(x, y + 1, z)].id;
-                    !self.voxels[id as usize].is_solid
+                    self.data.get([x, y + 1, z].into()).is_some()
                 }
             },
             VoxelFaces::DOWN => 
@@ -127,8 +132,7 @@ impl Chunk
                 }
                 else 
                 {
-                    let id = self.data[(x, y - 1, z)].id;
-                    !self.voxels[id as usize].is_solid
+                    self.data.get([x, y - 1, z].into()).is_some()
                 }
             },
             _ => panic!("This should not be reached")
@@ -137,52 +141,48 @@ impl Chunk
 
     fn add_faces(&self, x: usize, y: usize, z: usize, chunk_pos: Vec3<usize>, faces: &mut Vec<VoxelFaceData>)
     {
-        if x >= self.size || y >= self.size || z >= self.size
+        if x >= self.size() || y >= self.size() || z >= self.size()
         {
             panic!("Index (x: {}, y: {}, z: {}) is not inside the chunk", x, y, z);
         }
 
-        let id = self.data[(x, y, z)].id;
-        if !self.voxels[id as usize].is_solid
-        {
-            return;
-        }
+        let Some(voxel) = self.data.get([x, y, z].into()) else { return; };
 
         let pos = chunk_pos.map(|v| v as u32) + Vec3::new(x as u32, y as u32, z as u32);
 
         if self.has_face(x, y, z, VoxelFaces::SOUTH)
         {
-            let face = VoxelFaceData::new(pos, id as u32, VoxelFaces::SOUTH);
+            let face = VoxelFaceData::new(pos, voxel.id as u32, VoxelFaces::SOUTH);
             faces.push(face);
         }
 
         if self.has_face(x, y, z, VoxelFaces::NORTH)
         {
-            let face = VoxelFaceData::new(pos, id as u32, VoxelFaces::NORTH);
+            let face = VoxelFaceData::new(pos, voxel.id as u32, VoxelFaces::NORTH);
             faces.push(face);
         }
 
         if self.has_face(x, y, z, VoxelFaces::EAST)
         {
-            let face = VoxelFaceData::new(pos, id as u32, VoxelFaces::EAST);
+            let face = VoxelFaceData::new(pos, voxel.id as u32, VoxelFaces::EAST);
             faces.push(face);
         }
 
         if self.has_face(x, y, z, VoxelFaces::WEST)
         {
-            let face = VoxelFaceData::new(pos, id as u32, VoxelFaces::WEST);
+            let face = VoxelFaceData::new(pos, voxel.id as u32, VoxelFaces::WEST);
             faces.push(face);
         }
 
         if self.has_face(x, y, z, VoxelFaces::UP)
         {
-            let face = VoxelFaceData::new(pos, id as u32, VoxelFaces::UP);
+            let face = VoxelFaceData::new(pos, voxel.id as u32, VoxelFaces::UP);
             faces.push(face);
         }
 
         if self.has_face(x, y, z, VoxelFaces::DOWN)
         {
-            let face = VoxelFaceData::new(pos, id as u32, VoxelFaces::DOWN);
+            let face = VoxelFaceData::new(pos, voxel.id as u32, VoxelFaces::DOWN);
             faces.push(face);
         }
     }
@@ -205,7 +205,7 @@ impl VoxelTerrain
     pub fn voxel_types(&self) -> &[VoxelData] { &self.voxel_types }
 
     pub fn new<F>(position: Point3D<f32>, size_in_chunks: Vec3<usize>, chunk_size: usize, voxel_size: f32, voxel_types: Vec<VoxelData>, generator: &F) -> Self
-        where F : Fn(Vec3<usize>) -> Voxel
+        where F : Fn(Vec3<usize>) -> Option<Voxel>
     {
         let mut chunks = vec![];
 

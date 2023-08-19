@@ -168,7 +168,7 @@ impl GameRenderer
 
     pub fn render(&self) -> Result<(), wgpu::SurfaceError>
     {
-        self.renderer.render(&[/*&self.voxel_stage,*/ &self.debug_stage])
+        self.renderer.render(&[&self.voxel_stage, &self.debug_stage])
     }
 
     pub fn resize(&mut self, config: &wgpu::SurfaceConfiguration)
