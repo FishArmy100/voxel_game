@@ -6,7 +6,7 @@ use wgpu::util::DeviceExt;
 use crate::camera::{Camera, CameraUniform, self};
 use crate::debug_utils;
 use crate::math::{Vec3, Mat4x4, Point3D};
-use crate::rendering::ModelUniform;
+use crate::rendering::{ModelUniform, construct_render_pipeline};
 use crate::texture::Texture;
 use crate::voxel::{VoxelData, terrain::VoxelTerrain};
 
@@ -178,13 +178,23 @@ impl VoxelRenderStage
         let model_uniform = ModelUniform::from_position(terrain.position());
         let model_bind_group = BindGroupData::uniform("model_bind_group".into(), model_uniform, wgpu::ShaderStages::VERTEX, device);
 
-        let render_pipeline = debug_utils::time_call(|| Self::gen_render_pipeline(device, config, &camera_bind_group, &voxel_bind_group, &model_bind_group), "Constructing Render Pipeline") ;
-
         let vertex_buffer = VertexBuffer::new(&VOXEL_FACE_VERTICES, device, Some("Voxel vertex buffer"));
         let index_buffer = IndexBuffer::new(device, &VOXEL_FACE_TRIANGLES, Some("Voxel index buffer"));
 
         const FACE_BUFFER_CAPACITY: u64 = 65545;
         let faces_buffer = VertexBuffer::new_empty::<VoxelFaceData>(device, FACE_BUFFER_CAPACITY, Some("Faces instance buffer"));
+
+        let render_pipeline = construct_render_pipeline(device, config, &crate::rendering::RenderPipelineInfo 
+        { 
+            shader_source: include_str!("../shaders/voxel_shader.wgsl"), 
+            shader_name: Some("Voxel shader"), 
+            vs_main: "vs_main", 
+            fs_main: "fs_main", 
+            vertex_buffers: &[&vertex_buffer, &faces_buffer], 
+            bind_groups: &[&camera_bind_group, &model_bind_group, &voxel_bind_group], 
+            label: Some("Voxel Render Pipeline"), 
+            use_depth_texture: true
+        });
 
         Self 
         {
@@ -201,73 +211,6 @@ impl VoxelRenderStage
     pub fn update(&mut self, camera: Camera)
     {
         self.camera = camera;
-    }
-
-    fn get_voxel_index_buffer(device: &wgpu::Device) -> wgpu::Buffer
-    {
-        device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Index Buffer"),
-                contents: bytemuck::cast_slice(&VOXEL_FACE_TRIANGLES),
-                usage: wgpu::BufferUsages::INDEX,
-            })
-    }
-
-    fn gen_render_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, camera_bind_group: &BindGroupData, voxel_bind_group: &BindGroupData, model_bind_group: &BindGroupData) -> wgpu::RenderPipeline
-    {
-        let shader = device.create_shader_module(wgpu::include_wgsl!("../shaders/voxel_shader.wgsl"));
-        let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Voxel Render Pipeline Layout"),
-            bind_group_layouts: &[&camera_bind_group.layout(), &model_bind_group.layout(), &voxel_bind_group.layout()],
-            push_constant_ranges: &[]
-        });
-
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Voxel Render Pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: "vs_main",
-                buffers: &[VoxelVertex::desc(), VoxelFaceData::desc()]
-            },
-            
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: "fs_main",
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: config.format,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL
-                })],
-            }),
-
-            primitive: wgpu::PrimitiveState { 
-                topology: wgpu::PrimitiveTopology::TriangleList, 
-                strip_index_format: None, 
-                front_face: wgpu::FrontFace::Ccw, 
-                cull_mode: Some(wgpu::Face::Back), 
-                unclipped_depth: false, 
-                polygon_mode: wgpu::PolygonMode::Fill, 
-                conservative: false 
-            },
-
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: Texture::DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less, // 1.
-                stencil: wgpu::StencilState::default(), // 2.
-                bias: wgpu::DepthBiasState::default(),
-            }),
-        
-            multisample: wgpu::MultisampleState { 
-                count: 1, 
-                mask: !0, 
-                alpha_to_coverage_enabled: false 
-            },
-            multiview: None
-        });
-
-        render_pipeline
     }
 }
 

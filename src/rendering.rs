@@ -5,10 +5,10 @@ pub mod mesh;
 
 use std::sync::Arc;
 
-use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::terrain::VoxelTerrain, camera::Camera, colors::Color};
+use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::terrain::VoxelTerrain, camera::Camera, colors::Color, texture::Texture};
 use wgpu::{util::DeviceExt};
 
-use self::{renderer::Renderer, debug_render_stage::{DebugRenderStage, DebugLine, DebugObject}, voxel_render_stage::VoxelRenderStage};
+use self::{renderer::Renderer, debug_render_stage::{DebugRenderStage, DebugLine, DebugObject}, voxel_render_stage::VoxelRenderStage, mesh::{MeshRenderStage, Mesh, MeshInstance}};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -266,11 +266,92 @@ impl IndexBuffer
     }
 }
 
+pub struct RenderPipelineInfo<'l>
+{
+    pub shader_source: &'l str,
+    pub shader_name: Option<&'l str>,
+
+    pub vs_main: &'l str,
+    pub fs_main: &'l str,
+
+    pub vertex_buffers: &'l [&'l VertexBuffer],
+    pub bind_groups: &'l [&'l BindGroupData],
+
+    label: Option<&'l str>,
+    use_depth_texture: bool
+}
+
+pub fn construct_render_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, info: &RenderPipelineInfo) -> wgpu::RenderPipeline
+{
+    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("Shader"),
+        source: wgpu::ShaderSource::Wgsl(info.shader_source.into()),
+    });
+
+    let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: None,
+        bind_group_layouts: &info.bind_groups.iter()
+            .map(|b| b.layout().clone())
+            .collect::<Vec<_>>(),
+        push_constant_ranges: &[]
+    });
+
+    let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: info.label,
+        layout: Some(&render_pipeline_layout),
+        vertex: wgpu::VertexState {
+            module: &shader,
+            entry_point: info.vs_main,
+            buffers: &info.vertex_buffers.iter()
+                .map(|b| b.layout().clone())
+                .collect::<Vec<_>>()
+        },
+        
+        fragment: Some(wgpu::FragmentState {
+            module: &shader,
+            entry_point: info.fs_main,
+            targets: &[Some(wgpu::ColorTargetState {
+                format: config.format,
+                blend: Some(wgpu::BlendState::REPLACE),
+                write_mask: wgpu::ColorWrites::ALL
+            })],
+        }),
+
+        primitive: wgpu::PrimitiveState { 
+            topology: wgpu::PrimitiveTopology::TriangleList, 
+            strip_index_format: None, 
+            front_face: wgpu::FrontFace::Ccw, 
+            cull_mode: Some(wgpu::Face::Back), 
+            unclipped_depth: false, 
+            polygon_mode: wgpu::PolygonMode::Fill, 
+            conservative: false 
+        },
+
+        depth_stencil: Some(wgpu::DepthStencilState {
+            format: Texture::DEPTH_FORMAT,
+            depth_write_enabled: true,
+            depth_compare: wgpu::CompareFunction::Less, // 1.
+            stencil: wgpu::StencilState::default(), // 2.
+            bias: wgpu::DepthBiasState::default(),
+        }),
+    
+        multisample: wgpu::MultisampleState { 
+            count: 1, 
+            mask: !0, 
+            alpha_to_coverage_enabled: false 
+        },
+        multiview: None
+    });
+
+    render_pipeline
+}
+
 pub struct GameRenderer
 {
     renderer: Renderer,
     voxel_stage: VoxelRenderStage,
-    debug_stage: DebugRenderStage
+    debug_stage: DebugRenderStage,
+    mesh_stage: MeshRenderStage
 }
 
 impl GameRenderer
@@ -282,19 +363,21 @@ impl GameRenderer
 
         let voxel_stage = VoxelRenderStage::new(terrain, camera.clone(), &device, config);
         let debug_stage = DebugRenderStage::new(device.clone(), config, camera.clone(), &[]);
+        let mesh_stage = MeshRenderStage::new(Mesh::cube(Color::RED), &[MeshInstance::from_position([0.0, 2.0, 0.0].into())], camera, &device, config);
 
-        Self { renderer, voxel_stage, debug_stage }
+        Self { renderer, voxel_stage, debug_stage, mesh_stage }
     }
 
     pub fn update(&mut self, camera: &Camera, debug_objects: &[DebugObject])
     {
         self.voxel_stage.update(camera.clone());
         self.debug_stage.update(debug_objects, camera.clone());
+        self.mesh_stage.update(camera.clone())
     }
 
     pub fn render(&self) -> Result<(), wgpu::SurfaceError>
     {
-        self.renderer.render(&[&self.voxel_stage, &self.debug_stage])
+        self.renderer.render(&[&self.voxel_stage, &self.debug_stage, &self.mesh_stage])
     }
 
     pub fn resize(&mut self, config: &wgpu::SurfaceConfiguration)
