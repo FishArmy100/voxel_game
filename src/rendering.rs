@@ -1,11 +1,12 @@
 pub mod renderer;
 pub mod voxel_render_stage;
 pub mod debug_render_stage;
+pub mod mesh;
 
 use std::sync::Arc;
 
 use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::terrain::VoxelTerrain, camera::Camera, colors::Color};
-use wgpu::util::DeviceExt;
+use wgpu::{util::DeviceExt};
 
 use self::{renderer::Renderer, debug_render_stage::{DebugRenderStage, DebugLine, DebugObject}, voxel_render_stage::VoxelRenderStage};
 
@@ -138,6 +139,131 @@ pub trait DrawCall
 {
     fn on_pre_draw(&self, queue: &wgpu::Queue);
     fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>);
+}
+
+pub trait VertexData
+{
+    fn desc() -> wgpu::VertexBufferLayout<'static>;
+    fn append_bytes(&self, bytes: &mut Vec<u8>);
+}
+
+fn collect_bytes_from_vertex_slice<T>(vertices: &[T]) -> Vec<u8>
+    where T : VertexData
+{
+    let mut bytes = Vec::with_capacity(vertices.len() * T::desc().array_stride as usize);
+
+    for vert in vertices
+    {
+        vert.append_bytes(&mut bytes);
+    }
+
+    bytes
+}
+
+pub struct VertexBuffer
+{
+    buffer: wgpu::Buffer,
+    capacity: u64,
+    layout: wgpu::VertexBufferLayout<'static>
+}
+
+impl VertexBuffer
+{
+    pub fn capacity(&self) -> u64 { self.capacity }
+    pub fn layout(&self) -> &wgpu::VertexBufferLayout<'static> { &self.layout }
+
+    pub fn new<T>(vertices: &[T], device: &wgpu::Device, label: Option<&str>) -> Self
+        where T : VertexData
+    {
+        let layout = T::desc();
+        let capacity = vertices.len() as u64;
+        let data = collect_bytes_from_vertex_slice(vertices);
+
+        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label,
+            contents: &data,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST
+        });
+
+        Self { buffer, capacity, layout }
+    }
+
+    pub fn new_empty<T>(device: &wgpu::Device, capacity: u64, label: Option<&str>) -> Self 
+        where T : VertexData
+    {
+        let layout = T::desc();
+        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label,
+            contents: &vec![0 as u8; (layout.array_stride * capacity) as usize],
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST
+        });
+
+        Self { buffer, capacity, layout }
+    }
+
+    pub fn enqueue_set_data<T>(&self, queue: &wgpu::Queue, vertices: &[T])
+        where T : VertexData
+    {
+        assert!(vertices.len() as u64 <= self.capacity, "Data is larger than the capacity of this buffer.");
+        assert!(T::desc() == self.layout, "Layout for the data is different than the layout of this buffer.");
+
+        let data = collect_bytes_from_vertex_slice(vertices);
+        queue.write_buffer(&self.buffer, 0, &data)
+    }
+
+    pub fn slice<B>(&self, bounds: B) -> wgpu::BufferSlice
+        where B : std::ops::RangeBounds<wgpu::BufferAddress>
+    {
+        self.buffer.slice(bounds)
+    }
+}
+
+pub struct IndexBuffer 
+{
+    buffer: wgpu::Buffer,
+    capacity: u64
+}
+
+impl IndexBuffer
+{
+    pub fn capacity(&self) -> u64 { self.capacity }
+
+    pub fn new(device: &wgpu::Device, indices: &[u16], label: Option<&str>) -> Self
+    {
+        let capacity = indices.len() as u64;
+        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label,
+            contents: bytemuck::cast_slice(indices),
+            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST
+        });
+
+        Self { buffer, capacity }
+    }
+
+    pub fn new_empty(device: &wgpu::Device, capacity: u64, label: Option<&str>) -> Self
+    {
+        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label,
+            contents: &vec![0 as u8; capacity as usize * 2],
+            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST
+        });
+
+        Self { buffer, capacity }
+    }
+
+    pub fn enqueue_set_data<T>(&self, queue: &wgpu::Queue, indices: &[u16])
+        where T : VertexData
+    {
+        assert!(indices.len() as u64 <= self.capacity, "Data is larger than the capacity of this buffer.");
+
+        queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(indices));
+    }
+
+    pub fn slice<B>(&self, bounds: B) -> wgpu::BufferSlice
+        where B : std::ops::RangeBounds<wgpu::BufferAddress>
+    {
+        self.buffer.slice(bounds)
+    }
 }
 
 pub struct GameRenderer

@@ -69,7 +69,7 @@ impl Chunk
                 }
                 else 
                 {
-                    self.data.get([x, y, z + 1].into()).is_some()
+                    self.data.get([x, y, z + 1].into()).is_none()
                 }
             },
             VoxelFaces::NORTH => 
@@ -80,7 +80,7 @@ impl Chunk
                 }
                 else 
                 {
-                    self.data.get([x, y, z - 1].into()).is_some()
+                    self.data.get([x, y, z - 1].into()).is_none()
                 }
             },
             VoxelFaces::WEST => 
@@ -91,7 +91,7 @@ impl Chunk
                 }
                 else 
                 {
-                    self.data.get([x - 1, y, z].into()).is_some()
+                    self.data.get([x - 1, y, z].into()).is_none()
                 }
             },
             VoxelFaces::EAST => 
@@ -106,7 +106,7 @@ impl Chunk
                 }
                 else 
                 {
-                    self.data.get([x + 1, y, z].into()).is_some()
+                    self.data.get([x + 1, y, z].into()).is_none()
                 }
             },
             VoxelFaces::UP => 
@@ -121,7 +121,7 @@ impl Chunk
                 }
                 else 
                 {
-                    self.data.get([x, y + 1, z].into()).is_some()
+                    self.data.get([x, y + 1, z].into()).is_none()
                 }
             },
             VoxelFaces::DOWN => 
@@ -132,7 +132,7 @@ impl Chunk
                 }
                 else 
                 {
-                    self.data.get([x, y - 1, z].into()).is_some()
+                    self.data.get([x, y - 1, z].into()).is_none()
                 }
             },
             _ => panic!("This should not be reached")

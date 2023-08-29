@@ -5,7 +5,6 @@ use std::sync::Arc;
 use crate::colors::Color;
 use crate::math::{Vec3, Point3D};
 use crate::rendering::voxel_render_stage::{VoxelFaceData, VoxelFaces, VoxelRenderData};
-use crate::utils::Array3D;
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
@@ -31,12 +30,12 @@ impl VoxelData
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Voxel 
 {
-    id: u8
+    id: u16
 }
 
 impl Voxel
 {
-    pub fn new(id: u8) -> Self
+    pub fn new(id: u16) -> Self
     {
         Self { id }
     }

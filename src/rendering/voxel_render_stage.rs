@@ -11,7 +11,7 @@ use crate::texture::Texture;
 use crate::voxel::{VoxelData, terrain::VoxelTerrain};
 
 use crate::colors::Color;
-use super::{RenderStage, DrawCall, BindGroupData};
+use super::{RenderStage, DrawCall, BindGroupData, VertexBuffer, VertexData, IndexBuffer};
 
 pub const VOXEL_FACE_VERTICES: [VoxelVertex; 4] = [VoxelVertex::new(0, Color::WHITE), VoxelVertex::new(1, Color::RED), VoxelVertex::new(2, Color::GREEN), VoxelVertex::new(3, Color::BLUE)];
 pub const VOXEL_FACE_TRIANGLES: [u16; 6] = [2, 1, 0, 2, 3, 1];
@@ -58,6 +58,17 @@ impl VoxelVertex
 unsafe impl bytemuck::Pod for VoxelVertex {}
 unsafe impl bytemuck::Zeroable for VoxelVertex {}
 
+impl VertexData for VoxelVertex
+{
+    fn desc() -> wgpu::VertexBufferLayout<'static> {
+        Self::desc()
+    }
+
+    fn append_bytes(&self, bytes: &mut Vec<u8>) {
+        bytes.extend(bytemuck::cast_slice(&[*self]).iter())
+    }
+}
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct VoxelFaceData
@@ -89,6 +100,17 @@ impl VoxelFaceData
 
 unsafe impl bytemuck::Pod for VoxelFaceData {}
 unsafe impl bytemuck::Zeroable for VoxelFaceData {}
+
+impl VertexData for VoxelFaceData
+{
+    fn desc() -> wgpu::VertexBufferLayout<'static> {
+        Self::desc()
+    }
+
+    fn append_bytes(&self, bytes: &mut Vec<u8>) {
+        bytes.extend(bytemuck::cast_slice(&[*self]).iter());
+    }
+}
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -136,11 +158,10 @@ pub struct VoxelRenderStage
 
     camera: Camera,
 
-    faces_buffer: wgpu::Buffer,
-    face_buffer_capacity: u32,
+    faces_buffer: VertexBuffer,
 
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer
+    vertex_buffer: VertexBuffer,
+    index_buffer: IndexBuffer
 }
 
 impl VoxelRenderStage
@@ -159,11 +180,11 @@ impl VoxelRenderStage
 
         let render_pipeline = debug_utils::time_call(|| Self::gen_render_pipeline(device, config, &camera_bind_group, &voxel_bind_group, &model_bind_group), "Constructing Render Pipeline") ;
 
-        let vertex_buffer = Self::get_voxel_vertex_buffer(device);
-        let index_buffer = Self::get_voxel_index_buffer(device);
+        let vertex_buffer = VertexBuffer::new(&VOXEL_FACE_VERTICES, device, Some("Voxel vertex buffer"));
+        let index_buffer = IndexBuffer::new(device, &VOXEL_FACE_TRIANGLES, Some("Voxel index buffer"));
 
-        const FACE_BUFFER_CAPACITY: u32 = 65545;
-        let faces_buffer = Self::get_faces_buffer(device, FACE_BUFFER_CAPACITY);
+        const FACE_BUFFER_CAPACITY: u64 = 65545;
+        let faces_buffer = VertexBuffer::new_empty::<VoxelFaceData>(device, FACE_BUFFER_CAPACITY, Some("Faces instance buffer"));
 
         Self 
         {
@@ -172,7 +193,6 @@ impl VoxelRenderStage
             render_pipeline,
             camera,
             faces_buffer,
-            face_buffer_capacity: FACE_BUFFER_CAPACITY,
             vertex_buffer,
             index_buffer
         }
@@ -183,16 +203,6 @@ impl VoxelRenderStage
         self.camera = camera;
     }
 
-    fn get_voxel_vertex_buffer(device: &wgpu::Device) -> wgpu::Buffer
-    {
-        device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(&VOXEL_FACE_VERTICES),
-                usage: wgpu::BufferUsages::VERTEX,
-            })
-    }
-
     fn get_voxel_index_buffer(device: &wgpu::Device) -> wgpu::Buffer
     {
         device.create_buffer_init(
@@ -201,15 +211,6 @@ impl VoxelRenderStage
                 contents: bytemuck::cast_slice(&VOXEL_FACE_TRIANGLES),
                 usage: wgpu::BufferUsages::INDEX,
             })
-    }
-
-    fn get_faces_buffer(device: &wgpu::Device, face_buffer_capacity: u32) -> wgpu::Buffer
-    {
-        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Instance Buffer"),
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            contents: &vec![0 as u8; std::mem::size_of::<VoxelFaceData>() * face_buffer_capacity as usize]
-        })
     }
 
     fn gen_render_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, camera_bind_group: &BindGroupData, voxel_bind_group: &BindGroupData, model_bind_group: &BindGroupData) -> wgpu::RenderPipeline
@@ -285,9 +286,9 @@ impl RenderStage for VoxelRenderStage
     fn get_draw_calls<'s>(&'s self) -> Vec<Box<(dyn DrawCall + 's)>>
     {
         let faces_count = self.terrain.faces().len();
-        let mut ranges = vec![self.face_buffer_capacity; faces_count / self.face_buffer_capacity as usize];
-        let remainder = faces_count % self.face_buffer_capacity as usize;
-        if remainder != 0 { ranges.push(remainder as u32); }
+        let mut ranges = vec![self.faces_buffer.capacity(); faces_count / self.faces_buffer.capacity() as usize];
+        let remainder = faces_count % self.faces_buffer.capacity() as usize;
+        if remainder != 0 { ranges.push(remainder as u64); }
 
         let mut current_index: usize = 0;
         let mut draw_calls: Vec<Box<dyn DrawCall>> = vec![];
@@ -319,9 +320,9 @@ impl RenderStage for VoxelRenderStage
 pub struct VoxelDrawCall<'vox, 'buffer, 'bind_group>
 {
     voxels: &'vox [VoxelFaceData],
-    faces_buffer: &'buffer wgpu::Buffer,
-    vertex_buffer: &'buffer wgpu::Buffer,
-    index_buffer: &'buffer wgpu::Buffer,
+    faces_buffer: &'buffer VertexBuffer,
+    vertex_buffer: &'buffer VertexBuffer,
+    index_buffer: &'buffer IndexBuffer,
     faces_length: u64,
 
     camera: Camera,
@@ -335,7 +336,7 @@ impl<'vox, 'buffer, 'bind_group> DrawCall for VoxelDrawCall<'vox, 'buffer, 'bind
 {
     fn on_pre_draw(&self, queue: &wgpu::Queue) 
     {
-        queue.write_buffer(&self.faces_buffer, 0, bytemuck::cast_slice(self.voxels));
+        self.faces_buffer.enqueue_set_data(queue, self.voxels);
 
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&self.camera);

@@ -150,9 +150,16 @@ impl AppState
         };
 
         let generator2 = |position: Vec3<usize>| {
-            if (position.x % 2 == 0) ^ (position.z % 2 == 0) && position.y == 0
+            if position.y == 0
             {
-                Some(Voxel::new(1))
+                if (position.x % 2 == 0) ^ (position.z % 2 == 0)
+                {
+                    Some(Voxel::new(1))
+                }
+                else 
+                {
+                    Some(Voxel::new(3))
+                }
             }
             else 
             {
