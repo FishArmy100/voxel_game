@@ -4,7 +4,7 @@ pub mod terrain;
 use std::sync::Arc;
 use crate::colors::Color;
 use crate::math::{Vec3, Point3D};
-use crate::rendering::voxel_render_stage::{VoxelFaceData, VoxelFaces, VoxelRenderData};
+use crate::rendering::voxel_render_stage::{VoxelFaceData, VoxelRenderData};
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]

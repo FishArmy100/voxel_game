@@ -1,30 +1,54 @@
 use std::sync::Arc;
 
-use cgmath::EuclideanSpace;
-use wgpu::util::DeviceExt;
-
-use crate::camera::{Camera, CameraUniform, self};
-use crate::debug_utils;
+use crate::camera::{Camera, CameraUniform};
 use crate::math::{Vec3, Mat4x4, Point3D};
 use crate::rendering::{ModelUniform, construct_render_pipeline};
-use crate::texture::Texture;
-use crate::voxel::{VoxelData, terrain::VoxelTerrain};
+use crate::voxel::terrain::VoxelTerrain;
 
 use crate::colors::Color;
 use super::{RenderStage, DrawCall, BindGroupData, VertexBuffer, VertexData, IndexBuffer};
 
 pub const VOXEL_FACE_VERTICES: [VoxelVertex; 4] = [VoxelVertex::new(0, Color::WHITE), VoxelVertex::new(1, Color::RED), VoxelVertex::new(2, Color::GREEN), VoxelVertex::new(3, Color::BLUE)];
 pub const VOXEL_FACE_TRIANGLES: [u16; 6] = [2, 1, 0, 2, 3, 1];
-pub struct VoxelFaces();
 
-impl VoxelFaces
+pub enum VoxelFace 
 {
-    pub const UP: u32 = 0;
-    pub const DOWN: u32 = 1;
-    pub const NORTH: u32 = 2;
-    pub const SOUTH: u32 = 3;
-    pub const EAST: u32 = 4;
-    pub const WEST: u32 = 5;
+    Up,
+    Down,
+    North,
+    South,
+    East,
+    West
+}
+
+impl VoxelFace
+{
+    pub fn to_index(&self) -> u16
+    {
+        match self 
+        {
+            VoxelFace::Up => 0,
+            VoxelFace::Down => 1,
+            VoxelFace::North => 2,
+            VoxelFace::South => 3,
+            VoxelFace::East => 4,
+            VoxelFace::West => 5,
+        }
+    }
+
+    pub fn from_index(index: u16) -> Self
+    {
+        match index 
+        {
+            0 => Self::Up,
+            1 => Self::Down,
+            2 => Self::North,
+            3 => Self::South,
+            4 => Self::East,
+            5 => Self::West,
+            _ => panic!("Invalid index {}", index)
+        }
+    }
 }
 
 #[repr(C)]
@@ -158,9 +182,9 @@ pub struct VoxelRenderStage
 
     camera: Camera,
 
-    faces_buffer: VertexBuffer,
+    faces_buffer: VertexBuffer<VoxelFaceData>,
 
-    vertex_buffer: VertexBuffer,
+    vertex_buffer: VertexBuffer<VoxelVertex>,
     index_buffer: IndexBuffer
 }
 
@@ -182,7 +206,7 @@ impl VoxelRenderStage
         let index_buffer = IndexBuffer::new(device, &VOXEL_FACE_TRIANGLES, Some("Voxel index buffer"));
 
         const FACE_BUFFER_CAPACITY: u64 = 65545;
-        let faces_buffer = VertexBuffer::new_empty::<VoxelFaceData>(device, FACE_BUFFER_CAPACITY, Some("Faces instance buffer"));
+        let faces_buffer = VertexBuffer::<VoxelFaceData>::new_empty(device, FACE_BUFFER_CAPACITY, Some("Faces instance buffer"));
 
         let render_pipeline = construct_render_pipeline(device, config, &crate::rendering::RenderPipelineInfo 
         { 
@@ -192,8 +216,7 @@ impl VoxelRenderStage
             fs_main: "fs_main", 
             vertex_buffers: &[&vertex_buffer, &faces_buffer], 
             bind_groups: &[&camera_bind_group, &model_bind_group, &voxel_bind_group], 
-            label: Some("Voxel Render Pipeline"), 
-            use_depth_texture: true
+            label: Some("Voxel Render Pipeline")
         });
 
         Self 
@@ -263,8 +286,8 @@ impl RenderStage for VoxelRenderStage
 pub struct VoxelDrawCall<'vox, 'buffer, 'bind_group>
 {
     voxels: &'vox [VoxelFaceData],
-    faces_buffer: &'buffer VertexBuffer,
-    vertex_buffer: &'buffer VertexBuffer,
+    faces_buffer: &'buffer VertexBuffer<VoxelFaceData>,
+    vertex_buffer: &'buffer VertexBuffer<VoxelVertex>,
     index_buffer: &'buffer IndexBuffer,
     faces_length: u64,
 
@@ -291,8 +314,8 @@ impl<'vox, 'buffer, 'bind_group> DrawCall for VoxelDrawCall<'vox, 'buffer, 'bind
 
     fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>)
     {
-        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.set_vertex_buffer(1, self.faces_buffer.slice(0..((self.faces_length as usize * std::mem::size_of::<VoxelFaceData>()) as u64)));
+        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice_all());
+        render_pass.set_vertex_buffer(1, self.faces_buffer.slice(0, (self.faces_length as usize * std::mem::size_of::<VoxelFaceData>()) as u64));
         render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
         render_pass.draw_indexed(0..6, 0, 0..(self.faces_length as u32));

@@ -3,7 +3,7 @@ pub mod voxel_render_stage;
 pub mod debug_render_stage;
 pub mod mesh;
 
-use std::sync::Arc;
+use std::{sync::Arc, marker::PhantomData, ops::RangeBounds};
 
 use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::terrain::VoxelTerrain, camera::Camera, colors::Color, texture::Texture};
 use wgpu::{util::DeviceExt};
@@ -34,7 +34,7 @@ impl ModelUniform
 unsafe impl bytemuck::Pod for ModelUniform {}
 unsafe impl bytemuck::Zeroable for ModelUniform {}
 
-pub struct BindGroupData 
+pub struct BindGroupData
 {
     name: String,
     layout: wgpu::BindGroupLayout,
@@ -160,20 +160,28 @@ fn collect_bytes_from_vertex_slice<T>(vertices: &[T]) -> Vec<u8>
     bytes
 }
 
-pub struct VertexBuffer
+pub trait IVertexBuffer
+{
+    fn capacity(&self) -> u64;
+    fn layout(&self) -> &wgpu::VertexBufferLayout<'static>;
+    fn slice(&self, first: wgpu::BufferAddress, last: wgpu::BufferAddress) -> wgpu::BufferSlice;
+    fn slice_all(&self) -> wgpu::BufferSlice;
+}
+
+pub struct VertexBuffer<T> where T : VertexData
 {
     buffer: wgpu::Buffer,
     capacity: u64,
-    layout: wgpu::VertexBufferLayout<'static>
+    layout: wgpu::VertexBufferLayout<'static>,
+    phantom: PhantomData<T>
 }
 
-impl VertexBuffer
+impl<T> VertexBuffer<T> where T : VertexData
 {
     pub fn capacity(&self) -> u64 { self.capacity }
     pub fn layout(&self) -> &wgpu::VertexBufferLayout<'static> { &self.layout }
 
-    pub fn new<T>(vertices: &[T], device: &wgpu::Device, label: Option<&str>) -> Self
-        where T : VertexData
+    pub fn new(vertices: &[T], device: &wgpu::Device, label: Option<&str>) -> Self
     {
         let layout = T::desc();
         let capacity = vertices.len() as u64;
@@ -185,11 +193,10 @@ impl VertexBuffer
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST
         });
 
-        Self { buffer, capacity, layout }
+        Self { buffer, capacity, layout, phantom: PhantomData }
     }
 
-    pub fn new_empty<T>(device: &wgpu::Device, capacity: u64, label: Option<&str>) -> Self 
-        where T : VertexData
+    pub fn new_empty(device: &wgpu::Device, capacity: u64, label: Option<&str>) -> Self
     {
         let layout = T::desc();
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -198,11 +205,10 @@ impl VertexBuffer
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST
         });
 
-        Self { buffer, capacity, layout }
+        Self { buffer, capacity, layout, phantom: PhantomData }
     }
 
-    pub fn enqueue_set_data<T>(&self, queue: &wgpu::Queue, vertices: &[T])
-        where T : VertexData
+    pub fn enqueue_set_data(&self, queue: &wgpu::Queue, vertices: &[T])
     {
         assert!(vertices.len() as u64 <= self.capacity, "Data is larger than the capacity of this buffer.");
         assert!(T::desc() == self.layout, "Layout for the data is different than the layout of this buffer.");
@@ -211,10 +217,30 @@ impl VertexBuffer
         queue.write_buffer(&self.buffer, 0, &data)
     }
 
-    pub fn slice<B>(&self, bounds: B) -> wgpu::BufferSlice
-        where B : std::ops::RangeBounds<wgpu::BufferAddress>
+    fn slice(&self, first: wgpu::BufferAddress, last: wgpu::BufferAddress) -> wgpu::BufferSlice
     {
-        self.buffer.slice(bounds)
+        self.buffer.slice(first..last)
+    }
+
+    fn slice_all(&self) -> wgpu::BufferSlice
+    {
+        self.buffer.slice(..)
+    }
+}
+
+impl<T> IVertexBuffer for VertexBuffer<T> where T : VertexData
+{
+    fn capacity(&self) -> u64 { self.capacity() }
+    fn layout(&self) -> &wgpu::VertexBufferLayout<'static> { self.layout() }
+
+    fn slice(&self, first: wgpu::BufferAddress, last: wgpu::BufferAddress) -> wgpu::BufferSlice
+    {
+        self.slice(first, last)
+    }
+
+    fn slice_all(&self) -> wgpu::BufferSlice 
+    {
+        self.slice_all()
     }
 }
 
@@ -260,7 +286,7 @@ impl IndexBuffer
     }
 
     pub fn slice<B>(&self, bounds: B) -> wgpu::BufferSlice
-        where B : std::ops::RangeBounds<wgpu::BufferAddress>
+        where B : RangeBounds<wgpu::BufferAddress>
     {
         self.buffer.slice(bounds)
     }
@@ -274,11 +300,10 @@ pub struct RenderPipelineInfo<'l>
     pub vs_main: &'l str,
     pub fs_main: &'l str,
 
-    pub vertex_buffers: &'l [&'l VertexBuffer],
+    pub vertex_buffers: &'l [&'l dyn IVertexBuffer],
     pub bind_groups: &'l [&'l BindGroupData],
 
-    label: Option<&'l str>,
-    use_depth_texture: bool
+    label: Option<&'l str>
 }
 
 pub fn construct_render_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, info: &RenderPipelineInfo) -> wgpu::RenderPipeline

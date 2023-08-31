@@ -154,9 +154,9 @@ impl VertexData for MeshInstance
 
 pub struct MeshRenderStage
 {
-    vertex_buffer: VertexBuffer,
+    vertex_buffer: VertexBuffer<Vertex>,
     index_buffer: IndexBuffer,
-    instance_buffer: VertexBuffer,
+    instance_buffer: VertexBuffer<MeshInstance>,
     render_pipeline: wgpu::RenderPipeline,
     bind_groups: [BindGroupData; 1],
     camera: Camera
@@ -182,8 +182,7 @@ impl MeshRenderStage
             fs_main: "fs_main",
             vertex_buffers: &[&vertex_buffer, &instance_buffer],
             bind_groups: &[&camera_bind_group], 
-            label: Some("Mesh render pipeline"), 
-            use_depth_texture: true 
+            label: Some("Mesh render pipeline")
         });
 
         Self { vertex_buffer, index_buffer, instance_buffer, render_pipeline, bind_groups: [camera_bind_group], camera }
@@ -218,9 +217,9 @@ impl RenderStage for MeshRenderStage
 
 pub struct MeshDrawCall<'buffer>
 {
-    vertex_buffer: &'buffer VertexBuffer,
+    vertex_buffer: &'buffer VertexBuffer<Vertex>,
     index_buffer: &'buffer IndexBuffer,
-    instance_buffer: &'buffer VertexBuffer,
+    instance_buffer: &'buffer VertexBuffer<MeshInstance>,
     camera_bind_group: &'buffer BindGroupData,
     camera: Camera
 }
@@ -236,8 +235,8 @@ impl<'buffer> DrawCall for MeshDrawCall<'buffer>
 
     fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>) 
     {
-        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
+        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice_all());
+        render_pass.set_vertex_buffer(1, self.instance_buffer.slice_all());
         render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
         render_pass.draw_indexed(0..(self.index_buffer.capacity as u32), 0, 0..(self.instance_buffer.capacity() as u32));
