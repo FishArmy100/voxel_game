@@ -182,8 +182,6 @@ pub struct VoxelRenderStage
 
     camera: Camera,
 
-    faces_buffer: VertexBuffer<VoxelFaceData>,
-
     vertex_buffer: VertexBuffer<VoxelVertex>,
     index_buffer: IndexBuffer
 }
@@ -225,7 +223,6 @@ impl VoxelRenderStage
             bind_groups: [camera_bind_group, model_bind_group, voxel_bind_group], 
             render_pipeline,
             camera,
-            faces_buffer,
             vertex_buffer,
             index_buffer
         }
@@ -251,25 +248,14 @@ impl RenderStage for VoxelRenderStage
 
     fn get_draw_calls<'s>(&'s self) -> Vec<Box<(dyn DrawCall + 's)>>
     {
-        let faces_count = self.terrain.faces().len();
-        let mut ranges = vec![self.faces_buffer.capacity(); faces_count / self.faces_buffer.capacity() as usize];
-        let remainder = faces_count % self.faces_buffer.capacity() as usize;
-        if remainder != 0 { ranges.push(remainder as u64); }
-
-        let mut current_index: usize = 0;
         let mut draw_calls: Vec<Box<dyn DrawCall>> = vec![];
-        for range in ranges
+        for chunk in self.terrain.chunks()
         {
-            let old = current_index;
-            current_index += range as usize;
-            let slice = &self.terrain.faces()[old..current_index];
             let draw_call = VoxelDrawCall
             {
-                voxels: slice,
-                faces_buffer: &self.faces_buffer,
+                faces_buffer: &chunk.faces_buffer(),
                 vertex_buffer: &self.vertex_buffer,
                 index_buffer: &self.index_buffer,
-                faces_length: self.terrain.faces().len() as u64,
                 camera: self.camera.clone(),
                 position: self.terrain.position(),
                 camera_bind_group: &self.bind_groups[0],
@@ -283,13 +269,11 @@ impl RenderStage for VoxelRenderStage
     }
 }
 
-pub struct VoxelDrawCall<'vox, 'buffer, 'bind_group>
+pub struct VoxelDrawCall<'buffer, 'bind_group>
 {
-    voxels: &'vox [VoxelFaceData],
     faces_buffer: &'buffer VertexBuffer<VoxelFaceData>,
     vertex_buffer: &'buffer VertexBuffer<VoxelVertex>,
     index_buffer: &'buffer IndexBuffer,
-    faces_length: u64,
 
     camera: Camera,
     position: Point3D<f32>,
@@ -298,12 +282,10 @@ pub struct VoxelDrawCall<'vox, 'buffer, 'bind_group>
     model_bind_group: &'bind_group BindGroupData
 }
 
-impl<'vox, 'buffer, 'bind_group> DrawCall for VoxelDrawCall<'vox, 'buffer, 'bind_group>
+impl<'vox, 'buffer, 'bind_group> DrawCall for VoxelDrawCall<'buffer, 'bind_group>
 {
     fn on_pre_draw(&self, queue: &wgpu::Queue) 
     {
-        self.faces_buffer.enqueue_set_data(queue, self.voxels);
-
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&self.camera);
         self.camera_bind_group.enqueue_set_data(queue, camera_uniform);
@@ -315,9 +297,9 @@ impl<'vox, 'buffer, 'bind_group> DrawCall for VoxelDrawCall<'vox, 'buffer, 'bind
     fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>)
     {
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice_all());
-        render_pass.set_vertex_buffer(1, self.faces_buffer.slice(0, (self.faces_length as usize * std::mem::size_of::<VoxelFaceData>()) as u64));
+        render_pass.set_vertex_buffer(1, self.faces_buffer.slice_all());
         render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-        render_pass.draw_indexed(0..6, 0, 0..(self.faces_length as u32));
+        render_pass.draw_indexed(0..6, 0, 0..(self.faces_buffer.capacity() as u32));
     }
 }

@@ -107,6 +107,10 @@ impl AppState
 
         surface.configure(&device, &config);
 
+        let surface = Arc::new(surface);
+        let device = Arc::new(device);
+        let queue = Arc::new(queue);
+
         let camera = Camera
         {
             eye: (0.0, 1.0, 2.0).into(),
@@ -118,7 +122,7 @@ impl AppState
             far: 100000.0
         };
 
-        let terrain_size_in_chunks = Vec3::new(1, 1, 1);
+        let terrain_size_in_chunks = Vec3::new(4, 4, 4);
 
         let perlin = Perlin::new(326236);
 
@@ -177,15 +181,11 @@ impl AppState
             VoxelData::new(Color::GREEN)
         ];
         
-        const CHUNK_DEPTH: usize = 4;
+        const CHUNK_DEPTH: usize = 5;
         const VOXEL_SIZE: f32 = 1.0;
 
         let terrain_pos = Point3D::new(0.0, 0.0, 0.0);
-        let terrain = Arc::new(VoxelTerrain::new(terrain_pos, terrain_size_in_chunks, CHUNK_DEPTH, VOXEL_SIZE, voxel_types, &generator2));
-
-        let surface = Arc::new(surface);
-        let device = Arc::new(device);
-        let queue = Arc::new(queue);
+        let terrain = Arc::new(VoxelTerrain::new(terrain_pos, terrain_size_in_chunks, CHUNK_DEPTH, VOXEL_SIZE, voxel_types, device.clone(), &generator));
 
         let renderer = GameRenderer::new(terrain.clone(), camera.clone(), device.clone(), surface.clone(), queue.clone(), &config);
 
@@ -288,7 +288,7 @@ impl AppState
     {
         let delta_time = self.current_time.elapsed().unwrap().as_secs_f32();
         self.camera_entity.update(delta_time); 
-        //println!("{}ms", delta_time * 1000.0);
+        println!("{}ms", delta_time * 1000.0);
         self.current_time = SystemTime::now();
     }
 }
