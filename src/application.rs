@@ -122,7 +122,7 @@ impl AppState
             far: 100000.0
         };
 
-        let terrain_size_in_chunks = Vec3::new(4, 4, 4);
+        let terrain_size_in_chunks = Vec3::new(8, 5, 8);
 
         let perlin = Perlin::new(326236);
 
@@ -181,7 +181,7 @@ impl AppState
             VoxelData::new(Color::GREEN)
         ];
         
-        const CHUNK_DEPTH: usize = 5;
+        const CHUNK_DEPTH: usize = 4;
         const VOXEL_SIZE: f32 = 1.0;
 
         let terrain_pos = Point3D::new(0.0, 0.0, 0.0);
@@ -277,7 +277,9 @@ impl AppState
 
     fn on_render(&mut self) -> Result<(), wgpu::SurfaceError>
     {        
-        let debug_objs = vec![];
+        let mut debug_objs = vec![];
+        let debug_line = DebugObject::Line(DebugLine::new(Vec3::new(0.0, 20.0, 0.0), Vec3::new(128.0, 20.0, 0.0), Color::BLACK));
+        debug_objs.push(debug_line);
         self.renderer.update(self.camera_entity.camera(), &debug_objs);
 
         self.renderer.render()?;

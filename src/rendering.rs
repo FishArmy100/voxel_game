@@ -6,6 +6,7 @@ pub mod mesh;
 use std::{sync::Arc, marker::PhantomData, ops::RangeBounds};
 
 use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::terrain::VoxelTerrain, camera::Camera, colors::Color, texture::Texture};
+use cgmath::Array;
 use wgpu::{util::DeviceExt};
 
 use self::{renderer::Renderer, debug_render_stage::{DebugRenderStage, DebugLine, DebugObject}, voxel_render_stage::VoxelRenderStage, mesh::{MeshRenderStage, Mesh, MeshInstance}};
