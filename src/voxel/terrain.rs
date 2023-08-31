@@ -1,5 +1,8 @@
 use crate::utils::Array3D;
-use super::{*, octree::Octree};
+use super::octree::Octree;
+use super::{Voxel, VoxelData, VoxelFaceData};
+use crate::rendering::voxel_render_stage::{VoxelFace};
+use crate::math::{Vec3, Point3D};
 
 pub struct Chunk
 {
@@ -53,11 +56,11 @@ impl Chunk
         faces
     }
 
-    fn has_face(&self, x: usize, y: usize, z: usize, face_id: u32) -> bool
+    fn has_face(&self, x: usize, y: usize, z: usize, face_id: VoxelFace) -> bool
     {
         match face_id
         {
-            VoxelFaces::SOUTH => 
+            VoxelFace::South => 
             {
                 if z > self.size()
                 {
@@ -72,7 +75,7 @@ impl Chunk
                     self.data.get([x, y, z + 1].into()).is_none()
                 }
             },
-            VoxelFaces::NORTH => 
+            VoxelFace::North => 
             {
                 if z == 0
                 {
@@ -83,7 +86,7 @@ impl Chunk
                     self.data.get([x, y, z - 1].into()).is_none()
                 }
             },
-            VoxelFaces::WEST => 
+            VoxelFace::West => 
             {
                 if x == 0
                 {
@@ -94,7 +97,7 @@ impl Chunk
                     self.data.get([x - 1, y, z].into()).is_none()
                 }
             },
-            VoxelFaces::EAST => 
+            VoxelFace::East => 
             {
                 if x > self.size()
                 {
@@ -109,7 +112,7 @@ impl Chunk
                     self.data.get([x + 1, y, z].into()).is_none()
                 }
             },
-            VoxelFaces::UP => 
+            VoxelFace::Up => 
             {
                 if y > self.size()
                 {
@@ -124,7 +127,7 @@ impl Chunk
                     self.data.get([x, y + 1, z].into()).is_none()
                 }
             },
-            VoxelFaces::DOWN => 
+            VoxelFace::Down => 
             {
                 if y == 0
                 {
@@ -150,39 +153,39 @@ impl Chunk
 
         let pos = chunk_pos.map(|v| v as u32) + Vec3::new(x as u32, y as u32, z as u32);
 
-        if self.has_face(x, y, z, VoxelFaces::SOUTH)
+        if self.has_face(x, y, z, VoxelFace::South)
         {
-            let face = VoxelFaceData::new(pos, voxel.id as u32, VoxelFaces::SOUTH);
+            let face = VoxelFaceData::new(pos, voxel.id as u32, VoxelFace::South.to_index());
             faces.push(face);
         }
 
-        if self.has_face(x, y, z, VoxelFaces::NORTH)
+        if self.has_face(x, y, z, VoxelFace::North)
         {
-            let face = VoxelFaceData::new(pos, voxel.id as u32, VoxelFaces::NORTH);
+            let face = VoxelFaceData::new(pos, voxel.id as u32, VoxelFace::North.to_index());
             faces.push(face);
         }
 
-        if self.has_face(x, y, z, VoxelFaces::EAST)
+        if self.has_face(x, y, z, VoxelFace::East)
         {
-            let face = VoxelFaceData::new(pos, voxel.id as u32, VoxelFaces::EAST);
+            let face = VoxelFaceData::new(pos, voxel.id as u32, VoxelFace::East.to_index());
             faces.push(face);
         }
 
-        if self.has_face(x, y, z, VoxelFaces::WEST)
+        if self.has_face(x, y, z, VoxelFace::West)
         {
-            let face = VoxelFaceData::new(pos, voxel.id as u32, VoxelFaces::WEST);
+            let face = VoxelFaceData::new(pos, voxel.id as u32, VoxelFace::West.to_index());
             faces.push(face);
         }
 
-        if self.has_face(x, y, z, VoxelFaces::UP)
+        if self.has_face(x, y, z, VoxelFace::Up)
         {
-            let face = VoxelFaceData::new(pos, voxel.id as u32, VoxelFaces::UP);
+            let face = VoxelFaceData::new(pos, voxel.id as u32, VoxelFace::Up.to_index());
             faces.push(face);
         }
 
-        if self.has_face(x, y, z, VoxelFaces::DOWN)
+        if self.has_face(x, y, z, VoxelFace::Down)
         {
-            let face = VoxelFaceData::new(pos, voxel.id as u32, VoxelFaces::DOWN);
+            let face = VoxelFaceData::new(pos, voxel.id as u32, VoxelFace::Down.to_index());
             faces.push(face);
         }
     }

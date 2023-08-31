@@ -23,7 +23,7 @@ pub enum VoxelFace
 
 impl VoxelFace
 {
-    pub fn to_index(&self) -> u16
+    pub fn to_index(&self) -> u32
     {
         match self 
         {
@@ -36,7 +36,7 @@ impl VoxelFace
         }
     }
 
-    pub fn from_index(index: u16) -> Self
+    pub fn from_index(index: u32) -> Self
     {
         match index 
         {
