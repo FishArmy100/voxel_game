@@ -217,11 +217,12 @@ impl VoxelTerrain
     pub fn voxel_types(&self) -> &[VoxelData] { &self.voxel_types }
     pub fn chunks(&self) -> &[Chunk] { &self.chunks }
 
-    pub fn new<F>(position: Point3D<f32>, size_in_chunks: Vec3<usize>, chunk_size: usize, voxel_size: f32, voxel_types: Vec<VoxelData>, device: Arc<wgpu::Device>, generator: &F) -> Self
+    pub fn new<F>(position: Point3D<f32>, size_in_chunks: Vec3<usize>, chunk_depth: usize, voxel_size: f32, voxel_types: Vec<VoxelData>, device: Arc<wgpu::Device>, generator: &F) -> Self
         where F : Fn(Vec3<usize>) -> Option<Voxel>
     {
         let mut chunks = vec![];
         let mut current_chunk = 0;
+        let chunk_size = (2 as usize).pow(chunk_depth as u32);
 
         for chunk_x in 0..size_in_chunks.x
         {
@@ -232,11 +233,11 @@ impl VoxelTerrain
                     let chunk_pos = Vec3::new(chunk_x * chunk_size, chunk_y * chunk_size, chunk_z * chunk_size);
                     let generator = |x, y, z| generator(Vec3::new(x + chunk_x * chunk_size, y + chunk_y * chunk_size, z + chunk_z * chunk_size));
                     
-                    let chunk = Chunk::new(&generator, chunk_pos, voxel_types.clone(), chunk_size, &device);
+                    let chunk = Chunk::new(&generator, chunk_pos, voxel_types.clone(), chunk_depth, &device);
                     chunks.push(chunk);
 
                     current_chunk += 1;
-                    println!("Generated chunk {}/{}", current_chunk, chunk_size * chunk_size * chunk_size);
+                    println!("Generated chunk {}/{}", current_chunk, size_in_chunks.x * size_in_chunks.y * size_in_chunks.z);
                 }
             }
         }

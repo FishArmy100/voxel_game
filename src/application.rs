@@ -122,7 +122,7 @@ impl AppState
             far: 100000.0
         };
 
-        let terrain_size_in_chunks = Vec3::new(8, 5, 8);
+        let terrain_size_in_chunks = Vec3::new(2, 2, 2);
 
         let perlin = Perlin::new(326236);
 
@@ -130,7 +130,7 @@ impl AppState
         {
             let noise_value = (perlin.get([pos.x as f64 / 30.494948, pos.z as f64 / 30.494948]) * (16 * terrain_size_in_chunks.y) as f64) as f32 / 4.;
             let water_height = terrain_size_in_chunks.y as f32 * 16. / 10.0;
-            let sand_height = water_height + 2.0;
+            let sand_height = water_height + 2.0; 
 
             if pos.y as f32 <= water_height
             {
@@ -181,7 +181,7 @@ impl AppState
             VoxelData::new(Color::GREEN)
         ];
         
-        const CHUNK_DEPTH: usize = 4;
+        const CHUNK_DEPTH: usize = 6;
         const VOXEL_SIZE: f32 = 1.0;
 
         let terrain_pos = Point3D::new(0.0, 0.0, 0.0);
@@ -278,8 +278,6 @@ impl AppState
     fn on_render(&mut self) -> Result<(), wgpu::SurfaceError>
     {        
         let mut debug_objs = vec![];
-        let debug_line = DebugObject::Line(DebugLine::new(Vec3::new(0.0, 20.0, 0.0), Vec3::new(128.0, 20.0, 0.0), Color::BLACK));
-        debug_objs.push(debug_line);
         self.renderer.update(self.camera_entity.camera(), &debug_objs);
 
         self.renderer.render()?;
