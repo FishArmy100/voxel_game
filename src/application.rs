@@ -64,7 +64,9 @@ pub struct FrameState
     keys_released: Vec<VirtualKeyCode>,
     keys_down: Vec<VirtualKeyCode>,
 
-    mouse_delta: Vec2<f64>,
+    mouse_delta: Vec2<f32>,
+    mouse_position: WindowPosition,
+
     mouse_buttons_pressed: Vec<MouseButton>,
     mouse_buttons_released: Vec<MouseButton>,
     mouse_buttons_down: Vec<MouseButton>,
@@ -99,7 +101,8 @@ impl FrameState
             mouse_buttons_down: vec![], 
             mouse_scroll_delta: None, 
             window_size: window.inner_size(),
-            delta_time: 0.0
+            delta_time: 0.0,
+            mouse_position: WindowPosition::new(0, 0)
         }
     }
 }
@@ -112,13 +115,14 @@ pub struct FrameStateBuilder
     keys_released: Vec<VirtualKeyCode>,
     keys_down: Vec<VirtualKeyCode>,
 
-    mouse_delta: Vec2<f64>,
     mouse_buttons_pressed: Vec<MouseButton>,
     mouse_buttons_released: Vec<MouseButton>,
     mouse_buttons_down: Vec<MouseButton>,
     mouse_scroll_delta: Option<MouseScrollDelta>,
 
     window_size: WindowSize,
+    old_mouse_position: WindowPosition,
+    current_mouse_position: WindowPosition
 }
 
 impl FrameStateBuilder
@@ -135,12 +139,13 @@ impl FrameStateBuilder
             keys_pressed: vec![], 
             keys_released: vec![], 
             keys_down, 
-            mouse_delta: Vec2::new(0.0, 0.0),
             mouse_buttons_pressed: vec![], 
             mouse_buttons_released: vec![], 
             mouse_buttons_down, 
             mouse_scroll_delta: None, 
-            window_size
+            window_size,
+            old_mouse_position: previous_frame.mouse_position,
+            current_mouse_position: previous_frame.mouse_position
         }
     }
 
@@ -181,6 +186,7 @@ impl FrameStateBuilder
                             },
                         }
                     }
+
                     WindowEvent::MouseInput 
                     { 
                         state, 
@@ -202,6 +208,25 @@ impl FrameStateBuilder
                             },
                         }
                     }
+
+                    WindowEvent::MouseWheel 
+                    { 
+                        delta,
+                        ..
+                    } =>
+                    {
+                        self.mouse_scroll_delta = Some(*delta)
+                    }
+
+                    WindowEvent::CursorMoved 
+                    {  
+                        position, 
+                        ..
+                    } =>
+                    {
+
+                    }
+
                     _ => {}
                 }
             }
@@ -216,7 +241,7 @@ impl FrameStateBuilder
             keys_pressed: self.keys_pressed.clone(), 
             keys_released: self.keys_released.clone(), 
             keys_down: self.keys_down.clone(), 
-            mouse_delta: self.mouse_delta, 
+            mouse_delta: (self.current_mouse_position - self.old_mouse_position), 
             mouse_buttons_pressed: self.mouse_buttons_pressed.clone(), 
             mouse_buttons_released: self.mouse_buttons_released.clone(), 
             mouse_buttons_down: self.mouse_buttons_down.clone(), 
