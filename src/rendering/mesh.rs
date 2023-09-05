@@ -158,7 +158,7 @@ pub struct MeshRenderStage
     index_buffer: IndexBuffer,
     instance_buffer: VertexBuffer<MeshInstance>,
     render_pipeline: wgpu::RenderPipeline,
-    bind_groups: [BindGroupData; 1],
+    camera_bind_group: BindGroupData,
     camera: Camera
 }
 
@@ -185,7 +185,15 @@ impl MeshRenderStage
             label: Some("Mesh render pipeline")
         });
 
-        Self { vertex_buffer, index_buffer, instance_buffer, render_pipeline, bind_groups: [camera_bind_group], camera }
+        Self 
+        { 
+            vertex_buffer, 
+            index_buffer, 
+            instance_buffer, 
+            render_pipeline, 
+            camera_bind_group, 
+            camera 
+        }
     }
 
     pub fn update(&mut self, camera: Camera)
@@ -196,8 +204,8 @@ impl MeshRenderStage
 
 impl RenderStage for MeshRenderStage
 {
-    fn bind_groups(&self) -> &[BindGroupData] {
-        &self.bind_groups
+    fn bind_groups(&self) -> Box<[&BindGroupData]> {
+        Box::new([&self.camera_bind_group])
     }
 
     fn render_pipeline(&self) -> &wgpu::RenderPipeline {
@@ -209,18 +217,18 @@ impl RenderStage for MeshRenderStage
             vertex_buffer: &self.vertex_buffer,
             index_buffer: &self.index_buffer,
             instance_buffer: &self.instance_buffer,
-            camera_bind_group: &self.bind_groups[0],
+            camera_bind_group: &self.camera_bind_group,
             camera: self.camera.clone()
         })]
     }
 }
 
-pub struct MeshDrawCall<'buffer>
+pub struct MeshDrawCall<'b>
 {
-    vertex_buffer: &'buffer VertexBuffer<Vertex>,
-    index_buffer: &'buffer IndexBuffer,
-    instance_buffer: &'buffer VertexBuffer<MeshInstance>,
-    camera_bind_group: &'buffer BindGroupData,
+    vertex_buffer: &'b VertexBuffer<Vertex>,
+    index_buffer: &'b IndexBuffer,
+    instance_buffer: &'b VertexBuffer<MeshInstance>,
+    camera_bind_group: &'b BindGroupData,
     camera: Camera
 }
 

@@ -69,6 +69,16 @@ impl<T> Octree<T> where T : Copy + Clone + Eq
         self.root.simplify();
     }
 
+    pub fn is_empty(&self) -> bool
+    {
+        match self.root.data 
+        {
+            NodeType::Empty => true,
+            NodeType::Leaf(_) => false,
+            NodeType::Branches(_) => false,
+        }
+    }
+
     pub fn visit<F>(&self, f: &mut F) 
         where F : FnMut(Vec3<usize>, usize, VisitedNodeType<T>) -> ()
     {

@@ -3,7 +3,7 @@ pub mod voxel_render_stage;
 pub mod debug_render_stage;
 pub mod mesh;
 
-use std::{sync::Arc, marker::PhantomData, ops::RangeBounds};
+use std::{sync::{Arc, Mutex}, marker::PhantomData, ops::RangeBounds};
 
 use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::terrain::VoxelTerrain, camera::Camera, colors::Color, texture::Texture};
 use cgmath::Array;
@@ -131,7 +131,7 @@ impl BindGroupData
 
 pub trait RenderStage
 {
-    fn bind_groups(&self) -> &[BindGroupData];
+    fn bind_groups(&self) -> Box<[&BindGroupData]>;
     fn render_pipeline(&self) -> &wgpu::RenderPipeline;
     fn get_draw_calls<'s>(&'s self) -> Vec<Box<(dyn DrawCall + 's)>>;
 }
@@ -382,7 +382,7 @@ pub struct GameRenderer
 
 impl GameRenderer
 {
-    pub fn new(terrain: Arc<VoxelTerrain>, camera: Camera, device: Arc<wgpu::Device>, surface: Arc<wgpu::Surface>, queue: Arc<wgpu::Queue>, config: &wgpu::SurfaceConfiguration) -> Self
+    pub fn new(terrain: Arc<Mutex<VoxelTerrain>>, camera: Camera, device: Arc<wgpu::Device>, surface: Arc<wgpu::Surface>, queue: Arc<wgpu::Queue>, config: &wgpu::SurfaceConfiguration) -> Self
     {
         let clear_color = Color::new(0.1, 0.2, 0.3, 1.0);
         let renderer = Renderer::new(device.clone(), surface, queue, config, clear_color);

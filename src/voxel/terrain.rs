@@ -1,4 +1,6 @@
-use std::sync::Arc;
+use std::collections::VecDeque;
+use std::sync::{Arc, Mutex};
+use std::thread::{Thread, JoinHandle, self};
 
 use crate::rendering::VertexBuffer;
 use crate::utils::Array3D;
@@ -10,45 +12,51 @@ use crate::math::{Vec3, Point3D};
 pub struct Chunk
 {
     data: Octree<Voxel>,
-    position: Vec3<usize>,
-    voxels: Vec<VoxelData>,
+    chunk_index: Vec3<isize>,
+    voxels: Arc<Vec<VoxelData>>,
 
     faces_buffer: VertexBuffer<VoxelFaceData>,
 }
 
 impl Chunk
 {
-    pub fn size(&self) -> usize {self.data.length()} 
+    pub fn size(&self) -> usize { self.data.length() } 
     pub fn faces_buffer(&self) -> &VertexBuffer<VoxelFaceData> { &self.faces_buffer }
+    pub fn octree(&self) -> &Octree<Voxel>
+    {
+        &self.data
+    }
 
-    pub fn new<F>(generator: &F, position: Vec3<usize>, voxels: Vec<VoxelData>, chunk_depth: usize, device: &wgpu::Device) -> Self 
-        where F : Fn(usize, usize, usize) -> Option<Voxel>
+    pub fn new(generator: &dyn VoxelGenerator, chunk_index: Vec3<isize>, voxels: Arc<Vec<VoxelData>>, chunk_depth: usize, device: &wgpu::Device) -> Self
     {
         let mut data = Octree::new(chunk_depth);
+        let chunk_position = chunk_index * data.length() as isize;
+
         for x in 0..data.length()
         {
             for y in 0..data.length()
             {
                 for z in 0..data.length()
                 {
-                    data.insert([x, y, z].into(), generator(x, y, z))
+                    let offset = Vec3::new(x, y, z).cast().unwrap();
+                    data.insert([x, y, z].into(), generator.get(chunk_position + offset));
                 }
             }
         }
 
-        let faces = Self::get_voxel_faces(&data, data.length(), position);
+        let faces = Self::get_voxel_faces(&data, data.length(), chunk_position);
         let faces_buffer = VertexBuffer::new(&faces, device, Some("Faces buffer"));
 
         Self 
         {
             data,
-            position,
+            chunk_index,
             voxels,
             faces_buffer
         }
     }
 
-    fn get_voxel_faces(data: &Octree<Voxel>, size: usize, position: Vec3<usize>) -> Vec<VoxelFaceData>
+    fn get_voxel_faces(data: &Octree<Voxel>, size: usize, position: Vec3<isize>) -> Vec<VoxelFaceData>
     {
         let mut faces = vec![];
 
@@ -152,7 +160,7 @@ impl Chunk
         }
     }
 
-    fn add_faces(data: &Octree<Voxel>, size: usize, index: Vec3<usize>, chunk_pos: Vec3<usize>, faces: &mut Vec<VoxelFaceData>)
+    fn add_faces(data: &Octree<Voxel>, size: usize, index: Vec3<usize>, chunk_pos: Vec3<isize>, faces: &mut Vec<VoxelFaceData>)
     {
         if index.x >= size || index.y >= size || index.z >= size
         {
@@ -201,54 +209,125 @@ impl Chunk
     }
 }
 
+pub trait VoxelGenerator : Send + Sync + 'static
+{
+    fn get(&self, index: Vec3<isize>) -> Option<Voxel>;
+}
+
+struct ChunkGenerator
+{
+    generator_func: Arc<dyn VoxelGenerator>,
+    queue: VecDeque<Vec3<isize>>,
+    thread: Option<JoinHandle<Chunk>>,
+
+    device: Arc<wgpu::Device>,
+    chunk_depth: usize,
+    voxels: Arc<Vec<VoxelData>>
+}
+
+impl ChunkGenerator
+{
+    fn new(generator: Arc<dyn VoxelGenerator>, chunk_depth: usize, voxels: Arc<Vec<VoxelData>>, device: Arc<wgpu::Device>) -> Self
+    {
+        Self 
+        { 
+            generator_func: generator,
+            queue: VecDeque::new(),
+            thread: None,
+            device,
+            chunk_depth,
+            voxels
+        }
+    }
+
+    fn tick(&mut self) -> Option<Chunk>
+    {
+        let mut chunk = None;
+        if self.thread.is_some() && self.thread.as_ref().unwrap().is_finished()
+        {
+            let Some(thread) = std::mem::replace(&mut self.thread, None) else {
+                panic!("This should not have been called")
+            };
+
+            chunk = Some(thread.join().unwrap());
+        }
+
+        if self.thread.is_some() { return None; }
+
+        self.thread = None;
+
+        if let Some(front) = self.queue.pop_front()
+        {
+            let device = self.device.clone();
+            let voxels = self.voxels.clone();
+            let generator = self.generator_func.clone();
+            let chunk_index = front;
+            let chunk_depth = self.chunk_depth;
+
+            self.thread = Some(thread::spawn(move || {
+                println!("starting to generate chunk {:?}", chunk_index);
+                let chunk = Chunk::new(generator.as_ref(), chunk_index, voxels, chunk_depth, &device);
+                println!("finished generating chunk {:?}", chunk_index);
+                chunk
+            }))
+        }
+
+        chunk
+    }
+}
+
+pub struct TerrainInfo
+{
+    pub chunk_depth: usize,
+    pub voxel_size: f32,
+    pub voxel_types: Arc<Vec<VoxelData>>
+}
+
 pub struct VoxelTerrain
 {
+    info: TerrainInfo,
     chunks: Vec<Chunk>,
-    position: Point3D<f32>,
-    voxel_types: Vec<VoxelData>,
-    chunk_size: usize,
-    device: Arc<wgpu::Device>
+    device: Arc<wgpu::Device>,
+    generator: ChunkGenerator
 }
 
 impl VoxelTerrain
 {
-    pub const fn chunk_size(&self) -> usize { self.chunk_size }
-    pub fn position(&self) -> Point3D<f32> { self.position }
-    pub fn voxel_types(&self) -> &[VoxelData] { &self.voxel_types }
+    pub const fn chunk_size(&self) -> usize { (2 as usize).pow(self.info.chunk_depth as u32) }
+    pub fn voxel_types(&self) -> &[VoxelData] { &self.info.voxel_types }
     pub fn chunks(&self) -> &[Chunk] { &self.chunks }
 
-    pub fn new<F>(position: Point3D<f32>, size_in_chunks: Vec3<usize>, chunk_depth: usize, voxel_size: f32, voxel_types: Vec<VoxelData>, device: Arc<wgpu::Device>, generator: &F) -> Self
-        where F : Fn(Vec3<usize>) -> Option<Voxel>
+    pub fn new(info: TerrainInfo, device: Arc<wgpu::Device>, generator: Arc<dyn VoxelGenerator>) -> Self
     {
-        let mut chunks = vec![];
-        let mut current_chunk = 0;
-        let chunk_size = (2 as usize).pow(chunk_depth as u32);
-
-        for chunk_x in 0..size_in_chunks.x
-        {
-            for chunk_y in 0..size_in_chunks.y
-            {
-                for chunk_z in 0..size_in_chunks.z
-                {
-                    let chunk_pos = Vec3::new(chunk_x * chunk_size, chunk_y * chunk_size, chunk_z * chunk_size);
-                    let generator = |x, y, z| generator(Vec3::new(x + chunk_x * chunk_size, y + chunk_y * chunk_size, z + chunk_z * chunk_size));
-                    
-                    let chunk = Chunk::new(&generator, chunk_pos, voxel_types.clone(), chunk_depth, &device);
-                    chunks.push(chunk);
-
-                    current_chunk += 1;
-                    println!("Generated chunk {}/{}", current_chunk, size_in_chunks.x * size_in_chunks.y * size_in_chunks.z);
-                }
-            }
-        }
-
+        let voxel_types = info.voxel_types.clone();
+        let chunk_depth = info.chunk_depth;
         Self 
         { 
-            chunks, 
-            position,
-            voxel_types,
-            chunk_size,
-            device
+            info, 
+            chunks: vec![], 
+            device: device.clone(), 
+            generator: ChunkGenerator::new(generator, chunk_depth, voxel_types, device)
+        }
+    }
+
+    pub fn generate_chunk(&mut self, chunk_index: Vec3<isize>) -> bool
+    {
+        if self.chunks.iter().any(|c| c.chunk_index == chunk_index)
+        {
+            false
+        }
+        else 
+        {
+            self.generator.queue.push_back(chunk_index);
+            true
+        }
+    }
+
+    pub fn tick(&mut self)
+    {
+        if let Some(chunk) = self.generator.tick()
+        {
+            self.chunks.push(chunk);
         }
     }
 }

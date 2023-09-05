@@ -1,4 +1,6 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, MutexGuard};
+
+use cgmath::Array;
 
 use crate::camera::{Camera, CameraUniform};
 use crate::math::{Vec3, Mat4x4, Point3D};
@@ -176,8 +178,12 @@ impl VoxelRenderDataUniform
 
 pub struct VoxelRenderStage
 {
-    terrain: Arc<VoxelTerrain>,
-    bind_groups: [BindGroupData; 3],
+    terrain: Arc<Mutex<VoxelTerrain>>,
+    
+    camera_bind_group: BindGroupData,
+    model_bind_group: BindGroupData,
+    voxel_bind_group: BindGroupData,
+
     render_pipeline: wgpu::RenderPipeline,
 
     camera: Camera,
@@ -188,16 +194,16 @@ pub struct VoxelRenderStage
 
 impl VoxelRenderStage
 {
-    pub fn new(terrain: Arc<VoxelTerrain>, camera: Camera, device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Self
+    pub fn new(terrain: Arc<Mutex<VoxelTerrain>>, camera: Camera, device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Self
     {
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&camera);
         let camera_bind_group = BindGroupData::uniform("camera_bind_group".into(), camera_uniform, wgpu::ShaderStages::VERTEX, device);
 
-        let voxel_uniform = VoxelRenderDataUniform::new(terrain.voxel_types().iter().map(|v| v.get_render_data()).collect());
+        let voxel_uniform = VoxelRenderDataUniform::new(terrain.lock().unwrap().voxel_types().iter().map(|v| v.get_render_data()).collect());
         let voxel_bind_group = BindGroupData::uniform_bytes("voxel_bind_group".into(), voxel_uniform.as_bytes(), wgpu::ShaderStages::VERTEX, device);
 
-        let model_uniform = ModelUniform::from_position(terrain.position());
+        let model_uniform = ModelUniform::from_position(Point3D::from_value(0.0));
         let model_bind_group = BindGroupData::uniform("model_bind_group".into(), model_uniform, wgpu::ShaderStages::VERTEX, device);
 
         let vertex_buffer = VertexBuffer::new(&VOXEL_FACE_VERTICES, device, Some("Voxel vertex buffer"));
@@ -220,7 +226,9 @@ impl VoxelRenderStage
         Self 
         {
             terrain, 
-            bind_groups: [camera_bind_group, model_bind_group, voxel_bind_group], 
+            camera_bind_group,
+            model_bind_group,
+            voxel_bind_group, 
             render_pipeline,
             camera,
             vertex_buffer,
@@ -236,9 +244,9 @@ impl VoxelRenderStage
 
 impl RenderStage for VoxelRenderStage
 {
-    fn bind_groups(&self) -> &[BindGroupData]
+    fn bind_groups(&self) -> Box<[&BindGroupData]>
     {
-        &self.bind_groups
+        Box::new([&self.camera_bind_group, &self.model_bind_group, &self.voxel_bind_group])
     }
 
     fn render_pipeline(&self) -> &wgpu::RenderPipeline 
@@ -249,17 +257,24 @@ impl RenderStage for VoxelRenderStage
     fn get_draw_calls<'s>(&'s self) -> Vec<Box<(dyn DrawCall + 's)>>
     {
         let mut draw_calls: Vec<Box<dyn DrawCall>> = vec![];
-        for chunk in self.terrain.chunks()
+        let terrain = Arc::new(self.terrain.lock().unwrap());
+        for chunk_index in 0..terrain.chunks().len()
         {
+            if terrain.chunks()[chunk_index].octree().is_empty()
+            {
+                continue;
+            }
+
             let draw_call = VoxelDrawCall
             {
-                faces_buffer: &chunk.faces_buffer(),
                 vertex_buffer: &self.vertex_buffer,
                 index_buffer: &self.index_buffer,
+                chunk_index,
                 camera: self.camera.clone(),
-                position: self.terrain.position(),
-                camera_bind_group: &self.bind_groups[0],
-                model_bind_group: &self.bind_groups[1]
+                position: Point3D::from_value(0.0),
+                camera_bind_group: &self.camera_bind_group,
+                model_bind_group: &self.model_bind_group,
+                terrain: terrain.clone()
             };
 
             draw_calls.push(Box::new(draw_call));
@@ -269,20 +284,22 @@ impl RenderStage for VoxelRenderStage
     }
 }
 
-pub struct VoxelDrawCall<'buffer, 'bind_group>
+pub struct VoxelDrawCall<'a>
 {
-    faces_buffer: &'buffer VertexBuffer<VoxelFaceData>,
-    vertex_buffer: &'buffer VertexBuffer<VoxelVertex>,
-    index_buffer: &'buffer IndexBuffer,
+    vertex_buffer: &'a VertexBuffer<VoxelVertex>,
+    index_buffer: &'a IndexBuffer,
+    chunk_index: usize,
 
     camera: Camera,
     position: Point3D<f32>,
 
-    camera_bind_group: &'bind_group BindGroupData,
-    model_bind_group: &'bind_group BindGroupData
+    camera_bind_group: &'a BindGroupData,
+    model_bind_group: &'a BindGroupData,
+
+    terrain: Arc<MutexGuard<'a, VoxelTerrain>>
 }
 
-impl<'vox, 'buffer, 'bind_group> DrawCall for VoxelDrawCall<'buffer, 'bind_group>
+impl<'a> DrawCall for VoxelDrawCall<'a>
 {
     fn on_pre_draw(&self, queue: &wgpu::Queue) 
     {
@@ -296,10 +313,12 @@ impl<'vox, 'buffer, 'bind_group> DrawCall for VoxelDrawCall<'buffer, 'bind_group
 
     fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>)
     {
+        let chunk = &self.terrain.chunks()[self.chunk_index];
+
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice_all());
-        render_pass.set_vertex_buffer(1, self.faces_buffer.slice_all());
+        render_pass.set_vertex_buffer(1, chunk.faces_buffer().slice_all());
         render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-        render_pass.draw_indexed(0..6, 0, 0..(self.faces_buffer.capacity() as u32));
+        render_pass.draw_indexed(0..6, 0, 0..(chunk.faces_buffer().capacity() as u32));
     }
 }

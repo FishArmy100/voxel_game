@@ -203,7 +203,7 @@ pub struct DebugRenderStage
     device: Arc<wgpu::Device>,
 
     render_pipeline: wgpu::RenderPipeline,
-    bind_groups: [BindGroupData; 1],
+    camera_bind_group: BindGroupData,
 
     camera: Camera,
 
@@ -222,7 +222,15 @@ impl DebugRenderStage
 
         let (vertex_buffer, vertex_count) = Self::get_vertex_buffer(&device, debug_objects);
 
-        Self { device: device.clone(), render_pipeline, bind_groups: [camera_bind_group], camera: default_camera, vertex_buffer, vertex_count}
+        Self 
+        { 
+            device: device.clone(), 
+            render_pipeline, 
+            camera_bind_group, 
+            camera: default_camera, 
+            vertex_buffer, 
+            vertex_count
+        }
     }
 
     pub fn update(&mut self, debug_objects: &[DebugObject], camera: Camera)
@@ -312,8 +320,8 @@ impl DebugRenderStage
 
 impl RenderStage for DebugRenderStage
 {
-    fn bind_groups(&self) -> &[super::BindGroupData] {
-        &self.bind_groups
+    fn bind_groups(&self) -> Box<[&BindGroupData]> {
+        Box::new([&self.camera_bind_group])
     }
 
     fn render_pipeline(&self) -> &wgpu::RenderPipeline {
@@ -322,7 +330,7 @@ impl RenderStage for DebugRenderStage
 
     fn get_draw_calls<'s>(&'s self) -> Vec<Box<(dyn DrawCall + 's)>> 
     {
-        vec![Box::new(DebugDrawCall::new(self.camera.clone(), &self.bind_groups[0], &self.vertex_buffer, self.vertex_count))]
+        vec![Box::new(DebugDrawCall::new(self.camera.clone(), &self.camera_bind_group, &self.vertex_buffer, self.vertex_count))]
     }
 }
 

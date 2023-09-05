@@ -108,3 +108,14 @@ impl<T> IndexMut<Vec3<usize>> for Array3D<T>
     }
 }
 
+/// Replaces the given option with `None`, and returns the old value.
+/// Panics if `value` is none
+pub fn replace_option<T>(value: &mut Option<T>) -> T
+{
+    let Some(value) = std::mem::replace(value, None) else {
+        panic!("Tried to replace a None option");
+    };
+
+    value
+}
+
