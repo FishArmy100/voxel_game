@@ -414,6 +414,7 @@ impl AppState
             self.size = new_size;
             self.config.width = new_size.width;
             self.config.height = new_size.height;
+            self.device.poll(wgpu::MaintainBase::Wait); // to fix crash on dx12 with wgpu 0.17
             self.surface.configure(&self.device, &self.config);
             self.renderer.resize(&self.config);
 
