@@ -474,19 +474,21 @@ fn generate_terrain(device: &Arc<wgpu::Device>) -> Arc<Mutex<VoxelTerrain>> {
 
     let terrain = Arc::new(Mutex::new(VoxelTerrain::new(info, device.clone(), generator)));
 
-    let mut current = 0;
-    for x in 0..4
-    {
-        for y in 0..4
-        {
-            for z in 0..4
-            {
-                let was_generated = terrain.lock().unwrap().generate_chunk([x, y, z].into());
-                current += 1;
-                println!("enqueued chunk {}/{}: {}", current, 4 * 4 * 4, was_generated);
-            }
-        }
-    }
+    // let mut current = 0;
+    // for x in -2..2
+    // {
+    //     for y in 0..2
+    //     {
+    //         for z in -2..2
+    //         {
+    //             let was_generated = terrain.lock().unwrap().generate_chunk([x, y, z].into());
+    //             current += 1;
+    //             println!("enqueued chunk {}/{}: {}", current, 4 * 4 * 4, was_generated);
+    //         }
+    //     }
+    // }
+
+    terrain.lock().unwrap().generate_chunk([-1, 0, 0].into());
 
     terrain
 }

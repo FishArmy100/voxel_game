@@ -11,7 +11,7 @@ struct VertexOutput {
 };
 
 struct InstanceInput {
-    @location(2) position: vec3<u32>,
+    @location(2) position: vec3<i32>,
     @location(3) id: u32,
     @location(4) face_index: u32
 };
