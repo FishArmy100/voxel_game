@@ -332,47 +332,7 @@ impl AppState
             far: 100000.0
         };
 
-        let perlin = Perlin::new(326236);
-
-        let generator = Arc::new(DefaultVoxelGenerator {
-            perlin
-        });
-        
-        let sand_color = Color::new(0.76, 0.698, 0.502, 1.0);
-
-        let voxel_types = vec!
-        [
-            VoxelData::new(Color::WHITE), 
-            VoxelData::new(Color::BLUE),
-            VoxelData::new(sand_color),
-            VoxelData::new(Color::GREEN)
-        ];
-        
-        const CHUNK_DEPTH: usize = 6;
-        const VOXEL_SIZE: f32 = 1.0;
-
-        let info = TerrainInfo
-        {
-            chunk_depth: CHUNK_DEPTH,
-            voxel_size: VOXEL_SIZE,
-            voxel_types: Arc::new(voxel_types),
-        };
-
-        let terrain = Arc::new(Mutex::new(VoxelTerrain::new(info, device.clone(), generator)));
-
-        let mut current = 0;
-        for x in 0..4
-        {
-            for y in 0..4
-            {
-                for z in 0..4
-                {
-                    let was_generated = terrain.lock().unwrap().generate_chunk([x, y, z].into());
-                    current += 1;
-                    println!("enqueued chunk {}/{}: {}", current, 4 * 4 * 4, was_generated);
-                }
-            }
-        }
+        let terrain = generate_terrain(&device);
         
 
         let renderer = GameRenderer::new(terrain.clone(), camera.clone(), device.clone(), surface.clone(), queue.clone(), &config);
@@ -477,5 +437,50 @@ impl AppState
         self.current_time = SystemTime::now();
         self.terrain.lock().unwrap().tick();
     }
+}
+
+fn generate_terrain(device: &Arc<wgpu::Device>) -> Arc<Mutex<VoxelTerrain>> {
+    let perlin = Perlin::new(326236);
+
+    let generator = Arc::new(DefaultVoxelGenerator {
+        perlin
+    });
+        
+    let sand_color = Color::new(0.76, 0.698, 0.502, 1.0);
+
+    let voxel_types = vec!
+    [
+        VoxelData::new(Color::WHITE), 
+        VoxelData::new(Color::BLUE),
+        VoxelData::new(sand_color),
+        VoxelData::new(Color::GREEN)
+    ];
+        
+    const CHUNK_DEPTH: usize = 6;
+    const VOXEL_SIZE: f32 = 1.0;
+
+    let info = TerrainInfo
+    {
+        chunk_depth: CHUNK_DEPTH,
+        voxel_size: VOXEL_SIZE,
+        voxel_types: Arc::new(voxel_types),
+    };
+
+    let terrain = Arc::new(Mutex::new(VoxelTerrain::new(info, device.clone(), generator)));
+
+    let mut current = 0;
+    for x in 0..4
+    {
+        for y in 0..4
+        {
+            for z in 0..4
+            {
+                let was_generated = terrain.lock().unwrap().generate_chunk([x, y, z].into());
+                current += 1;
+                println!("enqueued chunk {}/{}: {}", current, 4 * 4 * 4, was_generated);
+            }
+        }
+    }
+    terrain
 }
 
