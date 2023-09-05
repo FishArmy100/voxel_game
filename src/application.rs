@@ -144,7 +144,7 @@ impl FrameStateBuilder
         }
     }
 
-    pub fn on_event<'a, T>(&mut self, event: Event<'a, T>, control_flow: &mut ControlFlow)
+    pub fn on_event<'a, T>(&mut self, event: &Event<'a, T>)
     {
         match event 
         {
@@ -153,7 +153,7 @@ impl FrameStateBuilder
                 window_id,
             } 
 
-            if window_id == self.window.id() =>
+            if *window_id == self.window.id() =>
             {
                 match event 
                 {
@@ -209,17 +209,17 @@ impl FrameStateBuilder
         }
     }
 
-    pub fn build(self, delta_time: f32) -> FrameState
+    pub fn build(&self, delta_time: f32) -> FrameState
     {
         FrameState 
         { 
-            keys_pressed: self.keys_pressed, 
-            keys_released: self.keys_released, 
-            keys_down: self.keys_down, 
+            keys_pressed: self.keys_pressed.clone(), 
+            keys_released: self.keys_released.clone(), 
+            keys_down: self.keys_down.clone(), 
             mouse_delta: self.mouse_delta, 
-            mouse_buttons_pressed: self.mouse_buttons_pressed, 
-            mouse_buttons_released: self.mouse_buttons_released, 
-            mouse_buttons_down: self.mouse_buttons_down, 
+            mouse_buttons_pressed: self.mouse_buttons_pressed.clone(), 
+            mouse_buttons_released: self.mouse_buttons_released.clone(), 
+            mouse_buttons_down: self.mouse_buttons_down.clone(), 
             mouse_scroll_delta: self.mouse_scroll_delta, 
             window_size: self.window_size,
             delta_time
@@ -357,6 +357,7 @@ impl AppState
 
     fn on_event<'a, T>(&mut self, event: Event<'a, T>, control_flow: &mut ControlFlow)
     {
+        self.frame_builder.on_event(&event);
         match event 
         {
             Event::WindowEvent {
@@ -364,7 +365,7 @@ impl AppState
                 window_id,
             } 
 
-            if window_id == self.window_handle.id() => if !self.camera_entity.on_event(event)
+            if window_id == self.window_handle.id() =>
             {
                 match event 
                 {
@@ -432,10 +433,14 @@ impl AppState
     fn on_update(&mut self)
     {
         let delta_time = self.current_time.elapsed().unwrap().as_secs_f32();
-        self.camera_entity.update(delta_time); 
+        let frame_state = self.frame_builder.build(delta_time);
+
+        self.camera_entity.update(&frame_state);
         //println!("{}ms", delta_time * 1000.0);
         self.current_time = SystemTime::now();
         self.terrain.lock().unwrap().tick();
+
+        self.frame_builder = FrameStateBuilder::new(self.window_handle.clone(), frame_state);
     }
 }
 
@@ -481,6 +486,7 @@ fn generate_terrain(device: &Arc<wgpu::Device>) -> Arc<Mutex<VoxelTerrain>> {
             }
         }
     }
+
     terrain
 }
 
