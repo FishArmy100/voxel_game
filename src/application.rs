@@ -1,9 +1,9 @@
 use std::borrow::BorrowMut;
 use std::sync::Mutex;
 use std::{time::SystemTime, sync::Arc};
-use cgmath::{Zero, Array};
+use cgmath::{Zero, Array, MetricSpace};
 use noise::{Perlin, NoiseFn};
-use winit::event::{WindowEvent, Event, KeyboardInput, VirtualKeyCode, ElementState, MouseButton, MouseScrollDelta};
+use winit::event::{WindowEvent, Event, KeyboardInput, VirtualKeyCode, ElementState, MouseButton, MouseScrollDelta, DeviceEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 
 use crate::rendering::GameRenderer;
@@ -65,7 +65,7 @@ pub struct FrameState
     keys_down: Vec<VirtualKeyCode>,
 
     mouse_delta: Vec2<f32>,
-    mouse_position: WindowPosition,
+    mouse_position: Vec2<f32>,
 
     mouse_buttons_pressed: Vec<MouseButton>,
     mouse_buttons_released: Vec<MouseButton>,
@@ -88,6 +88,9 @@ impl FrameState
 
     pub fn delta_time(&self) -> f32 { self.delta_time }
 
+    pub fn mouse_position(&self) -> Vec2<f32> { self.mouse_position }
+    pub fn mouse_delta(&self) -> Vec2<f32> { self.mouse_delta }
+
     fn new(window: &WinitWindow) -> Self
     {
         Self 
@@ -102,7 +105,7 @@ impl FrameState
             mouse_scroll_delta: None, 
             window_size: window.inner_size(),
             delta_time: 0.0,
-            mouse_position: WindowPosition::new(0, 0)
+            mouse_position: Vec2::new(0.0, 0.0)
         }
     }
 }
@@ -121,8 +124,8 @@ pub struct FrameStateBuilder
     mouse_scroll_delta: Option<MouseScrollDelta>,
 
     window_size: WindowSize,
-    old_mouse_position: WindowPosition,
-    current_mouse_position: WindowPosition
+    current_mouse_position: Vec2<f32>,
+    mouse_delta: Vec2<f32>
 }
 
 impl FrameStateBuilder
@@ -144,8 +147,8 @@ impl FrameStateBuilder
             mouse_buttons_down, 
             mouse_scroll_delta: None, 
             window_size,
-            old_mouse_position: previous_frame.mouse_position,
-            current_mouse_position: previous_frame.mouse_position
+            current_mouse_position: previous_frame.mouse_position,
+            mouse_delta: Vec2::zero()
         }
     }
 
@@ -156,7 +159,7 @@ impl FrameStateBuilder
             Event::WindowEvent {
                 ref event,
                 window_id,
-            } 
+            }
 
             if *window_id == self.window.id() =>
             {
@@ -224,12 +227,32 @@ impl FrameStateBuilder
                         ..
                     } =>
                     {
-
+                        self.current_mouse_position = Vec2::new(position.x as f32, position.y as f32)
                     }
 
                     _ => {}
                 }
-            }
+            },
+
+            Event::DeviceEvent 
+            { 
+                ref event,
+                device_id
+            } => 
+            {
+                match event 
+                {
+                    DeviceEvent::MouseMotion 
+                    { 
+                        delta 
+                    } =>
+                    {
+                        self.mouse_delta = Vec2::new(delta.0 as f32, delta.1 as f32);
+                    },
+
+                    _ => {}
+                }
+            },
             _ => {}
         }
     }
@@ -241,7 +264,8 @@ impl FrameStateBuilder
             keys_pressed: self.keys_pressed.clone(), 
             keys_released: self.keys_released.clone(), 
             keys_down: self.keys_down.clone(), 
-            mouse_delta: (self.current_mouse_position - self.old_mouse_position), 
+            mouse_delta: self.mouse_delta, 
+            mouse_position: self.current_mouse_position,
             mouse_buttons_pressed: self.mouse_buttons_pressed.clone(), 
             mouse_buttons_released: self.mouse_buttons_released.clone(), 
             mouse_buttons_down: self.mouse_buttons_down.clone(), 
@@ -375,7 +399,7 @@ impl AppState
             size,
             window_handle,
             renderer,
-            camera_entity: CameraEntity::new(camera, 20., 50.),
+            camera_entity: CameraEntity::new(camera, 20.0, 50.0, 80.0),
             terrain,
         }
     }

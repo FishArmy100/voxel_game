@@ -1,4 +1,4 @@
-use cgmath::{Quaternion, Rotation, Rotation3, EuclideanSpace, Array, InnerSpace};
+use cgmath::{Quaternion, Rotation, Rotation3, EuclideanSpace, Array, InnerSpace, Rad, Deg};
 use winit::event::{WindowEvent, KeyboardInput, ElementState, VirtualKeyCode};
 
 use crate::{math::*, application::FrameState};
@@ -54,17 +54,21 @@ pub struct CameraEntity
     camera: Camera,
     speed: f32,
     turn_rate: f32,
+    current_vertical_look: f32,
+    max_vertical_look: f32
 }
 
 impl CameraEntity
 {
-    pub fn new(camera: Camera, speed: f32, turn_rate: f32) -> CameraEntity
+    pub fn new(camera: Camera, speed: f32, turn_rate: f32, max_vertical_look: f32) -> CameraEntity
     {
         CameraEntity 
         {
             camera, 
             speed, 
             turn_rate,
+            current_vertical_look: 0.0,
+            max_vertical_look
         }
     }
 
@@ -78,11 +82,16 @@ impl CameraEntity
 
     fn move_camera(&mut self, frame_state: &FrameState)
     {
+        let forward = -(Vec3::new(self.camera.eye.x, 0.0, self.camera.eye.z) - Vec3::new(self.camera.target.x, 0.0, self.camera.target.z)).normalize();
+        let right = Quaternion::from_angle_y(Deg(90.0)).rotate_vector(forward).normalize();
+
         let mut move_dir = Vec3::from_value(0.0);
-        if frame_state.is_key_down(VirtualKeyCode::W) { move_dir.z += -1.0; }
-        if frame_state.is_key_down(VirtualKeyCode::S) { move_dir.z += 1.0; }
-        if frame_state.is_key_down(VirtualKeyCode::A) { move_dir.x += -1.0; }
-        if frame_state.is_key_down(VirtualKeyCode::D) { move_dir.x += 1.0; }
+
+        if frame_state.is_key_down(VirtualKeyCode::W) { move_dir += forward; }
+        if frame_state.is_key_down(VirtualKeyCode::S) { move_dir += -forward; }
+        if frame_state.is_key_down(VirtualKeyCode::A) { move_dir += right; }
+        if frame_state.is_key_down(VirtualKeyCode::D) { move_dir += -right; }
+
         if frame_state.is_key_down(VirtualKeyCode::Space) { move_dir.y += 1.0; }
         if frame_state.is_key_down(VirtualKeyCode::LShift) { move_dir.y += -1.0; }
 
@@ -97,14 +106,20 @@ impl CameraEntity
 
     fn rotate_camera(&mut self, frame_state: &FrameState)
     {
-        let mut turn_dir = 0.;
-        if frame_state.is_key_down(VirtualKeyCode::Q) { turn_dir += -1.; }
-        if frame_state.is_key_down(VirtualKeyCode::E) { turn_dir += 1.; }
+        self.current_vertical_look = (self.current_vertical_look + frame_state.mouse_delta().y * self.turn_rate * frame_state.delta_time()).clamp(-self.max_vertical_look, self.max_vertical_look);
 
-        let rotation = Quaternion::from_angle_y(cgmath::Deg(turn_dir * self.turn_rate * frame_state.delta_time()));
+        let horizontal_rotation = Quaternion::from_angle_y(Deg(-frame_state.mouse_delta().x * self.turn_rate * frame_state.delta_time()));
 
-        let mut target_relative = self.camera.target - self.camera.eye;
-        target_relative = rotation.rotate_vector(target_relative);
+        let forward = -(Vec3::new(self.camera.eye.x, 0.0, self.camera.eye.z) - Vec3::new(self.camera.target.x, 0.0, self.camera.target.z)).normalize();
+        let right = Quaternion::from_angle_y(Deg(90.0)).rotate_vector(forward).normalize();
+
+        let vertical_rotation = Quaternion::from_axis_angle(right, Deg(self.current_vertical_look));
+        let rotation = vertical_rotation * horizontal_rotation;
+
+        let target_relative = rotation.rotate_vector(forward);
+
+        println!("Vertical look: {}", self.current_vertical_look);
+
         let target_vec = target_relative + self.camera.eye.to_vec();
         self.camera.target = Point3D::new(target_vec.x, target_vec.y, target_vec.z);
     }
