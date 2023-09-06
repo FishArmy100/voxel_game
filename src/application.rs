@@ -512,7 +512,7 @@ fn generate_terrain(device: &Arc<wgpu::Device>) -> Arc<Mutex<VoxelTerrain>> {
     ];
         
     const CHUNK_DEPTH: usize = 6;
-    const VOXEL_SIZE: f32 = 1.0;
+    const VOXEL_SIZE: f32 = 1.0 / 16.0;
 
     let info = TerrainInfo
     {
@@ -537,7 +537,7 @@ fn generate_terrain(device: &Arc<wgpu::Device>) -> Arc<Mutex<VoxelTerrain>> {
     //     }
     // }
 
-    terrain.lock().unwrap().generate_chunk([-1, 0, 0].into());
+    terrain.lock().unwrap().generate_chunk([0, 0, 0].into());
 
     terrain
 }

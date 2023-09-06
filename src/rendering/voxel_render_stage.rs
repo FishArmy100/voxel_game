@@ -160,7 +160,7 @@ unsafe impl bytemuck::Zeroable for VoxelRenderData {}
 #[derive(Debug, Clone)]
 pub struct VoxelRenderDataUniform
 {
-    pub data: Box<[VoxelRenderData]>
+    pub data: Box<[VoxelRenderData]>,
 }
 
 impl VoxelRenderDataUniform
@@ -200,8 +200,10 @@ impl VoxelRenderStage
         camera_uniform.update_view_proj(&camera);
         let camera_bind_group = BindGroupData::uniform("camera_bind_group".into(), camera_uniform, wgpu::ShaderStages::VERTEX, device);
 
-        let voxel_uniform = VoxelRenderDataUniform::new(terrain.lock().unwrap().voxel_types().iter().map(|v| v.get_render_data()).collect());
+        let terrain_mutex = terrain.lock().unwrap();
+        let voxel_uniform = VoxelRenderDataUniform::new(terrain_mutex.voxel_types().iter().map(|v| v.get_render_data()).collect());
         let voxel_bind_group = BindGroupData::uniform_bytes("voxel_bind_group".into(), voxel_uniform.as_bytes(), wgpu::ShaderStages::VERTEX, device);
+        drop(terrain_mutex);
 
         let model_uniform = ModelUniform::from_position(Point3D::from_value(0.0));
         let model_bind_group = BindGroupData::uniform("model_bind_group".into(), model_uniform, wgpu::ShaderStages::VERTEX, device);

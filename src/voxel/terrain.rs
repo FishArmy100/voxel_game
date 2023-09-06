@@ -296,6 +296,7 @@ impl VoxelTerrain
     pub const fn chunk_size(&self) -> usize { (2 as usize).pow(self.info.chunk_depth as u32) }
     pub fn voxel_types(&self) -> &[VoxelData] { &self.info.voxel_types }
     pub fn chunks(&self) -> &[Chunk] { &self.chunks }
+    pub fn info(&self) -> &TerrainInfo { &self.info }
 
     pub fn new(info: TerrainInfo, device: Arc<wgpu::Device>, generator: Arc<dyn VoxelGenerator>) -> Self
     {
