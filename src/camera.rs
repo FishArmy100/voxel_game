@@ -118,8 +118,6 @@ impl CameraEntity
 
         let target_relative = rotation.rotate_vector(forward);
 
-        println!("Vertical look: {}", self.current_vertical_look);
-
         let target_vec = target_relative + self.camera.eye.to_vec();
         self.camera.target = Point3D::new(target_vec.x, target_vec.y, target_vec.z);
     }

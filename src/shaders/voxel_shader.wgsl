@@ -32,6 +32,10 @@ struct VoxelRenderDataUniform {
     data: array<VoxelRenderData, 4>
 }
 
+struct VoxelSizeUniform {
+    voxel_size: f32
+}
+
 @group(0) @binding(0)
 var<uniform> camera: CameraUniform;
 
@@ -40,6 +44,9 @@ var<uniform> model: ModelUniform;
 
 @group(2) @binding(0)
 var<uniform> render_data: VoxelRenderDataUniform;
+
+@group(3) @binding(0)
+var<uniform> voxel_size_uniform: VoxelSizeUniform;
 
 const voxel_south_face_position_array = array<vec3<f32>, 4>(
     vec3<f32>(0.0, 1.0, 1.0),
@@ -108,6 +115,7 @@ fn vs_main(vertex: VertexInput, instance: InstanceInput) -> VertexOutput {
     vert_pos.x += f32(instance.position.x);
     vert_pos.y += f32(instance.position.y);
     vert_pos.z += f32(instance.position.z);
+    vert_pos *= voxel_size_uniform.voxel_size;
 
     out.clip_position = camera.view_proj * model.model * vec4<f32>(vert_pos, 1.0);
 

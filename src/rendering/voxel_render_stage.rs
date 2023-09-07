@@ -176,6 +176,24 @@ impl VoxelRenderDataUniform
     }
 }
 
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct VoxelSizeUniform
+{
+    pub voxel_size: f32
+}
+
+unsafe impl bytemuck::Pod for VoxelSizeUniform {}
+unsafe impl bytemuck::Zeroable for VoxelSizeUniform {}
+
+impl VoxelSizeUniform
+{
+    fn new(voxel_size: f32) -> Self
+    {
+        Self { voxel_size }
+    }
+}
+
 pub struct VoxelRenderStage
 {
     terrain: Arc<Mutex<VoxelTerrain>>,
@@ -183,6 +201,7 @@ pub struct VoxelRenderStage
     camera_bind_group: BindGroupData,
     model_bind_group: BindGroupData,
     voxel_bind_group: BindGroupData,
+    voxel_size_bind_group: BindGroupData,
 
     render_pipeline: wgpu::RenderPipeline,
 
@@ -203,13 +222,17 @@ impl VoxelRenderStage
         let terrain_mutex = terrain.lock().unwrap();
         let voxel_uniform = VoxelRenderDataUniform::new(terrain_mutex.voxel_types().iter().map(|v| v.get_render_data()).collect());
         let voxel_bind_group = BindGroupData::uniform_bytes("voxel_bind_group".into(), voxel_uniform.as_bytes(), wgpu::ShaderStages::VERTEX, device);
-        drop(terrain_mutex);
 
         let model_uniform = ModelUniform::from_position(Point3D::from_value(0.0));
         let model_bind_group = BindGroupData::uniform("model_bind_group".into(), model_uniform, wgpu::ShaderStages::VERTEX, device);
 
+        let voxel_size_uniform = VoxelSizeUniform::new(terrain_mutex.info().voxel_size);
+        let voxel_size_bind_group = BindGroupData::uniform("voxel_size_bind_group".into(), voxel_size_uniform, wgpu::ShaderStages::VERTEX, device);
+        drop(terrain_mutex);
+
         let vertex_buffer = VertexBuffer::new(&VOXEL_FACE_VERTICES, device, Some("Voxel vertex buffer"));
         let index_buffer = IndexBuffer::new(device, &VOXEL_FACE_TRIANGLES, Some("Voxel index buffer"));
+        
 
         const FACE_BUFFER_CAPACITY: u64 = 65545;
         let faces_buffer = VertexBuffer::<VoxelFaceData>::new_empty(device, FACE_BUFFER_CAPACITY, Some("Faces instance buffer"));
@@ -221,7 +244,7 @@ impl VoxelRenderStage
             vs_main: "vs_main", 
             fs_main: "fs_main", 
             vertex_buffers: &[&vertex_buffer, &faces_buffer], 
-            bind_groups: &[&camera_bind_group, &model_bind_group, &voxel_bind_group], 
+            bind_groups: &[&camera_bind_group, &model_bind_group, &voxel_bind_group, &voxel_size_bind_group], 
             label: Some("Voxel Render Pipeline")
         });
 
@@ -231,6 +254,7 @@ impl VoxelRenderStage
             camera_bind_group,
             model_bind_group,
             voxel_bind_group, 
+            voxel_size_bind_group,
             render_pipeline,
             camera,
             vertex_buffer,
@@ -248,7 +272,7 @@ impl RenderStage for VoxelRenderStage
 {
     fn bind_groups(&self) -> Box<[&BindGroupData]>
     {
-        Box::new([&self.camera_bind_group, &self.model_bind_group, &self.voxel_bind_group])
+        Box::new([&self.camera_bind_group, &self.model_bind_group, &self.voxel_bind_group, &self.voxel_size_bind_group])
     }
 
     fn render_pipeline(&self) -> &wgpu::RenderPipeline 

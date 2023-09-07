@@ -1,6 +1,8 @@
 use std::collections::VecDeque;
+use std::ops::{RangeBounds, Range};
 use std::sync::{Arc, Mutex};
 use std::thread::{Thread, JoinHandle, self};
+use std::time::SystemTime;
 
 use crate::rendering::VertexBuffer;
 use crate::utils::Array3D;
@@ -32,6 +34,7 @@ impl Chunk
         let mut data = Octree::new(chunk_depth);
         let chunk_position = chunk_index * data.length() as isize;
 
+        let octree_gen_time = SystemTime::now();
         for x in 0..data.length()
         {
             for y in 0..data.length()
@@ -39,13 +42,23 @@ impl Chunk
                 for z in 0..data.length()
                 {
                     let offset = Vec3::new(x, y, z).cast().unwrap();
-                    data.insert([x, y, z].into(), generator.get(chunk_position + offset));
+                    if let Some(voxel) = generator.get(chunk_position + offset)
+                    {
+                        data.insert([x, y, z].into(), Some(voxel));
+                    }
                 }
             }
         }
 
+        println!("Generating the octree took: {}ms", octree_gen_time.elapsed().unwrap().as_millis());
+
+        let faces_gen_time = SystemTime::now();
         let faces = Self::get_voxel_faces(&data, data.length(), chunk_position);
+        println!("Generating the faces took: {}ms", faces_gen_time.elapsed().unwrap().as_millis());
+
+        let buffer_gen_time = SystemTime::now();
         let faces_buffer = VertexBuffer::new(&faces, device, Some("Faces buffer"));
+        println!("Generating the faces buffer took: {}ms", buffer_gen_time.elapsed().unwrap().as_millis());
 
         Self 
         {
@@ -266,8 +279,9 @@ impl ChunkGenerator
 
             self.thread = Some(thread::spawn(move || {
                 println!("starting to generate chunk {:?}", chunk_index);
+                let current_time = SystemTime::now();
                 let chunk = Chunk::new(generator.as_ref(), chunk_index, voxels, chunk_depth, &device);
-                println!("finished generating chunk {:?}", chunk_index);
+                println!("finished generating chunk {:?}, took {}ms", chunk_index, current_time.elapsed().unwrap().as_millis());
                 chunk
             }))
         }
@@ -321,6 +335,20 @@ impl VoxelTerrain
         {
             self.generator.queue.push_back(chunk_index);
             true
+        }
+    }
+
+    pub fn generate_chunks(&mut self, bounds: [Range<isize>; 3])
+    {
+        for x in bounds[0].clone()
+        {
+            for y in bounds[1].clone()
+            {
+                for z in bounds[2].clone()
+                {
+                    self.generate_chunk(Vec3::new(x, y, z));
+                }
+            }
         }
     }
 
