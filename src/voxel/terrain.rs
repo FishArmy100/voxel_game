@@ -35,6 +35,7 @@ impl Chunk
         let chunk_position = chunk_index * data.length() as isize;
 
         let octree_gen_time = SystemTime::now();
+
         for x in 0..data.length()
         {
             for y in 0..data.length()
