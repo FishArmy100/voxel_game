@@ -1,6 +1,6 @@
-use cgmath::Array;
+use cgmath::{Array, Zero};
 
-use crate::math::Vec3;
+use crate::{math::Vec3, utils};
 
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -64,8 +64,7 @@ impl<T> Octree<T> where T : Copy + Clone + Eq
 
     pub fn insert(&mut self, position: Vec3<usize>, value: Option<T>)
     {
-        let was_inserted = self.root.insert(position, value);
-        assert!(was_inserted, "Position {:?} was outside this bounds.", position);
+        self.root.insert(position, value);
         self.root.simplify();
     }
 
@@ -168,52 +167,44 @@ impl<T> Node<T> where T : Copy + Clone + Eq
         Self { data: NodeType::Empty, bounds }
     }
 
-    fn insert(&mut self, index: Vec3<usize>, value: Option<T>) -> bool
+    fn insert(&mut self, index: Vec3<usize>, value: Option<T>)
     {
-        if !self.bounds.contains_point(index)
+        if self.bounds.is_max_depth()
         {
-            false
-        }
-        else if self.bounds.is_max_depth() && self.bounds.position_relative == index
-        {
+            assert!(index == self.bounds.position_relative, "thought {:?} was {:?}", index, self.bounds.position_relative);
             match value 
             {
                 Some(value) => self.data = NodeType::Leaf(value),
                 None => self.data = NodeType::Empty,
             }
-
-            true
         }
-        else if !self.bounds.is_max_depth()
+        else
         {
+            let child_index = self.get_child_index(index);
             match &mut self.data
             {
                 NodeType::Empty =>
                 {
                     let mut branches = Box::new(self.get_empty_children(None));
-                    let was_found = branches.iter_mut().any(|b| b.insert(index, value));
-                    assert!(was_found, "Index should have been found in this sub voxel");
+
+                    branches[child_index].insert(index, value);
+
                     self.data = NodeType::Branches(branches);
-                    true
                 },
                 NodeType::Leaf(leaf) => 
                 {
                     let leaf = *leaf;
                     let mut branches = Box::new(self.get_empty_children(Some(leaf)));
-                    let was_found = branches.iter_mut().any(|b| b.insert(index, value));
-                    assert!(was_found, "Index should have been found in this sub voxel");
+                    
+                    branches[child_index].insert(index, value);
+
                     self.data = NodeType::Branches(branches);
-                    true
                 },
                 NodeType::Branches(branches) => 
                 {
-                    branches.iter_mut().any(|b| b.insert(index, value))
+                    branches[child_index].insert(index, value);
                 }
             }
-        }
-        else 
-        {
-            panic!("The developer did something very wrong :)")
         }
     }
 
@@ -244,6 +235,19 @@ impl<T> Node<T> where T : Copy + Clone + Eq
         });
 
         children
+    }
+
+    fn get_child_index(&self, position: Vec3<usize>) -> usize
+    {
+        let sub_octant_len = (2 as u32).pow((self.bounds.max_depth - self.bounds.current_depth - 1) as u32);
+        let current_position = position / sub_octant_len as usize;
+
+        let relative = current_position - self.bounds.position_relative * 2;
+
+        assert!(relative.x < 2 && relative.y < 2 && relative.z < 2, "Index error");
+        let index = utils::index_3d_to_index_1d(2, 2, 2, relative);
+
+        index
     }
 
     fn simplify(&mut self) -> bool

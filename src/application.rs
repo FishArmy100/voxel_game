@@ -524,6 +524,7 @@ fn generate_terrain(device: &Arc<wgpu::Device>) -> Arc<Mutex<VoxelTerrain>> {
     let terrain = Arc::new(Mutex::new(VoxelTerrain::new(info, device.clone(), generator)));
 
     terrain.lock().unwrap().generate_chunks([0..4, 0..2, 0..4]);
+    // terrain.lock().unwrap().generate_chunk([0, 0, 0].into());
 
     terrain
 }
