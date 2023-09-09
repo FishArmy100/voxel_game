@@ -31,8 +31,8 @@ impl VoxelGenerator for DefaultVoxelGenerator
 {
     fn get(&self, index: Vec3<isize>) -> Option<Voxel> 
     {
-        let noise_value = (self.perlin.get([index.x as f64 / 30.494948, index.z as f64 / 30.494948]) * (16 * 2) as f64) as f32 / 4.;
-        let water_height = 2 as f32 * 16. / 10.0;
+        let noise_value = (self.perlin.get([index.x as f64 / 30.494948, index.z as f64 / 30.494948]) * (16 * 2) as f64) as f32 * 3.;
+        let water_height = 2 as f32 * 16.;
         let sand_height = water_height + 2.0; 
 
         if index.y as f32 <= water_height
@@ -523,7 +523,7 @@ fn generate_terrain(device: &Arc<wgpu::Device>) -> Arc<Mutex<VoxelTerrain>> {
 
     let terrain = Arc::new(Mutex::new(VoxelTerrain::new(info, device.clone(), generator)));
 
-    terrain.lock().unwrap().generate_chunks([0..2, 0..2, 0..2]);
+    terrain.lock().unwrap().generate_chunks([0..5, 0..2, 0..5]);
 
     terrain
 }

@@ -68,6 +68,16 @@ impl<T> Octree<T> where T : Copy + Clone + Eq
         self.root.simplify();
     }
 
+    pub fn insert_without_simplify(&mut self, position: Vec3<usize>, value: Option<T>)
+    {
+        self.root.insert(position, value);
+    }
+
+    pub fn simplify(&mut self)
+    {
+        self.root.simplify();
+    }
+
     pub fn is_empty(&self) -> bool
     {
         match self.root.data 

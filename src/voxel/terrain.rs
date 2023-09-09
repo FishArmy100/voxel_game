@@ -35,6 +35,8 @@ impl Chunk
         let chunk_position = chunk_index * data.length() as isize;
 
         let octree_gen_time = SystemTime::now();
+        let mut insert_time  = 0;
+        let mut gen_time = 0;
 
         for x in 0..data.length()
         {
@@ -43,14 +45,24 @@ impl Chunk
                 for z in 0..data.length()
                 {
                     let offset = Vec3::new(x, y, z).cast().unwrap();
-                    if let Some(voxel) = generator.get(chunk_position + offset)
+                    let current = SystemTime::now();
+                    let generated = generator.get(chunk_position + offset);
+                    gen_time += current.elapsed().unwrap().as_nanos();
+
+                    if let Some(voxel) = generated
                     {
-                        data.insert([x, y, z].into(), Some(voxel));
+                        let current = SystemTime::now();
+                        data.insert_without_simplify([x, y, z].into(), Some(voxel));
+                        insert_time += current.elapsed().unwrap().as_nanos();
                     }
                 }
             }
         }
 
+        data.simplify();
+        
+        println!("Generation took {}ms", gen_time / 1_000_000);
+        println!("Inserting took {}ms", insert_time / 1_000_000);
         println!("Generating the octree took: {}ms", octree_gen_time.elapsed().unwrap().as_millis());
 
         let faces_gen_time = SystemTime::now();
