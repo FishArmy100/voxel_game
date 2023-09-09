@@ -50,15 +50,15 @@ impl Chunk
             }
         }
 
-        println!("Generating the octree took: {}ms", octree_gen_time.elapsed().unwrap().as_millis());
+        // println!("Generating the octree took: {}ms", octree_gen_time.elapsed().unwrap().as_millis());
 
         let faces_gen_time = SystemTime::now();
         let faces = Self::get_voxel_faces(&data, data.length(), chunk_position);
-        println!("Generating the faces took: {}ms", faces_gen_time.elapsed().unwrap().as_millis());
+        // println!("Generating the faces took: {}ms", faces_gen_time.elapsed().unwrap().as_millis());
 
         let buffer_gen_time = SystemTime::now();
         let faces_buffer = VertexBuffer::new(&faces, device, Some("Faces buffer"));
-        println!("Generating the faces buffer took: {}ms", buffer_gen_time.elapsed().unwrap().as_millis());
+        // println!("Generating the faces buffer took: {}ms", buffer_gen_time.elapsed().unwrap().as_millis());
 
         Self 
         {
