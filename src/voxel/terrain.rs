@@ -50,7 +50,7 @@ impl Chunk
             }
         }
 
-        // println!("Generating the octree took: {}ms", octree_gen_time.elapsed().unwrap().as_millis());
+        println!("Generating the octree took: {}ms", octree_gen_time.elapsed().unwrap().as_millis());
 
         let faces_gen_time = SystemTime::now();
         let faces = Self::get_voxel_faces(&data, data.length(), chunk_position);
@@ -278,10 +278,10 @@ impl ChunkGenerator
             let chunk_depth = self.chunk_depth;
 
             self.thread = Some(thread::spawn(move || {
-                println!("starting to generate chunk {:?}", chunk_index);
+                // println!("starting to generate chunk {:?}", chunk_index);
                 let current_time = SystemTime::now();
                 let chunk = Chunk::new(generator.as_ref(), chunk_index, voxels, chunk_depth, &device);
-                println!("finished generating chunk {:?}, took {}ms", chunk_index, current_time.elapsed().unwrap().as_millis());
+                // println!("finished generating chunk {:?}, took {}ms", chunk_index, current_time.elapsed().unwrap().as_millis());
                 chunk
             }))
         }
