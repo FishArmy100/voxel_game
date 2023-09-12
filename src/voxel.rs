@@ -1,5 +1,6 @@
 pub mod octree;
 pub mod terrain;
+pub mod world_gen;
 
 use std::sync::Arc;
 use crate::colors::Color;

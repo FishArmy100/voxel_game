@@ -11,7 +11,8 @@ use crate::rendering::debug_render_stage::{DebugLine, self, DebugRenderStage, De
 use crate::rendering::renderer::Renderer;
 use crate::rendering::voxel_render_stage::VoxelRenderStage;
 use crate::voxel::octree::{Octree, VisitedNodeType};
-use crate::voxel::{Voxel, VoxelData};
+use crate::voxel::{Voxel, VoxelData, world_gen};
+use crate::voxel::world_gen::*;
 
 use crate::colors::Color;
 use crate::math::{Vec3, Point3D, Vec2};
@@ -386,6 +387,8 @@ impl AppState
 
         let renderer = GameRenderer::new(terrain.clone(), camera.clone(), device.clone(), surface.clone(), queue.clone(), &config);
         let frame_builder = FrameStateBuilder::new(window_handle.clone(), FrameState::new(&window_handle));
+
+        world_gen::run(&[0, 1, 2, 3, 4, 5, 6], &device, &queue).await;
 
         Self
         {
