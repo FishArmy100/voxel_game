@@ -23,26 +23,6 @@ impl<T> GPUBuffer<T> where T : bytemuck::Pod + bytemuck::Zeroable
     pub fn len(&self) -> u64 { self.length }
     pub fn cap(&self) -> u64 { self.capacity }
 
-    /// If the current capacity is less than the given capacity, will allocate a new buffer with that amount.
-    /// If the buffer is resized, will not copy contents over to the new buffer
-    pub fn reserve(&mut self, capacity: u64)
-    {
-        if self.capacity < capacity
-        {
-            let buffer = self.device.create_buffer_init(&BufferInitDescriptor {
-                label: match &self.label {
-                    Some(l) => Some(&l),
-                    None => None
-                },
-                contents: &vec![0 as u8; (capacity * std::mem::size_of::<T>() as u64) as usize],
-                usage: self.usage
-            });
-
-            self.buffer = buffer;
-            self.capacity = capacity;
-        }
-    }
-
     pub fn new(data: &[T], usage: wgpu::BufferUsages, label: Option<String>, device: Arc<wgpu::Device>) -> Self
     {
         let buffer = device.create_buffer_init(&BufferInitDescriptor {

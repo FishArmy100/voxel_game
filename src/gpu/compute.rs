@@ -136,7 +136,7 @@ impl ComputeStage for TestComputeStage
     fn on_begin_execute<'pass, 's: 'pass>(&'s mut self, args: Self::Args, queue: &wgpu::Queue) -> Vec3<u32> 
     {
         self.storage.enqueue_set_data(&args, queue);
-        self.staging_buffer.reserve(args.len() as u64);
+        self.staging_buffer.enqueue_set_data(&vec![0; args.len()], queue);
         Vec3::new(args.len() as u32, 0, 0)
     }
 
