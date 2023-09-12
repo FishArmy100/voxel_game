@@ -383,13 +383,12 @@ impl AppState
         };
 
         let terrain = generate_terrain(&device);
-        
 
         let renderer = GameRenderer::new(terrain.clone(), camera.clone(), device.clone(), surface.clone(), queue.clone(), &config);
         let frame_builder = FrameStateBuilder::new(window_handle.clone(), FrameState::new(&window_handle));
 
-        let generator = world_gen::ChunkGenerator::new(device.clone(), queue.clone(), vec![0, 1, 2, 3, 4, 5, 6]);
-        generator.run().await;
+        let generator = world_gen::ChunkGenerator::new(device.clone(), queue.clone(), 10);
+        generator.run();
 
         Self
         {

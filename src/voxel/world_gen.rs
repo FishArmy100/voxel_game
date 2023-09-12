@@ -1,10 +1,7 @@
-use std::{borrow::Cow, str::FromStr, sync::Arc};
+use std::{borrow::Cow, sync::Arc};
 use cgmath::Zero;
 use wgpu::util::DeviceExt;
 use crate::math::Vec3;
-
-// Indicates a u32 overflow in an intermediate Collatz value
-const OVERFLOW: u32 = 0xffffffff;
 
 pub struct ChunkGenerator
 {
@@ -17,12 +14,12 @@ pub struct ChunkGenerator
     bind_group: wgpu::BindGroup,
     compute_pipeline: wgpu::ComputePipeline,
 
-    numbers: Vec<u32> // TEMP
+    gen_count: u32 // TEMP
 }
 
 impl ChunkGenerator
 {
-    pub fn new(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>, numbers: Vec<u32>) -> Self 
+    pub fn new(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>, gen_count: u32) -> Self 
     {
         // Loads the shader from WGSL
         let cs_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -30,8 +27,7 @@ impl ChunkGenerator
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("../shaders/test_compute.wgsl"))),
         });
 
-        // Gets the size in bytes of the buffer.
-        let size = std::mem::size_of_val(numbers.as_slice()) as wgpu::BufferAddress;
+        let size = (std::mem::size_of::<f32>() * gen_count as usize) as wgpu::BufferAddress;
 
         let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
@@ -42,7 +38,7 @@ impl ChunkGenerator
 
         let storage_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Storage Buffer"),
-            contents: bytemuck::cast_slice(numbers.as_slice()),
+            contents: bytemuck::cast_slice(&vec![0 as u8; size as usize]),
             usage: wgpu::BufferUsages::STORAGE
                 | wgpu::BufferUsages::COPY_DST
                 | wgpu::BufferUsages::COPY_SRC,
@@ -74,29 +70,34 @@ impl ChunkGenerator
             storage_buffer, 
             bind_group, 
             compute_pipeline, 
-            numbers 
+            gen_count
         }
     }
 
-    pub async fn run(&self)
+    pub fn run(&self)
     {
-        let size = std::mem::size_of_val(self.numbers.as_slice()) as wgpu::BufferAddress;
+        pollster::block_on(self.run_async())
+    }
+
+    pub async fn run_async(&self)
+    {
+        let size = (std::mem::size_of::<f32>() * self.gen_count as usize) as wgpu::BufferAddress;
 
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         {
             let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                 label: None,
             });
+
             cpass.set_pipeline(&self.compute_pipeline);
             cpass.set_bind_group(0, &self.bind_group, &[]);
-            cpass.insert_debug_marker("compute collatz iterations");
-            cpass.dispatch_workgroups(self.numbers.len() as u32, 1, 1); // Number of cells to run, the (x,y,z) size of item being processed
+            cpass.insert_debug_marker("compute random numbers");
+            cpass.dispatch_workgroups(self.gen_count, 1, 1); // Number of cells to run, the (x,y,z) size of item being processed
         }
         
         encoder.copy_buffer_to_buffer(&self.storage_buffer, 0, &self.staging_buffer, 0, size);
 
         self.queue.submit(Some(encoder.finish()));
-
         
         let buffer_slice = self.staging_buffer.slice(..);
         let (sender, receiver) = futures_intrusive::channel::shared::oneshot_channel();
@@ -120,15 +121,12 @@ impl ChunkGenerator
     }
 }
 
-fn print_result(result: &Vec<u32>)
+fn print_result(result: &Vec<f32>)
 {
     let disp_steps: Vec<String> = result
-    .iter()
-    .map(|&n| match n {
-        OVERFLOW => "OVERFLOW".to_string(),
-        _ => n.to_string(),
-    })
-    .collect();
+        .iter()
+        .map(|n| n.to_string())
+        .collect();
 
     println!("Steps: [{}]", disp_steps.join(", "));
 }
