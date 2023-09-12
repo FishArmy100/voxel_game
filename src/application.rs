@@ -6,6 +6,7 @@ use noise::{Perlin, NoiseFn};
 use winit::event::{WindowEvent, Event, KeyboardInput, VirtualKeyCode, ElementState, MouseButton, MouseScrollDelta, DeviceEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 
+use crate::gpu::compute::{TestComputeStage, ComputeExecutor, ComputeShaderInfo};
 use crate::rendering::GameRenderer;
 use crate::rendering::debug_render_stage::{DebugLine, self, DebugRenderStage, DebugObject, DebugCube};
 use crate::rendering::renderer::Renderer;
@@ -386,6 +387,19 @@ impl AppState
 
         let renderer = GameRenderer::new(terrain.clone(), camera.clone(), device.clone(), surface.clone(), queue.clone(), &config);
         let frame_builder = FrameStateBuilder::new(window_handle.clone(), FrameState::new(&window_handle));
+
+        let test_compute_stage = TestComputeStage::new(device.clone());
+        let shader_info = ComputeShaderInfo {
+            main: "main",
+            source: include_str!("shaders/test_compute.wgsl")
+        };
+
+        let mut compute_executor = ComputeExecutor::new(test_compute_stage, shader_info, device.clone(), queue.clone());
+        let output = compute_executor.execute(vec![0, 1, 2, 3, 4, 5, 6]);
+        for o in output
+        {
+            println!("{}", o);
+        }
 
         Self
         {

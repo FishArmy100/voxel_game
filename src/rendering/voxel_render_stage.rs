@@ -8,7 +8,8 @@ use crate::rendering::{ModelUniform, construct_render_pipeline};
 use crate::voxel::terrain::VoxelTerrain;
 
 use crate::colors::Color;
-use super::{RenderStage, DrawCall, BindGroupData, VertexBuffer, VertexData, IndexBuffer};
+use super::{RenderStage, DrawCall, VertexBuffer, VertexData, IndexBuffer};
+use crate::gpu::bind_group::{UniformBindGroup, UniformData, IBindGroup};
 
 pub const VOXEL_FACE_VERTICES: [VoxelVertex; 4] = [VoxelVertex::new(0, Color::WHITE), VoxelVertex::new(1, Color::RED), VoxelVertex::new(2, Color::GREEN), VoxelVertex::new(3, Color::BLUE)];
 pub const VOXEL_FACE_TRIANGLES: [u16; 6] = [2, 1, 0, 2, 3, 1];
@@ -158,19 +159,23 @@ unsafe impl bytemuck::Zeroable for VoxelRenderData {}
 
 #[repr(C)]
 #[derive(Debug, Clone)]
-pub struct VoxelRenderDataUniform
+pub struct VoxelRenderDataUniform<const C: usize>
 {
-    pub data: Box<[VoxelRenderData]>,
+    pub data: [VoxelRenderData; C],
 }
 
-impl VoxelRenderDataUniform
+impl<const C: usize> VoxelRenderDataUniform<C>
 {
-    pub fn new(data: Box<[VoxelRenderData]>) -> Self
+    pub fn new(data: [VoxelRenderData; C]) -> Self
     {
         Self { data }
     }
+}
 
-    pub fn as_bytes(&self) -> &[u8]
+impl<const C: usize> UniformData for VoxelRenderDataUniform<C>
+{
+    const SIZE: usize = C * std::mem::size_of::<VoxelRenderData>();
+    fn as_bytes(&self) -> &[u8]
     {
         bytemuck::cast_slice(&self.data)
     }
@@ -194,14 +199,14 @@ impl VoxelSizeUniform
     }
 }
 
-pub struct VoxelRenderStage
+pub struct VoxelRenderStage<const C: usize>
 {
     terrain: Arc<Mutex<VoxelTerrain>>,
     
-    camera_bind_group: BindGroupData,
-    model_bind_group: BindGroupData,
-    voxel_bind_group: BindGroupData,
-    voxel_size_bind_group: BindGroupData,
+    camera_bind_group: UniformBindGroup<CameraUniform>,
+    model_bind_group: UniformBindGroup<ModelUniform>,
+    voxel_bind_group: UniformBindGroup<VoxelRenderDataUniform<C>>,
+    voxel_size_bind_group: UniformBindGroup<VoxelSizeUniform>,
 
     render_pipeline: wgpu::RenderPipeline,
 
@@ -211,23 +216,29 @@ pub struct VoxelRenderStage
     index_buffer: IndexBuffer
 }
 
-impl VoxelRenderStage
+impl<const C: usize> VoxelRenderStage<C>
 {
     pub fn new(terrain: Arc<Mutex<VoxelTerrain>>, camera: Camera, device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Self
     {
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&camera);
-        let camera_bind_group = BindGroupData::uniform("camera_bind_group".into(), camera_uniform, wgpu::ShaderStages::VERTEX, device);
+        let camera_bind_group = UniformBindGroup::new("camera_bind_group".into(), Some(camera_uniform), wgpu::ShaderStages::VERTEX, device);
 
         let terrain_mutex = terrain.lock().unwrap();
-        let voxel_uniform = VoxelRenderDataUniform::new(terrain_mutex.voxel_types().iter().map(|v| v.get_render_data()).collect());
-        let voxel_bind_group = BindGroupData::uniform_bytes("voxel_bind_group".into(), voxel_uniform.as_bytes(), wgpu::ShaderStages::VERTEX, device);
+        let voxel_types = match terrain_mutex.voxel_types().iter().map(|v| v.get_render_data()).collect::<Vec<_>>().try_into() {
+            Ok(vs) => vs,
+            Err(_) => panic!("Terrain had {} voxel types, while the voxel render stage needs {} types", terrain_mutex.voxel_types().len(), C)
+        };
+        
+        let voxel_uniform = VoxelRenderDataUniform::new(voxel_types);
+        
+        let voxel_bind_group = UniformBindGroup::new("voxel_bind_group".into(), Some(voxel_uniform), wgpu::ShaderStages::VERTEX, device);
 
         let model_uniform = ModelUniform::from_position(Point3D::from_value(0.0));
-        let model_bind_group = BindGroupData::uniform("model_bind_group".into(), model_uniform, wgpu::ShaderStages::VERTEX, device);
+        let model_bind_group = UniformBindGroup::new("model_bind_group".into(), Some(model_uniform), wgpu::ShaderStages::VERTEX, device);
 
         let voxel_size_uniform = VoxelSizeUniform::new(terrain_mutex.info().voxel_size);
-        let voxel_size_bind_group = BindGroupData::uniform("voxel_size_bind_group".into(), voxel_size_uniform, wgpu::ShaderStages::VERTEX, device);
+        let voxel_size_bind_group = UniformBindGroup::new("voxel_size_bind_group".into(), Some(voxel_size_uniform), wgpu::ShaderStages::VERTEX, device);
         drop(terrain_mutex);
 
         let vertex_buffer = VertexBuffer::new(&VOXEL_FACE_VERTICES, device, Some("Voxel vertex buffer"));
@@ -268,9 +279,9 @@ impl VoxelRenderStage
     }
 }
 
-impl RenderStage for VoxelRenderStage
+impl<const C: usize> RenderStage for VoxelRenderStage<C>
 {
-    fn bind_groups(&self) -> Box<[&BindGroupData]>
+    fn bind_groups(&self) -> Box<[&dyn IBindGroup]>
     {
         Box::new([&self.camera_bind_group, &self.model_bind_group, &self.voxel_bind_group, &self.voxel_size_bind_group])
     }
@@ -319,8 +330,8 @@ pub struct VoxelDrawCall<'a>
     camera: Camera,
     position: Point3D<f32>,
 
-    camera_bind_group: &'a BindGroupData,
-    model_bind_group: &'a BindGroupData,
+    camera_bind_group: &'a UniformBindGroup<CameraUniform>,
+    model_bind_group: &'a UniformBindGroup<ModelUniform>,
 
     terrain: Arc<MutexGuard<'a, VoxelTerrain>>
 }

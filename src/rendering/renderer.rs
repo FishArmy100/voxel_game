@@ -65,7 +65,7 @@ impl Renderer
             render_pass.set_pipeline(pipeline);
             for bind_group_index in 0..bind_groups.len()
             {
-                render_pass.set_bind_group(bind_group_index as u32, &bind_groups[bind_group_index].bind_group, &[])
+                render_pass.set_bind_group(bind_group_index as u32, &bind_groups[bind_group_index].bind_group_handle(), &[])
             }
 
             draw_call.on_draw(&mut render_pass);

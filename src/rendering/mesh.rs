@@ -1,9 +1,10 @@
 use crate::camera::{Camera, CameraUniform};
+use crate::gpu::bind_group::{IBindGroup, UniformBindGroup};
 use crate::math::*;
 use crate::colors::Color;
 use crate::rendering::{VertexData, RenderStage, DrawCall};
 
-use super::{VertexBuffer, IndexBuffer, BindGroupData, construct_render_pipeline, RenderPipelineInfo};
+use super::{VertexBuffer, IndexBuffer, construct_render_pipeline, RenderPipelineInfo};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -158,7 +159,7 @@ pub struct MeshRenderStage
     index_buffer: IndexBuffer,
     instance_buffer: VertexBuffer<MeshInstance>,
     render_pipeline: wgpu::RenderPipeline,
-    camera_bind_group: BindGroupData,
+    camera_bind_group: UniformBindGroup<CameraUniform>,
     camera: Camera
 }
 
@@ -170,9 +171,7 @@ impl MeshRenderStage
         let index_buffer = IndexBuffer::new(device, mesh.get_triangle_indexes(), None);
         let instance_buffer = VertexBuffer::new(transforms, device, None);
 
-        let mut camera_uniform = CameraUniform::new();
-        camera_uniform.update_view_proj(&camera);
-        let camera_bind_group = BindGroupData::uniform("camera_bind_group".into(), camera_uniform, wgpu::ShaderStages::VERTEX, device);
+        let camera_bind_group = UniformBindGroup::new("camera_bind_group".into(), None, wgpu::ShaderStages::VERTEX, device);
 
         let render_pipeline = construct_render_pipeline(device, config, &RenderPipelineInfo 
         { 
@@ -204,7 +203,7 @@ impl MeshRenderStage
 
 impl RenderStage for MeshRenderStage
 {
-    fn bind_groups(&self) -> Box<[&BindGroupData]> {
+    fn bind_groups(&self) -> Box<[&dyn IBindGroup]> {
         Box::new([&self.camera_bind_group])
     }
 
@@ -228,7 +227,7 @@ pub struct MeshDrawCall<'b>
     vertex_buffer: &'b VertexBuffer<Vertex>,
     index_buffer: &'b IndexBuffer,
     instance_buffer: &'b VertexBuffer<MeshInstance>,
-    camera_bind_group: &'b BindGroupData,
+    camera_bind_group: &'b UniformBindGroup<CameraUniform>,
     camera: Camera
 }
 

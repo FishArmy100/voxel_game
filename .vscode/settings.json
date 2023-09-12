@@ -5,10 +5,12 @@
         "Buildables",
         "bytemuck",
         "cgmath",
+        "cpass",
         "mipmap",
         "multisample",
         "multiview",
         "nanos",
+        "oneshot",
         "OPENGL",
         "perlin",
         "repr",
@@ -17,6 +19,7 @@
         "srgb",
         "swapchain",
         "unclipped",
+        "unmap",
         "WASD",
         "webgl",
         "wgpu",
@@ -25,6 +28,7 @@
         "Zeroable"
     ],
     "rust-analyzer.linkedProjects": [
+        ".\\Cargo.toml",
         ".\\Cargo.toml",
         ".\\Cargo.toml",
         ".\\Cargo.toml"

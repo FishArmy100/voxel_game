@@ -3,8 +3,9 @@ use std::sync::Arc;
 use cgmath::{Zero, ElementWise};
 use wgpu::util::DeviceExt;
 
-use super::{RenderStage, DrawCall, BindGroupData};
+use super::{RenderStage, DrawCall};
 use crate::camera::{Camera, CameraUniform};
+use crate::gpu::bind_group::{IBindGroup, UniformBindGroup};
 use crate::math::Vec3;
 use crate::colors::Color;
 use crate::texture::Texture;
@@ -203,7 +204,7 @@ pub struct DebugRenderStage
     device: Arc<wgpu::Device>,
 
     render_pipeline: wgpu::RenderPipeline,
-    camera_bind_group: BindGroupData,
+    camera_bind_group: UniformBindGroup<CameraUniform>,
 
     camera: Camera,
 
@@ -215,8 +216,7 @@ impl DebugRenderStage
 {
     pub fn new(device: Arc<wgpu::Device>, config: &wgpu::SurfaceConfiguration, default_camera: Camera, debug_objects: &[DebugObject]) -> Self
     {
-        let camera_uniform = CameraUniform::new();
-        let camera_bind_group = BindGroupData::uniform("camera_bind_group".into(), camera_uniform, wgpu::ShaderStages::VERTEX, &device);
+        let camera_bind_group = UniformBindGroup::new("camera_bind_group".into(), None, wgpu::ShaderStages::VERTEX, &device);
 
         let render_pipeline = Self::gen_render_pipeline(&device, config, &camera_bind_group);
 
@@ -260,7 +260,7 @@ impl DebugRenderStage
         (buffer, vertices.len() as u32)
     }
 
-    fn gen_render_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, camera_bind_group: &BindGroupData) -> wgpu::RenderPipeline
+    fn gen_render_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, camera_bind_group: &UniformBindGroup<CameraUniform>) -> wgpu::RenderPipeline
     {
         let shader = device.create_shader_module(wgpu::include_wgsl!("../shaders/debug_shader.wgsl"));
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -320,7 +320,7 @@ impl DebugRenderStage
 
 impl RenderStage for DebugRenderStage
 {
-    fn bind_groups(&self) -> Box<[&BindGroupData]> {
+    fn bind_groups(&self) -> Box<[&dyn IBindGroup]> {
         Box::new([&self.camera_bind_group])
     }
 
@@ -337,7 +337,7 @@ impl RenderStage for DebugRenderStage
 pub struct DebugDrawCall<'buffer, 'group>
 {
     camera: Camera,
-    camera_bind_group: &'group BindGroupData,
+    camera_bind_group: &'group UniformBindGroup<CameraUniform>,
 
     vertex_buffer: &'buffer wgpu::Buffer,
     vertex_count: u32
@@ -345,7 +345,7 @@ pub struct DebugDrawCall<'buffer, 'group>
 
 impl<'buffer, 'group> DebugDrawCall<'buffer, 'group>
 {
-    pub fn new(camera: Camera, camera_bind_group: &'group BindGroupData, vertex_buffer: &'buffer wgpu::Buffer, vertex_count: u32) -> Self
+    pub fn new(camera: Camera, camera_bind_group: &'group UniformBindGroup<CameraUniform>, vertex_buffer: &'buffer wgpu::Buffer, vertex_count: u32) -> Self
     {
         Self { camera, camera_bind_group, vertex_buffer, vertex_count }
     }
