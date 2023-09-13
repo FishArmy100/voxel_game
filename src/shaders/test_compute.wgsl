@@ -10,7 +10,7 @@ var<uniform> chunk_pos: vec3<i32>;
 const TERRAIN_HEIGHT: f32 = 10.0;
 const VOXEL_SIZE: f32 = 0.0625;
 const EPSILON: f32 = 0.00000001;
-const NOISE_HEIGHT_SCALE: f32 = 0.1;
+const NOISE_HEIGHT_SCALE: f32 = 0.30;
 const NOISE_SCALE: f32 = 10.0;
 
 //  MIT License. © Ian McEwan, Stefan Gustavson, Munrocket, Johan Helsing
@@ -75,9 +75,10 @@ fn simplexNoise2(v: vec2f) -> f32 {
 
 fn sample_noise(x: u32, y: u32, z: u32) -> u32
 {
-    let pos = vec2<f32>((f32(x) + EPSILON) * VOXEL_SIZE, (f32(z) + EPSILON) * VOXEL_SIZE);
+    let chunk_offset = vec3<f32>(f32(chunk_pos.x) * f32(chunk_size.x), f32(chunk_pos.y) * f32(chunk_size.y), f32(chunk_pos.z) * f32(chunk_size.z));
+    let pos = vec2<f32>((f32(x) + chunk_offset.x + EPSILON) * VOXEL_SIZE, (f32(z) + chunk_offset.z + EPSILON) * VOXEL_SIZE);
     let noise_height = simplexNoise2(pos) * NOISE_HEIGHT_SCALE;
-    let voxel_height = f32(y) * VOXEL_SIZE;
+    let voxel_height = (f32(y) + chunk_offset.y) * VOXEL_SIZE;
     let voxel = select(u32(1), u32(0), voxel_height >= noise_height);
     return voxel;
 }

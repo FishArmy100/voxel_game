@@ -37,7 +37,7 @@ impl Chunk
 
         println!("Starting to generate voxel grid");
         let now = SystemTime::now();
-        let voxel_grid = generator.run();
+        let voxel_grid = generator.run(chunk_index.cast().unwrap());
         let elapsed = now.elapsed().unwrap().as_micros() as f32;
         println!("Generated voxel grid in {}ms", elapsed / 1000.0);
 

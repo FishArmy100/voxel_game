@@ -153,15 +153,17 @@ impl VoxelGenerator
         }
     }
 
-    pub fn run(&self) -> Array3D<u32>
+    pub fn run(&self, chunk_pos: Vec3<i32>) -> Array3D<u32>
     {
-        pollster::block_on(self.run_async())
+        pollster::block_on(self.run_async(chunk_pos))
     }
 
-    pub async fn run_async(&self) -> Array3D<u32>
+    pub async fn run_async(&self, chunk_pos: Vec3<i32>) -> Array3D<u32>
     {
         let voxel_count = self.chunk_size.x * self.chunk_size.y * self.chunk_size.z;
         let size = (std::mem::size_of::<u32>() * voxel_count as usize) as wgpu::BufferAddress;
+
+        self.queue.write_buffer(&self.chunk_pos_buffer, 0, bytemuck::cast_slice(&[GPUVec3::new(chunk_pos.x, chunk_pos.y, chunk_pos.z)]));
 
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         {
@@ -193,7 +195,9 @@ impl VoxelGenerator
             self.staging_buffer.unmap();
 
             result
-        } else {
+        } 
+        else 
+        {
             panic!("failed to run compute on gpu!")
         };
 
