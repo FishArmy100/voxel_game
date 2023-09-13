@@ -17,46 +17,11 @@ use crate::voxel::world_gen::*;
 use crate::colors::Color;
 use crate::math::{Vec3, Point3D, Vec2};
 use crate::camera::{Camera, CameraEntity};
-use crate::voxel::terrain::{VoxelTerrain, TerrainInfo, VoxelGenerator};
+use crate::voxel::terrain::{VoxelTerrain, TerrainInfo};
 
 pub type WinitWindow = winit::window::Window;
 pub type WindowSize = winit::dpi::PhysicalSize<u32>;
 pub type WindowPosition = winit::dpi::PhysicalPosition<u32>;
-
-struct DefaultVoxelGenerator
-{
-    perlin: Perlin
-}
-
-impl VoxelGenerator for DefaultVoxelGenerator
-{
-    fn get(&self, index: Vec3<isize>) -> Option<Voxel> 
-    {
-        let noise_value = (self.perlin.get([index.x as f64 / 30.494948, index.z as f64 / 30.494948]) * (16 * 2) as f64) as f32 * 3.;
-        let water_height = 2 as f32 * 16.;
-        let sand_height = water_height + 2.0; 
-
-        if index.y as f32 <= water_height
-        {
-            Some(Voxel::new(1))
-        }
-        else if index.y as f32 <= noise_value
-        {
-            if index.y as f32 <= sand_height
-            {
-                Some(Voxel::new(2))
-            }
-            else 
-            {
-                Some(Voxel::new(3))
-            }
-        } 
-        else 
-        {
-            None
-        }
-    }
-}
 
 #[derive(Debug)]
 pub struct FrameState
@@ -382,13 +347,10 @@ impl AppState
             far: 100000.0
         };
 
-        let terrain = generate_terrain(&device);
+        let terrain = generate_terrain(device.clone(), queue.clone());
 
         let renderer = GameRenderer::new(terrain.clone(), camera.clone(), device.clone(), surface.clone(), queue.clone(), &config);
         let frame_builder = FrameStateBuilder::new(window_handle.clone(), FrameState::new(&window_handle));
-
-        let generator = world_gen::ChunkGenerator::new(device.clone(), queue.clone(), 10);
-        generator.run();
 
         Self
         {
@@ -497,13 +459,8 @@ impl AppState
     }
 }
 
-fn generate_terrain(device: &Arc<wgpu::Device>) -> Arc<Mutex<VoxelTerrain>> {
-    let perlin = Perlin::new(326236);
-
-    let generator = Arc::new(DefaultVoxelGenerator {
-        perlin
-    });
-        
+fn generate_terrain(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>) -> Arc<Mutex<VoxelTerrain>> 
+{        
     let sand_color = Color::new(0.76, 0.698, 0.502, 1.0);
 
     let voxel_types = vec!
@@ -524,9 +481,11 @@ fn generate_terrain(device: &Arc<wgpu::Device>) -> Arc<Mutex<VoxelTerrain>> {
         voxel_types: Arc::new(voxel_types),
     };
 
-    let terrain = Arc::new(Mutex::new(VoxelTerrain::new(info, device.clone(), generator)));
+    let terrain_length = (2 as u32).pow(CHUNK_DEPTH as u32);
+    let generator = world_gen::VoxelGenerator::new(Vec3::from_value(terrain_length), device.clone(), queue.clone());
+    let terrain = Arc::new(Mutex::new(VoxelTerrain::new(info, device.clone(), Arc::new(generator))));
 
-    terrain.lock().unwrap().generate_chunks([0..5, 0..2, 0..5]);
+    terrain.lock().unwrap().generate_chunk(Vec3::new(0, 0, 0));
 
     terrain
 }

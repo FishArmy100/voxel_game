@@ -56,6 +56,18 @@ impl<T> Array3D<T>
         Self { width, height, depth, data: data.into_boxed_slice() }
     }
 
+    pub fn from_vec(width: usize, height: usize, depth: usize, data: Vec<T>) -> Self
+    {
+        assert!(width * height * depth == data.len(), "data is not of the appropriate length.");
+        Self 
+        { 
+            width, 
+            height, 
+            depth, 
+            data: data.into_boxed_slice()
+        }
+    }
+
     pub fn as_slice(&self) -> &[T] { &self.data }
     pub fn as_mut_slice(&mut self) -> &mut [T] { &mut self.data }
 
@@ -118,4 +130,7 @@ pub fn replace_option<T>(value: &mut Option<T>) -> T
 
     value
 }
+
+pub unsafe trait Byteable : bytemuck::Pod + bytemuck::Zeroable {}
+unsafe impl<T> Byteable for T where T : bytemuck::Pod + bytemuck::Zeroable {}
 

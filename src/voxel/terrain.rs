@@ -6,6 +6,7 @@ use std::time::SystemTime;
 
 use crate::rendering::VertexBuffer;
 use crate::utils::Array3D;
+use crate::voxel::world_gen::VoxelGenerator;
 use super::octree::Octree;
 use super::{Voxel, VoxelData, VoxelFaceData};
 use crate::rendering::voxel_render_stage::{VoxelFace};
@@ -29,49 +30,45 @@ impl Chunk
         &self.data
     }
 
-    pub fn new(generator: &dyn VoxelGenerator, chunk_index: Vec3<isize>, voxels: Arc<Vec<VoxelData>>, chunk_depth: usize, device: &wgpu::Device) -> Self
+    pub fn new(generator: &VoxelGenerator, chunk_index: Vec3<isize>, voxels: Arc<Vec<VoxelData>>, chunk_depth: usize, device: &wgpu::Device) -> Self
     {
-        let mut data = Octree::new(chunk_depth);
+        let mut data: Octree<Voxel> = Octree::new(chunk_depth);
         let chunk_position = chunk_index * data.length() as isize;
 
-        let octree_gen_time = SystemTime::now();
-        let mut insert_time  = 0;
-        let mut gen_time = 0;
+        println!("Starting to generate voxel grid");
+        let now = SystemTime::now();
+        let voxel_grid = generator.run();
+        let elapsed = now.elapsed().unwrap().as_micros() as f32;
+        println!("Generated voxel grid in {}ms", elapsed / 1000.0);
 
+
+        println!("Starting to insert values");
         for x in 0..data.length()
         {
             for y in 0..data.length()
             {
                 for z in 0..data.length()
                 {
-                    let offset = Vec3::new(x, y, z).cast().unwrap();
-                    let current = SystemTime::now();
-                    let generated = generator.get(chunk_position + offset);
-                    gen_time += current.elapsed().unwrap().as_nanos();
-
-                    if let Some(voxel) = generated
+                    if voxel_grid[Vec3::new(x, y, z)] == 1
                     {
-                        let current = SystemTime::now();
-                        data.insert_without_simplify([x, y, z].into(), Some(voxel));
-                        insert_time += current.elapsed().unwrap().as_nanos();
+                        data.insert_without_simplify([x, y, z].into(), Some(Voxel::new(3)));
                     }
                 }
             }
         }
+        println!("Inserted values");
 
+        println!("Starting to simplify");
         data.simplify();
-        
-        println!("Generation took {}ms", gen_time / 1_000_000);
-        println!("Inserting took {}ms", insert_time / 1_000_000);
-        println!("Generating the octree took: {}ms", octree_gen_time.elapsed().unwrap().as_millis());
+        println!("Simplified octree");
 
-        let faces_gen_time = SystemTime::now();
+        println!("Starting to generate voxel faces");
         let faces = Self::get_voxel_faces(&data, data.length(), chunk_position);
-        // println!("Generating the faces took: {}ms", faces_gen_time.elapsed().unwrap().as_millis());
+        println!("Generating voxel faces");
 
-        let buffer_gen_time = SystemTime::now();
+        println!("Starting to generate faces buffer");
         let faces_buffer = VertexBuffer::new(&faces, device, Some("Faces buffer"));
-        // println!("Generating the faces buffer took: {}ms", buffer_gen_time.elapsed().unwrap().as_millis());
+        println!("Generated faces buffer");
 
         Self 
         {
@@ -235,14 +232,9 @@ impl Chunk
     }
 }
 
-pub trait VoxelGenerator : Send + Sync + 'static
-{
-    fn get(&self, index: Vec3<isize>) -> Option<Voxel>;
-}
-
 struct ChunkGenerator
 {
-    generator_func: Arc<dyn VoxelGenerator>,
+    generator_func: Arc<VoxelGenerator>,
     queue: VecDeque<Vec3<isize>>,
     thread: Option<JoinHandle<Chunk>>,
 
@@ -253,7 +245,7 @@ struct ChunkGenerator
 
 impl ChunkGenerator
 {
-    fn new(generator: Arc<dyn VoxelGenerator>, chunk_depth: usize, voxels: Arc<Vec<VoxelData>>, device: Arc<wgpu::Device>) -> Self
+    fn new(generator: Arc<VoxelGenerator>, chunk_depth: usize, voxels: Arc<Vec<VoxelData>>, device: Arc<wgpu::Device>) -> Self
     {
         Self 
         { 
@@ -325,7 +317,7 @@ impl VoxelTerrain
     pub fn chunks(&self) -> &[Chunk] { &self.chunks }
     pub fn info(&self) -> &TerrainInfo { &self.info }
 
-    pub fn new(info: TerrainInfo, device: Arc<wgpu::Device>, generator: Arc<dyn VoxelGenerator>) -> Self
+    pub fn new(info: TerrainInfo, device: Arc<wgpu::Device>, generator: Arc<VoxelGenerator>) -> Self
     {
         let voxel_types = info.voxel_types.clone();
         let chunk_depth = info.chunk_depth;

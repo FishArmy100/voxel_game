@@ -9,6 +9,7 @@ mod rendering;
 mod voxel;
 mod debug_utils;
 mod utils;
+pub mod gpu;
 
 
 fn main() 
