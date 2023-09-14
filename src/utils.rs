@@ -88,6 +88,14 @@ impl<T> Array3D<T>
     }
 }
 
+impl<T> Array3D<T> where T : Clone
+{
+    pub fn new_with_value(width: usize, height: usize, depth: usize, value: T) -> Self
+    {
+        Self::from_vec(width, height, depth, vec![value; width * height * depth])
+    }
+}
+
 impl<T> Index<Vec3<usize>> for Array3D<T>
 {
     type Output = T;
