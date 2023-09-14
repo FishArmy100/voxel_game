@@ -1,4 +1,5 @@
-use voxel::octree::Octree;
+use math::Vec3;
+use voxel::brick_map::BrickMap;
 
 mod math;
 mod colors;
@@ -15,9 +16,10 @@ pub mod gpu;
 fn main() 
 {
     env_logger::init();
-    // let mut octree = Octree::new(2);
-    // octree.insert([0, 0, 0].into(), Some(8));
-    // println!("{:?}", octree.get([1, 1, 0].into()));
+    
+    let mut brick_map = BrickMap::<u32>::new(2, 1, None);
+    brick_map.insert(Vec3::new(1, 3, 2), Some(1));
+    println!("Brick map value: {:?}", brick_map.get(Vec3::new(1, 3, 2)));
 
     pollster::block_on(application::run());
 }
