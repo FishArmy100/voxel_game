@@ -52,9 +52,10 @@ impl Chunk
             {
                 for z in 0..data.length()
                 {
-                    if voxel_grid[Vec3::new(x, y, z)] == 1
+                    let voxel_index = voxel_grid[Vec3::new(x, y, z)];
+                    if voxel_index >= 0
                     {
-                        data.insert_without_simplify([x, y, z].into(), Some(Voxel::new(3)));
+                        data.insert_without_simplify([x, y, z].into(), Some(Voxel::new(voxel_index as u16)));
                     }
                 }
             }
@@ -349,7 +350,7 @@ impl VoxelTerrain
         }
     }
 
-    pub fn generate_chunks(&mut self, bounds: [Range<isize>; 3])
+    pub fn generate_chunks<B>(&mut self, bounds: [B; 3]) where B : RangeBounds<isize> + IntoIterator<Item = isize> + Clone
     {
         for x in bounds[0].clone()
         {
