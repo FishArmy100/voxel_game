@@ -22,7 +22,7 @@ pub fn is_power_of_2(num: usize) -> bool
     (num != 0) && ((num & (num - 1)) == 0)
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Array3D<T>
 {
     width: usize,
