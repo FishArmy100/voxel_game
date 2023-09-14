@@ -1,9 +1,12 @@
 use std::collections::VecDeque;
 use std::ops::{RangeBounds, Range};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread::{Thread, JoinHandle, self};
 use std::time::SystemTime;
 
+use cgmath::Array;
+
+use crate::gpu::ShaderInfo;
 use crate::rendering::VertexBuffer;
 use crate::utils::Array3D;
 use crate::voxel::world_gen::VoxelGenerator;
@@ -30,7 +33,7 @@ impl Chunk
         &self.data
     }
 
-    pub fn new(generator: &VoxelGenerator, chunk_index: Vec3<isize>, voxels: Arc<Vec<VoxelData>>, chunk_depth: usize, device: &wgpu::Device) -> Self
+    pub fn new(mut generator: MutexGuard<VoxelGenerator>, chunk_index: Vec3<isize>, voxels: Arc<Vec<VoxelData>>, chunk_depth: usize, device: &wgpu::Device) -> Self
     {
         let mut data: Octree<Voxel> = Octree::new(chunk_depth);
         let chunk_position = chunk_index * data.length() as isize;
@@ -234,7 +237,7 @@ impl Chunk
 
 struct ChunkGenerator
 {
-    generator_func: Arc<VoxelGenerator>,
+    generator: Arc<Mutex<VoxelGenerator>>,
     queue: VecDeque<Vec3<isize>>,
     thread: Option<JoinHandle<Chunk>>,
 
@@ -245,11 +248,11 @@ struct ChunkGenerator
 
 impl ChunkGenerator
 {
-    fn new(generator: Arc<VoxelGenerator>, chunk_depth: usize, voxels: Arc<Vec<VoxelData>>, device: Arc<wgpu::Device>) -> Self
+    fn new(generator: VoxelGenerator, chunk_depth: usize, voxels: Arc<Vec<VoxelData>>, device: Arc<wgpu::Device>) -> Self
     {
         Self 
         { 
-            generator_func: generator,
+            generator: Arc::new(Mutex::new(generator)),
             queue: VecDeque::new(),
             thread: None,
             device,
@@ -278,14 +281,14 @@ impl ChunkGenerator
         {
             let device = self.device.clone();
             let voxels = self.voxels.clone();
-            let generator = self.generator_func.clone();
+            let generator = self.generator.clone();
             let chunk_index = front;
             let chunk_depth = self.chunk_depth;
 
             self.thread = Some(thread::spawn(move || {
                 // println!("starting to generate chunk {:?}", chunk_index);
                 let current_time = SystemTime::now();
-                let chunk = Chunk::new(generator.as_ref(), chunk_index, voxels, chunk_depth, &device);
+                let chunk = Chunk::new(generator.lock().unwrap(), chunk_index, voxels, chunk_depth, &device);
                 // println!("finished generating chunk {:?}, took {}ms", chunk_index, current_time.elapsed().unwrap().as_millis());
                 chunk
             }))
@@ -317,8 +320,11 @@ impl VoxelTerrain
     pub fn chunks(&self) -> &[Chunk] { &self.chunks }
     pub fn info(&self) -> &TerrainInfo { &self.info }
 
-    pub fn new(info: TerrainInfo, device: Arc<wgpu::Device>, generator: Arc<VoxelGenerator>) -> Self
+    pub fn new(info: TerrainInfo, shader_info: ShaderInfo, device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>) -> Self
     {
+        let chunk_size = Vec3::from_value((2 as u32).pow(info.chunk_depth as u32));
+
+        let generator = VoxelGenerator::new(chunk_size, device.clone(), queue, shader_info);
         let voxel_types = info.voxel_types.clone();
         let chunk_depth = info.chunk_depth;
         Self 

@@ -1,7 +1,7 @@
-use cgmath::{Quaternion, Rotation, Rotation3, EuclideanSpace, Array, InnerSpace, Rad, Deg};
-use winit::event::{WindowEvent, KeyboardInput, ElementState, VirtualKeyCode};
+use cgmath::{Quaternion, Rotation, Rotation3, EuclideanSpace, Array, InnerSpace, Deg};
+use winit::event::{VirtualKeyCode};
 
-use crate::{math::*, application::FrameState};
+use crate::{math::*, application::input::FrameState};
 
 #[derive(Debug, Clone)]
 pub struct Camera 

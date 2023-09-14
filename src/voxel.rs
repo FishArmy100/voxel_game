@@ -1,6 +1,7 @@
 pub mod octree;
 pub mod terrain;
 pub mod world_gen;
+pub mod brick_map;
 
 use std::sync::Arc;
 use crate::colors::Color;
