@@ -12,32 +12,31 @@ enum SubGridData<T> where T : Clone + PartialEq
 #[derive(Debug, Clone, PartialEq)]
 pub struct SubGrid<T> where T : Clone + PartialEq
 {
-    depth: u32,
+    depth: usize,
     data: SubGridData<T>
 }
 
-fn get_grid_with_value<T>(length: u32, old: T, new_value: T, new_index: Vec3<u32>) -> Array3D<T> 
+fn get_grid_with_value<T>(length: usize, old: T, new_value: T, new_index: Vec3<usize>) -> Array3D<T> 
     where T : Clone + PartialEq
 {
-    let mut grid = Array3D::new_with_value(length as usize, length as usize, length as usize, old);
-    let index: Vec3<usize> = new_index.cast().unwrap();
-    grid[index] = new_value;
+    let mut grid = Array3D::new_with_value(length, length, length, old);
+    grid[new_index] = new_value;
     grid
 }
 
 impl<T> SubGrid<T> where T : Clone + PartialEq
 {
-    pub fn voxel_count(&self) -> u32
+    pub fn voxel_count(&self) -> usize
     {
         self.length().pow(3)
     }
 
-    pub fn length(&self) -> u32
+    pub fn length(&self) -> usize
     {
-        (2 as u32).pow(self.depth)
+        (2 as usize).pow(self.depth as u32)
     }
 
-    pub fn depth(&self) -> u32 
+    pub fn depth(&self) -> usize 
     {
         self.depth
     }
@@ -63,7 +62,7 @@ impl<T> SubGrid<T> where T : Clone + PartialEq
         }
     }
 
-    pub fn get(&self, index: Vec3<u32>) -> Option<T>
+    pub fn get(&self, index: Vec3<usize>) -> Option<T>
     {
         let length = self.length();
         debug_assert!(index.x < length && index.y < length && index.z < length, "Index {:?} is out of bounds of the sub grid", index);
@@ -71,11 +70,11 @@ impl<T> SubGrid<T> where T : Clone + PartialEq
         {
             SubGridData::Empty => None,
             SubGridData::Value(value) => Some(value.clone()),
-            SubGridData::Grid(grid) => grid[index.cast().unwrap()].clone(),
+            SubGridData::Grid(grid) => grid[index].clone(),
         }
     }
 
-    pub fn insert(&mut self, index: Vec3<u32>, inserted: Option<T>)
+    pub fn insert(&mut self, index: Vec3<usize>, inserted: Option<T>)
     {
         let length = self.length();
         debug_assert!(index.x < length && index.y < length && index.z < length, "Index {:?} is out of bounds of the sub grid", index);
@@ -114,7 +113,7 @@ impl<T> SubGrid<T> where T : Clone + PartialEq
             },
             SubGridData::Grid(grid) => 
             {
-                grid[index.cast().unwrap()] = inserted;
+                grid[index] = inserted;
             },
         }
     }
@@ -131,49 +130,49 @@ enum BrickMapData<T> where T : Clone + PartialEq
 #[derive(Debug, Clone, PartialEq)]
 pub struct BrickMap<T> where T : Clone + PartialEq
 {
-    depth: u32,
-    sub_grid_depth: u32,
+    depth: usize,
+    sub_grid_depth: usize,
     data: BrickMapData<T>
 }
 
 impl<T> BrickMap<T> where T : Clone + PartialEq
 {
-    pub fn voxel_count(&self) -> u32
+    pub fn voxel_count(&self) -> usize
     {
         self.length().pow(3)
     }
 
-    pub fn length(&self) -> u32
+    pub fn length(&self) -> usize
     {
-        (2 as u32).pow(self.depth)
+        (2 as usize).pow(self.depth as u32)
     }
 
-    pub fn depth(&self) -> u32 
+    pub fn depth(&self) -> usize 
     {
         self.depth
     }
 
-    pub fn sub_grid_length(&self) -> u32 
+    pub fn sub_grid_length(&self) -> usize 
     {
-        (2 as u32).pow(self.sub_grid_depth)
+        (2 as usize).pow(self.sub_grid_depth as u32)
     }
 
-    pub fn sub_grid_depth(&self) -> u32 
+    pub fn sub_grid_depth(&self) -> usize 
     {
         self.sub_grid_depth
     }
 
-    pub fn get_sub_grid_index(&self, voxel_index: Vec3<u32>) -> Vec3<u32>
+    pub fn get_sub_grid_index(&self, voxel_index: Vec3<usize>) -> Vec3<usize>
     {
         voxel_index / self.sub_grid_length()
     }
 
-    pub fn get_remainder_index(&self, voxel_index: Vec3<u32>) -> Vec3<u32>
+    pub fn get_remainder_index(&self, voxel_index: Vec3<usize>) -> Vec3<usize>
     {
         voxel_index % self.sub_grid_length()
     }
 
-    pub fn new(depth: u32, sub_grid_depth: u32, default_value: Option<T>) -> Self
+    pub fn new(depth: usize, sub_grid_depth: usize, default_value: Option<T>) -> Self
     {
         assert!(depth > sub_grid_depth, "Grid depth must be larger than the sub grid depth");
         
@@ -226,7 +225,7 @@ impl<T> BrickMap<T> where T : Clone + PartialEq
         }
     }    
 
-    pub fn get(&self, index: Vec3<u32>) -> Option<T>
+    pub fn get(&self, index: Vec3<usize>) -> Option<T>
     {
         let length = self.length();
         debug_assert!(index.x < length && index.y < length && index.z < length, "Index {:?} is out of bounds of the brick map", index);
@@ -238,13 +237,13 @@ impl<T> BrickMap<T> where T : Clone + PartialEq
             BrickMapData::Grid(grid) => 
             {
                 let sub_grid_index = self.get_sub_grid_index(index);
-                let remainder_index = index % self.sub_grid_length();
-                grid.get(sub_grid_index.cast().unwrap()).get(remainder_index)
+                let remainder_index = self.get_remainder_index(index);
+                grid.get(sub_grid_index).get(remainder_index)
             },
         }
     }
 
-    pub fn insert(&mut self, index: Vec3<u32>, inserted: Option<T>)
+    pub fn insert(&mut self, index: Vec3<usize>, inserted: Option<T>)
     {
         let length = self.length();
         let sub_grid_depth = self.sub_grid_depth();
@@ -289,13 +288,13 @@ impl<T> BrickMap<T> where T : Clone + PartialEq
             },
             BrickMapData::Grid(sub_grid) => 
             {
-                sub_grid[sub_grid_index.cast().unwrap()].insert(remainder_index, inserted)
+                sub_grid[sub_grid_index].insert(remainder_index, inserted)
             },
         }
     }
 
     
-    fn get_brick_map(&self, old_value: Option<T>, new_value: Option<T>, new_index: Vec3<u32>) -> Array3D<SubGrid<T>>
+    fn get_brick_map(&self, old_value: Option<T>, new_value: Option<T>, new_index: Vec3<usize>) -> Array3D<SubGrid<T>>
         where T : Clone + PartialEq
     {
         let sub_grid_data = match old_value {
@@ -308,12 +307,12 @@ impl<T> BrickMap<T> where T : Clone + PartialEq
             data: sub_grid_data 
         };
 
-        let sub_count = (2 as u32).pow(self.depth - self.sub_grid_depth);
-        let mut sub_grid_array = Array3D::new_with_value(sub_count as usize, sub_count as usize, sub_count as usize, sub_grid);
+        let sub_count = (2 as usize).pow((self.depth - self.sub_grid_depth) as u32);
+        let mut sub_grid_array = Array3D::new_with_value(sub_count, sub_count, sub_count, sub_grid);
 
         let sub_grid_index = self.get_sub_grid_index(new_index);
-        let remainder_index = self.get_sub_grid_index(new_index);
-        sub_grid_array[sub_grid_index.cast().unwrap()].insert(remainder_index, new_value);
+        let remainder_index = self.get_remainder_index(new_index);
+        sub_grid_array[sub_grid_index].insert(remainder_index, new_value);
 
         sub_grid_array
     }
