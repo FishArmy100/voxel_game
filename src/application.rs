@@ -8,7 +8,9 @@ use winit::event_loop::{ControlFlow, EventLoop};
 
 use crate::gpu::ShaderInfo;
 use crate::rendering::GameRenderer;
-use crate::voxel::{Voxel, VoxelData};
+use crate::voxel::brick_map::{BrickMap, SizedBrickMap};
+use crate::voxel::octree::Octree;
+use crate::voxel::{Voxel, VoxelData, VoxelStorage};
 
 use crate::colors::Color;
 use crate::math::{Vec3, Point3D, Vec2};
@@ -19,6 +21,8 @@ pub type WinitWindow = winit::window::Window;
 pub type WindowSize = winit::dpi::PhysicalSize<u32>;
 pub type WindowPosition = winit::dpi::PhysicalPosition<u32>;
 use self::input::*;
+
+type Storage = SizedBrickMap<Voxel, 4>;
 
 struct AppState
 {
@@ -32,11 +36,11 @@ struct AppState
     config: wgpu::SurfaceConfiguration,
     size: WindowSize,
     window_handle: Arc<WinitWindow>,
-    renderer: GameRenderer,
+    renderer: GameRenderer<Storage>,
 
     // TEMP
     camera_entity: CameraEntity,
-    terrain: Arc<Mutex<VoxelTerrain>>,
+    terrain: Arc<Mutex<VoxelTerrain<Storage>>>,
 }
 
 pub async fn run()
@@ -237,7 +241,8 @@ impl AppState
     }
 }
 
-fn generate_terrain(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>) -> Arc<Mutex<VoxelTerrain>> 
+fn generate_terrain<TStorage>(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>) -> Arc<Mutex<VoxelTerrain<TStorage>>> 
+    where TStorage : VoxelStorage<Voxel> + Send + 'static
 {        
     let sand_color = Color::new(0.76, 0.698, 0.502, 1.0);
 

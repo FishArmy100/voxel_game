@@ -1,5 +1,7 @@
 use crate::{utils::Array3D, math::Vec3};
 
+use super::VoxelStorage;
+
 #[derive(Debug, Clone, PartialEq)]
 enum SubGridData<T> where T : Clone + PartialEq
 {
@@ -315,5 +317,51 @@ impl<T> BrickMap<T> where T : Clone + PartialEq
         sub_grid_array[sub_grid_index].insert(remainder_index, new_value);
 
         sub_grid_array
+    }
+}
+
+pub struct SizedBrickMap<T, const D: usize> where T : Clone + PartialEq
+{
+    map: BrickMap<T>
+}
+
+impl<T, const D: usize> VoxelStorage<T> for SizedBrickMap<T, D> where T : Clone + PartialEq
+{
+    fn new(depth: usize) -> Self 
+    {
+        Self 
+        {
+            map: BrickMap::new(depth, D, None)
+        }
+    }
+
+    fn depth(&self) -> usize 
+    {
+        self.map.depth
+    }
+
+    fn get(&self, index: Vec3<usize>) -> Option<T> 
+    {
+        self.map.get(index)
+    }
+
+    fn insert(&mut self, index: Vec3<usize>, value: Option<T>) 
+    {
+        self.map.insert(index, value);
+    }
+
+    fn simplify(&mut self) 
+    {
+        self.map.simplify();
+    }
+
+    fn is_empty(&self) -> bool 
+    {
+        match &self.map.data
+        {
+            BrickMapData::Empty => true,
+            BrickMapData::Value(_) => false,
+            BrickMapData::Grid(_) => false,
+        }
     }
 }

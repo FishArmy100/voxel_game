@@ -5,7 +5,7 @@ pub mod mesh;
 
 use std::{sync::{Arc, Mutex}, marker::PhantomData, ops::RangeBounds};
 
-use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::terrain::VoxelTerrain, camera::Camera, colors::Color, texture::Texture};
+use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::{terrain::VoxelTerrain, VoxelStorage, Voxel}, camera::Camera, colors::Color, texture::Texture};
 use cgmath::Array;
 use wgpu::{util::DeviceExt};
 
@@ -372,17 +372,17 @@ pub fn construct_render_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceCo
     render_pipeline
 }
 
-pub struct GameRenderer
+pub struct GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Send
 {
     renderer: Renderer,
-    voxel_stage: VoxelRenderStage,
+    voxel_stage: VoxelRenderStage<TStorage>,
     debug_stage: DebugRenderStage,
     mesh_stage: MeshRenderStage
 }
 
-impl GameRenderer
+impl<TStorage> GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Send + 'static
 {
-    pub fn new(terrain: Arc<Mutex<VoxelTerrain>>, camera: Camera, device: Arc<wgpu::Device>, surface: Arc<wgpu::Surface>, queue: Arc<wgpu::Queue>, config: &wgpu::SurfaceConfiguration) -> Self
+    pub fn new(terrain: Arc<Mutex<VoxelTerrain<TStorage>>>, camera: Camera, device: Arc<wgpu::Device>, surface: Arc<wgpu::Surface>, queue: Arc<wgpu::Queue>, config: &wgpu::SurfaceConfiguration) -> Self
     {
         let clear_color = Color::new(0.1, 0.2, 0.3, 1.0);
         let renderer = Renderer::new(device.clone(), surface, queue, config, clear_color);

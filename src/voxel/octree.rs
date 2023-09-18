@@ -2,6 +2,8 @@ use cgmath::{Array, Zero};
 
 use crate::{math::Vec3, utils};
 
+use super::VoxelStorage;
+
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Octant
@@ -97,6 +99,39 @@ impl<T> Octree<T> where T : Copy + Clone + Eq
     pub fn get(&self, position: Vec3<usize>) -> Option<T> 
     {
         self.root.get(position)
+    }
+}
+
+impl<T> VoxelStorage<T> for Octree<T> where T : Copy + Clone + Eq + PartialEq
+{
+    fn new(depth: usize) -> Self 
+    {
+        Self::new(depth)
+    }
+
+    fn depth(&self) -> usize 
+    {
+        self.depth
+    }
+
+    fn get(&self, index: Vec3<usize>) -> Option<T> 
+    {
+        self.get(index)
+    }
+
+    fn insert(&mut self, index: Vec3<usize>, value: Option<T>) 
+    {
+        self.insert_without_simplify(index, value);
+    }
+
+    fn simplify(&mut self) 
+    {
+        self.simplify();
+    }
+
+    fn is_empty(&self) -> bool 
+    {
+        self.is_empty()
     }
 }
 

@@ -5,6 +5,7 @@ use cgmath::Array;
 use crate::camera::{Camera, CameraUniform};
 use crate::math::{Vec3, Mat4x4, Point3D};
 use crate::rendering::{ModelUniform, construct_render_pipeline};
+use crate::voxel::{VoxelStorage, Voxel};
 use crate::voxel::terrain::VoxelTerrain;
 
 use crate::colors::Color;
@@ -194,9 +195,9 @@ impl VoxelSizeUniform
     }
 }
 
-pub struct VoxelRenderStage
+pub struct VoxelRenderStage<TStorage> where TStorage : VoxelStorage<Voxel> + Send
 {
-    terrain: Arc<Mutex<VoxelTerrain>>,
+    terrain: Arc<Mutex<VoxelTerrain<TStorage>>>,
     
     camera_bind_group: BindGroupData,
     model_bind_group: BindGroupData,
@@ -211,9 +212,9 @@ pub struct VoxelRenderStage
     index_buffer: IndexBuffer
 }
 
-impl VoxelRenderStage
+impl<TStorage> VoxelRenderStage<TStorage> where TStorage : VoxelStorage<Voxel> + Send + 'static
 {
-    pub fn new(terrain: Arc<Mutex<VoxelTerrain>>, camera: Camera, device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Self
+    pub fn new(terrain: Arc<Mutex<VoxelTerrain<TStorage>>>, camera: Camera, device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Self
     {
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&camera);
@@ -234,7 +235,7 @@ impl VoxelRenderStage
         let index_buffer = IndexBuffer::new(device, &VOXEL_FACE_TRIANGLES, Some("Voxel index buffer"));
         
 
-        const FACE_BUFFER_CAPACITY: u64 = 65545;
+        const FACE_BUFFER_CAPACITY: u64 = 1;
         let faces_buffer = VertexBuffer::<VoxelFaceData>::new_empty(device, FACE_BUFFER_CAPACITY, Some("Faces instance buffer"));
 
         let render_pipeline = construct_render_pipeline(device, config, &crate::rendering::RenderPipelineInfo 
@@ -268,7 +269,7 @@ impl VoxelRenderStage
     }
 }
 
-impl RenderStage for VoxelRenderStage
+impl<TStorage> RenderStage for VoxelRenderStage<TStorage> where TStorage : VoxelStorage<Voxel> + Send + 'static
 {
     fn bind_groups(&self) -> Box<[&BindGroupData]>
     {
@@ -286,7 +287,7 @@ impl RenderStage for VoxelRenderStage
         let terrain = Arc::new(self.terrain.lock().unwrap());
         for chunk_index in 0..terrain.chunks().len()
         {
-            if terrain.chunks()[chunk_index].octree().is_empty()
+            if terrain.chunks()[chunk_index].storage().is_empty()
             {
                 continue;
             }
@@ -310,7 +311,7 @@ impl RenderStage for VoxelRenderStage
     }
 }
 
-pub struct VoxelDrawCall<'a>
+pub struct VoxelDrawCall<'a, TStorage> where TStorage : VoxelStorage<Voxel> 
 {
     vertex_buffer: &'a VertexBuffer<VoxelVertex>,
     index_buffer: &'a IndexBuffer,
@@ -322,10 +323,10 @@ pub struct VoxelDrawCall<'a>
     camera_bind_group: &'a BindGroupData,
     model_bind_group: &'a BindGroupData,
 
-    terrain: Arc<MutexGuard<'a, VoxelTerrain>>
+    terrain: Arc<MutexGuard<'a, VoxelTerrain<TStorage>>>
 }
 
-impl<'a> DrawCall for VoxelDrawCall<'a>
+impl<'a, TStorage> DrawCall for VoxelDrawCall<'a, TStorage> where TStorage : VoxelStorage<Voxel> + Send + 'static
 {
     fn on_pre_draw(&self, queue: &wgpu::Queue) 
     {
