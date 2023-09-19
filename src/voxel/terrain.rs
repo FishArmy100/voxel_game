@@ -11,11 +11,11 @@ use crate::rendering::VertexBuffer;
 use crate::utils::Array3D;
 use crate::voxel::world_gen::VoxelGenerator;
 use super::octree::Octree;
-use super::{Voxel, VoxelData, VoxelFaceData, VoxelStorage, VoxelStorageExt};
+use super::{Voxel, VoxelData, VoxelFaceData, VoxelStorage, VoxelStorageExt, RenderableStorage};
 use crate::rendering::voxel_render_stage::{VoxelFace};
 use crate::math::{Vec3, Point3D};
 
-pub struct Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
+pub struct Chunk<TStorage> where TStorage : VoxelStorage<Voxel> + RenderableStorage
 {
     data: TStorage,
     chunk_index: Vec3<isize>,
@@ -24,7 +24,7 @@ pub struct Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
     faces_buffer: VertexBuffer<VoxelFaceData>,
 }
 
-impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
+impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage<Voxel> + RenderableStorage
 {
     pub fn size(&self) -> usize { self.data.length() } 
     pub fn faces_buffer(&self) -> &VertexBuffer<VoxelFaceData> { &self.faces_buffer }
@@ -66,7 +66,7 @@ impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
         println!("Simplified octree");
 
         println!("Starting to generate voxel faces");
-        let faces = Self::get_voxel_faces(&data, data.length(), chunk_position);
+        let faces = data.get_faces();
         println!("Generating voxel faces");
 
         println!("Starting to generate faces buffer");
@@ -359,7 +359,7 @@ impl<TStorage> VoxelTerrain<TStorage> where TStorage : VoxelStorage<Voxel> + Sen
                 }
             }
         }
-    }
+    } 
 
     pub fn tick(&mut self)
     {
