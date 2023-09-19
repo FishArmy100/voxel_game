@@ -11,11 +11,11 @@ use crate::rendering::VertexBuffer;
 use crate::utils::Array3D;
 use crate::voxel::world_gen::VoxelGenerator;
 use super::octree::Octree;
-use super::{Voxel, VoxelData, VoxelFaceData, VoxelStorage, VoxelStorageExt, RenderableStorage};
+use super::{Voxel, VoxelData, VoxelFaceData, VoxelStorage, VoxelStorageExt};
 use crate::rendering::voxel_render_stage::{VoxelFace};
 use crate::math::{Vec3, Point3D};
 
-pub struct Chunk<TStorage> where TStorage : VoxelStorage<Voxel> + RenderableStorage
+pub struct Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
 {
     data: TStorage,
     chunk_index: Vec3<isize>,
@@ -24,7 +24,7 @@ pub struct Chunk<TStorage> where TStorage : VoxelStorage<Voxel> + RenderableStor
     faces_buffer: VertexBuffer<VoxelFaceData>,
 }
 
-impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage<Voxel> + RenderableStorage
+impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
 {
     pub fn size(&self) -> usize { self.data.length() } 
     pub fn faces_buffer(&self) -> &VertexBuffer<VoxelFaceData> { &self.faces_buffer }
@@ -66,7 +66,7 @@ impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage<Voxel> + Renderable
         println!("Simplified octree");
 
         println!("Starting to generate voxel faces");
-        let faces = data.get_faces();
+        let faces = data.get_faces(chunk_position);
         println!("Generating voxel faces");
 
         println!("Starting to generate faces buffer");
@@ -79,158 +79,6 @@ impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage<Voxel> + Renderable
             chunk_index,
             voxels,
             faces_buffer
-        }
-    }
-
-    fn get_voxel_faces(data: &TStorage, size: usize, position: Vec3<isize>) -> Vec<VoxelFaceData>
-    {
-        let mut faces = vec![];
-
-        for x in 0..size
-        {
-            for y in 0..size
-            {
-                for z in 0..size 
-                {
-                    Self::add_faces(data, size, Vec3::new(x, y, z), position, &mut faces);
-                }
-            }
-        }
-
-        faces
-    }
-
-    fn has_face(data: &TStorage, size: usize, index: Vec3<usize>, face_id: VoxelFace) -> bool
-    {
-        match face_id
-        {
-            VoxelFace::South => 
-            {
-                if index.z > size
-                {
-                    panic!("Index (x: {}, y: {}, z: {}) is not inside the chunk", index.x, index.y, index.z)
-                }
-                else if index.z == size - 1
-                {
-                    true
-                }
-                else 
-                {
-                    data.get([index.x, index.y, index.z + 1].into()).is_none()
-                }
-            },
-            VoxelFace::North => 
-            {
-                if index.z == 0
-                {
-                    true
-                }
-                else 
-                {
-                    data.get([index.x, index.y, index.z - 1].into()).is_none()
-                }
-            },
-            VoxelFace::West => 
-            {
-                if index.x == 0
-                {
-                    true
-                }
-                else 
-                {
-                    data.get([index.x - 1, index.y, index.z].into()).is_none()
-                }
-            },
-            VoxelFace::East => 
-            {
-                if index.x > size
-                {
-                    panic!("Index (x: {}, y: {}, z: {}) is not inside the chunk", index.x, index.y, index.z)
-                }
-                else if index.x == size - 1
-                {
-                    true
-                }
-                else 
-                {
-                    data.get([index.x + 1, index.y, index.z].into()).is_none()
-                }
-            },
-            VoxelFace::Up => 
-            {
-                if index.y > size
-                {
-                    panic!("Index (x: {}, y: {}, z: {}) is not inside the chunk", index.x, index.y, index.z)
-                }
-                else if index.y == size - 1
-                {
-                    true
-                }
-                else 
-                {
-                    data.get([index.x, index.y + 1, index.z].into()).is_none()
-                }
-            },
-            VoxelFace::Down => 
-            {
-                if index.y == 0
-                {
-                    true
-                }
-                else 
-                {
-                    data.get([index.x, index.y - 1, index.z].into()).is_none()
-                }
-            },
-            _ => panic!("This should not be reached")
-        }
-    }
-
-    fn add_faces(data: &TStorage, size: usize, index: Vec3<usize>, chunk_pos: Vec3<isize>, faces: &mut Vec<VoxelFaceData>)
-    {
-        if index.x >= size || index.y >= size || index.z >= size
-        {
-            panic!("Index (x: {}, y: {}, z: {}) is not inside the chunk", index.x, index.y, index.z);
-        }
-
-        let Some(voxel) = data.get([index.x, index.y, index.z].into()) else { return; };
-
-        let pos = chunk_pos.map(|v| v as i32) + Vec3::new(index.x as i32, index.y as i32, index.z as i32);
-
-        if Self::has_face(data, size, index, VoxelFace::South)
-        {
-            let face = VoxelFaceData::new(pos, voxel.id as u32, VoxelFace::South.to_index());
-            faces.push(face);
-        }
-
-        if Self::has_face(data, size, index, VoxelFace::North)
-        {
-            let face = VoxelFaceData::new(pos, voxel.id as u32, VoxelFace::North.to_index());
-            faces.push(face);
-        }
-
-        if Self::has_face(data, size, index, VoxelFace::East)
-        {
-            let face = VoxelFaceData::new(pos, voxel.id as u32, VoxelFace::East.to_index());
-            faces.push(face);
-        }
-
-        if Self::has_face(data, size, index, VoxelFace::West)
-        {
-            let face = VoxelFaceData::new(pos, voxel.id as u32, VoxelFace::West.to_index());
-            faces.push(face);
-        }
-
-        if Self::has_face(data, size, index, VoxelFace::Up)
-        {
-            let face = VoxelFaceData::new(pos, voxel.id as u32, VoxelFace::Up.to_index());
-            faces.push(face);
-        }
-
-        if Self::has_face(data, size, index, VoxelFace::Down)
-        {
-            let face = VoxelFaceData::new(pos, voxel.id as u32, VoxelFace::Down.to_index());
-            faces.push(face);
         }
     }
 }

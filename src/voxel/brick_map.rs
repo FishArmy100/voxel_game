@@ -1,6 +1,6 @@
 use crate::{utils::Array3D, math::Vec3};
 
-use super::VoxelStorage;
+use super::{VoxelStorage, IVoxel};
 
 #[derive(Debug, Clone, PartialEq)]
 enum SubGridData<T> where T : Clone + PartialEq
@@ -320,12 +320,12 @@ impl<T> BrickMap<T> where T : Clone + PartialEq
     }
 }
 
-pub struct SizedBrickMap<T, const D: usize> where T : Clone + PartialEq
+pub struct SizedBrickMap<T, const D: usize> where T : IVoxel
 {
     map: BrickMap<T>
 }
 
-impl<T, const D: usize> VoxelStorage<T> for SizedBrickMap<T, D> where T : Clone + PartialEq
+impl<T, const D: usize> VoxelStorage<T> for SizedBrickMap<T, D> where T : IVoxel
 {
     fn new(depth: usize) -> Self 
     {

@@ -2,7 +2,7 @@ use cgmath::{Array, Zero};
 
 use crate::{math::Vec3, utils};
 
-use super::VoxelStorage;
+use super::{VoxelStorage, IVoxel};
 
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -102,7 +102,7 @@ impl<T> Octree<T> where T : Copy + Clone + Eq
     }
 }
 
-impl<T> VoxelStorage<T> for Octree<T> where T : Copy + Clone + Eq + PartialEq
+impl<T> VoxelStorage<T> for Octree<T> where T : IVoxel + Copy + PartialEq
 {
     fn new(depth: usize) -> Self 
     {
