@@ -217,37 +217,37 @@ fn add_faces<TStorage, TVoxel>(data: &TStorage, index: Vec3<usize>, chunk_pos: V
 
     if has_face(data, index, VoxelFace::South)
     {
-        let face = VoxelFaceData::new(pos, voxel.id() as u32, VoxelFace::South.to_index());
+        let face = VoxelFaceData::new(pos, voxel.id() as u32, VoxelFace::South.to_index(), 1);
         faces.push(face);
     }
 
     if has_face(data, index, VoxelFace::North)
     {
-        let face = VoxelFaceData::new(pos, voxel.id() as u32, VoxelFace::North.to_index());
+        let face = VoxelFaceData::new(pos, voxel.id() as u32, VoxelFace::North.to_index(), 1);
         faces.push(face);
     }
 
     if has_face(data, index, VoxelFace::East)
     {
-        let face = VoxelFaceData::new(pos, voxel.id() as u32, VoxelFace::East.to_index());
+        let face = VoxelFaceData::new(pos, voxel.id() as u32, VoxelFace::East.to_index(), 1);
         faces.push(face);
     }
 
     if has_face(data, index, VoxelFace::West)
     {
-        let face = VoxelFaceData::new(pos, voxel.id() as u32, VoxelFace::West.to_index());
+        let face = VoxelFaceData::new(pos, voxel.id() as u32, VoxelFace::West.to_index(), 1);
         faces.push(face);
     }
 
     if has_face(data, index, VoxelFace::Up)
     {
-        let face = VoxelFaceData::new(pos, voxel.id() as u32, VoxelFace::Up.to_index());
+        let face = VoxelFaceData::new(pos, voxel.id() as u32, VoxelFace::Up.to_index(), 1);
         faces.push(face);
     }
 
     if has_face(data, index, VoxelFace::Down)
     {
-        let face = VoxelFaceData::new(pos, voxel.id() as u32, VoxelFace::Down.to_index());
+        let face = VoxelFaceData::new(pos, voxel.id() as u32, VoxelFace::Down.to_index(), 1);
         faces.push(face);
     }
 }

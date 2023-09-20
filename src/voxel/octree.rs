@@ -1,6 +1,6 @@
 use cgmath::{Array, Zero};
 
-use crate::{math::Vec3, utils};
+use crate::{math::Vec3, utils, rendering::voxel_render_stage::{VoxelFaceData, VoxelFace}};
 
 use super::{VoxelStorage, IVoxel};
 
@@ -16,12 +16,6 @@ enum Octant
     RightFrontBase  = 5,
     LeftFrontTop    = 6,
     RightFrontTop   = 7,
-}
-
-pub enum VisitedNodeType<T> where T : Copy + Clone + Eq
-{
-    Branch,
-    Leaf(Option<T>)
 }
 
 impl TryFrom<usize> for Octant
@@ -46,67 +40,17 @@ impl TryFrom<usize> for Octant
 pub struct Octree<T> where T : Copy + Clone + Eq
 {
     depth: usize,
-    length: usize,
     root: Node<T>
-}
-
-impl<T> Octree<T> where T : Copy + Clone + Eq
-{
-    pub fn depth(&self) -> usize {self.depth}
-    pub fn length(&self) -> usize {self.length}
-
-    pub fn new(depth: usize) -> Self
-    {
-        let length = (2 as usize).pow(depth as u32);
-        let bounds = NodeBounds::new_from_max(depth);
-        let root = Node::new(bounds);
-
-        Self { depth, length, root }
-    }
-
-    pub fn insert(&mut self, position: Vec3<usize>, value: Option<T>)
-    {
-        self.root.insert(position, value);
-        self.root.simplify();
-    }
-
-    pub fn insert_without_simplify(&mut self, position: Vec3<usize>, value: Option<T>)
-    {
-        self.root.insert(position, value);
-    }
-
-    pub fn simplify(&mut self)
-    {
-        self.root.simplify();
-    }
-
-    pub fn is_empty(&self) -> bool
-    {
-        match self.root.data 
-        {
-            NodeType::Empty => true,
-            NodeType::Leaf(_) => false,
-            NodeType::Branches(_) => false,
-        }
-    }
-
-    pub fn visit<F>(&self, f: &mut F) 
-        where F : FnMut(Vec3<usize>, usize, VisitedNodeType<T>) -> ()
-    {
-        self.root.visit(f);
-    }
-
-    pub fn get(&self, position: Vec3<usize>) -> Option<T> 
-    {
-        self.root.get(position)
-    }
 }
 
 impl<T> VoxelStorage<T> for Octree<T> where T : IVoxel + Copy + PartialEq
 {
     fn new(depth: usize) -> Self 
     {
-        Self::new(depth)
+        let bounds = NodeBounds::new_from_max(depth);
+        let root = Node::new(bounds);
+
+        Self { depth, root }
     }
 
     fn depth(&self) -> usize 
@@ -116,22 +60,34 @@ impl<T> VoxelStorage<T> for Octree<T> where T : IVoxel + Copy + PartialEq
 
     fn get(&self, index: Vec3<usize>) -> Option<T> 
     {
-        self.get(index)
+        self.root.get(index)
     }
 
     fn insert(&mut self, index: Vec3<usize>, value: Option<T>) 
     {
-        self.insert_without_simplify(index, value);
+        self.root.insert(index, value);
     }
 
     fn simplify(&mut self) 
     {
-        self.simplify();
+        self.root.simplify();
     }
 
     fn is_empty(&self) -> bool 
     {
-        self.is_empty()
+        match self.root.data 
+        {
+            NodeType::Empty => true,
+            NodeType::Leaf(_) => false,
+            NodeType::Branches(_) => false,
+        }
+    }
+
+    fn get_faces(&self, position: Vec3<isize>) -> Vec<VoxelFaceData> 
+    {
+        let mut faces = vec![];
+        stupid_get_faces(&self.root, &mut faces, position);
+        faces
     }
 }
 
@@ -324,20 +280,31 @@ impl<T> Node<T> where T : Copy + Clone + Eq
             _ => true
         }
     }
+}
 
-    fn visit<F>(&self, f: &mut F) 
-        where F : FnMut(Vec3<usize>, usize, VisitedNodeType<T>) -> ()
+fn stupid_get_faces<T>(node: &Node<T>, faces: &mut Vec<VoxelFaceData>, octree_position: Vec3<isize>) where T : IVoxel + Copy
+{
+    match &node.data 
     {
-        let (position, size) = self.bounds.get_bounds_location();
-        match &self.data
+        NodeType::Empty => {},
+        NodeType::Leaf(leaf) => 
         {
-            NodeType::Empty => f(position, size, VisitedNodeType::Leaf(None)),
-            NodeType::Leaf(leaf) => f(position, size, VisitedNodeType::Leaf(Some(*leaf))),
-            NodeType::Branches(branches) => 
+            let (node_pos, scale) = node.bounds.get_bounds_location();
+            let face_pos: Vec3<i32> = (node_pos.cast().unwrap() + octree_position).cast().unwrap();
+
+            faces.push(VoxelFaceData::new(face_pos, leaf.id() as u32, VoxelFace::Up.to_index() as u32, scale as u32));
+            faces.push(VoxelFaceData::new(face_pos, leaf.id() as u32, VoxelFace::Down.to_index() as u32, scale as u32));
+            faces.push(VoxelFaceData::new(face_pos, leaf.id() as u32, VoxelFace::East.to_index() as u32, scale as u32));
+            faces.push(VoxelFaceData::new(face_pos, leaf.id() as u32, VoxelFace::West.to_index() as u32, scale as u32));
+            faces.push(VoxelFaceData::new(face_pos, leaf.id() as u32, VoxelFace::North.to_index() as u32, scale as u32));
+            faces.push(VoxelFaceData::new(face_pos, leaf.id() as u32, VoxelFace::South.to_index() as u32, scale as u32));
+        },
+        NodeType::Branches(branches) => 
+        {
+            for sub_node in branches.iter()
             {
-                f(position, size, VisitedNodeType::Branch);
-                branches.iter().for_each(|b| b.visit(f))
-            },
-        }
+                stupid_get_faces(sub_node, faces, octree_position)
+            }
+        },
     }
 }

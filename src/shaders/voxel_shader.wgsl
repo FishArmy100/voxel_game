@@ -13,7 +13,8 @@ struct VertexOutput {
 struct InstanceInput {
     @location(2) position: vec3<i32>,
     @location(3) id: u32,
-    @location(4) face_index: u32
+    @location(4) face_index: u32,
+    @location(5) scale: u32
 };
 
 struct CameraUniform {
@@ -112,6 +113,7 @@ fn vs_main(vertex: VertexInput, instance: InstanceInput) -> VertexOutput {
     out.color = render_data.data[instance.id].color;
 
     var vert_pos = face_array.arr[instance.face_index][vertex.index];
+    vert_pos *= f32(instance.scale);
     vert_pos.x += f32(instance.position.x);
     vert_pos.y += f32(instance.position.y);
     vert_pos.z += f32(instance.position.z);

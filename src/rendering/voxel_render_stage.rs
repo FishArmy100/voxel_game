@@ -102,13 +102,14 @@ pub struct VoxelFaceData
 {
     pub position: Vec3<i32>,
     pub id: u32,
-    pub face_index: u32
+    pub face_index: u32,
+    pub scale: u32
 }
 
 impl VoxelFaceData
 {
-    const ATTRIBUTES: [wgpu::VertexAttribute; 3] =
-            wgpu::vertex_attr_array![2 => Sint32x3, 3 => Uint32, 4 => Uint32];
+    const ATTRIBUTES: [wgpu::VertexAttribute; 4] =
+            wgpu::vertex_attr_array![2 => Sint32x3, 3 => Uint32, 4 => Uint32, 5 => Uint32];
 
     pub fn desc() -> wgpu::VertexBufferLayout<'static>
     {
@@ -119,9 +120,9 @@ impl VoxelFaceData
         }
     }
 
-    pub fn new(position: Vec3<i32>, id: u32, face_index: u32) -> Self
+    pub fn new(position: Vec3<i32>, id: u32, face_index: u32, scale: u32) -> Self
     {
-        Self { position, id, face_index }
+        Self { position, id, face_index, scale }
     }
 }
 
