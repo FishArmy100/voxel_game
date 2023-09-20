@@ -22,7 +22,7 @@ pub fn is_power_of_2(num: usize) -> bool
     (num != 0) && ((num & (num - 1)) == 0)
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Array3D<T>
 {
     width: usize,
@@ -85,6 +85,14 @@ impl<T> Array3D<T>
 
         let index = index_3d_to_index_1d(self.width, self.height, self.depth, position);
         &mut self.data[index]
+    }
+}
+
+impl<T> Array3D<T> where T : Clone
+{
+    pub fn new_with_value(width: usize, height: usize, depth: usize, value: T) -> Self
+    {
+        Self::from_vec(width, height, depth, vec![value; width * height * depth])
     }
 }
 
