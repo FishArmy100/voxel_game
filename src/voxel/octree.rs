@@ -3,6 +3,16 @@ use cgmath::{Array, Zero};
 use crate::{math::Vec3, utils, rendering::voxel_render_stage::{VoxelFaceData, VoxelFace}};
 
 use super::{VoxelStorage, IVoxel};
+#[cfg(test)]
+mod test 
+{
+    #[test]
+    fn it_works()
+    {
+        let result = 2 + 2;
+        assert!(result == 4)
+    }
+}
 
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -83,12 +93,12 @@ impl<T> VoxelStorage<T> for Octree<T> where T : IVoxel + Copy + PartialEq
         }
     }
 
-    fn get_faces(&self, position: Vec3<isize>) -> Vec<VoxelFaceData> 
-    {
-        let mut faces = vec![];
-        stupid_get_faces(&self.root, &mut faces, position);
-        faces
-    }
+    // fn get_faces(&self, position: Vec3<isize>) -> Vec<VoxelFaceData> 
+    // {
+    //     let mut faces = vec![];
+    //     stupid_get_faces(&self.root, &mut faces, position);
+    //     faces
+    // }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -279,6 +289,20 @@ impl<T> Node<T> where T : Copy + Clone + Eq
             },
             _ => true
         }
+    }
+}
+
+fn fill_node<T>(node: &mut Node<T>) where T : Copy + Clone + Eq
+{
+    if !node.bounds.is_max_depth()
+    {
+        let children = node.bounds.get_child_bounds().map(|b| {
+            let mut child: Node<T> = Node::new(b);
+            fill_node(&mut child);
+            child
+        });
+
+        node.data = NodeType::Branches(Box::new(children));
     }
 }
 

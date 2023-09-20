@@ -270,7 +270,7 @@ fn generate_terrain<TStorage>(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>
     };
 
     let terrain = Arc::new(Mutex::new(VoxelTerrain::new(info, shader_info, device.clone(), queue))); 
-    terrain.lock().unwrap().generate_chunks([-2..=2, 0..=2, -2..=2]);
+    terrain.lock().unwrap().generate_chunk(Vec3::new(0, 0, 0));
 
     terrain
 }

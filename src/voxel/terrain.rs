@@ -35,44 +35,28 @@ impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
 
     pub fn new(mut generator: MutexGuard<VoxelGenerator>, chunk_index: Vec3<isize>, voxels: Arc<Vec<VoxelData>>, chunk_depth: usize, device: &wgpu::Device) -> Self
     {
-        let mut data: TStorage = TStorage::new(chunk_depth);
-        let chunk_position = chunk_index * data.length() as isize;
-
-        println!("Starting to generate voxel grid");
-        let now = SystemTime::now();
+        let length = (2 as isize).pow(chunk_depth as u32);
+        let chunk_position = chunk_index * length;
         let voxel_grid = generator.run(chunk_index.cast().unwrap());
-        let elapsed = now.elapsed().unwrap().as_micros() as f32;
-        println!("Generated voxel grid in {}ms", elapsed / 1000.0);
-
-
-        println!("Starting to insert values");
-        for x in 0..data.length()
-        {
-            for y in 0..data.length()
+        
+        let now = SystemTime::now();
+        let data = TStorage::new_from_grid(chunk_depth, &voxel_grid, |i| {
+            if *i > 0 
             {
-                for z in 0..data.length()
-                {
-                    let voxel_index = voxel_grid[Vec3::new(x, y, z)];
-                    if voxel_index >= 0
-                    {
-                        data.insert([x, y, z].into(), Some(Voxel::new(voxel_index as u16)));
-                    }
-                }
+                Some(Voxel::new(*i as u16))
             }
-        }
-        println!("Inserted values");
+            else 
+            {
+                None
+            }
+        });
+        
+        let elapsed = now.elapsed().unwrap().as_micros() as f32 / 1000.0;
+        println!("took {}ms to create and populate voxel storage", elapsed);
 
-        println!("Starting to simplify");
-        data.simplify();
-        println!("Simplified octree");
-
-        println!("Starting to generate voxel faces");
         let faces = data.get_faces(chunk_position);
-        println!("Generating voxel faces");
 
-        println!("Starting to generate faces buffer");
         let faces_buffer = VertexBuffer::new(&faces, device, Some("Faces buffer"));
-        println!("Generated faces buffer");
 
         Self 
         {

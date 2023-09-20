@@ -5,6 +5,7 @@ pub mod brick_map;
 use crate::colors::Color;
 use crate::math::Vec3;
 use crate::rendering::voxel_render_stage::{VoxelFaceData, VoxelRenderData, VoxelFace};
+use crate::utils::Array3D;
 
 pub trait VoxelStorage<T> : Sized where T : IVoxel
 {
@@ -18,6 +19,31 @@ pub trait VoxelStorage<T> : Sized where T : IVoxel
     fn get_faces(&self, position: Vec3<isize>) -> Vec<VoxelFaceData>
     {
         get_voxel_faces(self, position)
+    }
+
+    fn new_from_grid<TArg, TFunc>(depth: usize, grid: &Array3D<TArg>, mut sampler: TFunc) -> Self
+        where TFunc : FnMut(&TArg) -> Option<T>
+    {
+        let mut storage = Self::new(depth);
+        let length = storage.length();
+        assert!(grid.width() == length && grid.height() == length && grid.depth() == length, "Array was not of the propper size.");
+
+        for x in 0..length
+        {
+            for y in 0..length
+            {
+                for z in 0..length
+                {
+                    if let Some(voxel) = sampler(&grid[Vec3::new(x, y, z)])
+                    {
+                        storage.insert([x, y, z].into(), Some(voxel));
+                    }
+                }
+            }
+        }
+        
+        storage.simplify();
+        storage
     }
 }
 
