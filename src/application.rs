@@ -254,7 +254,7 @@ fn generate_terrain<TStorage>(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>
         VoxelData::new(Color::GREEN)
     ];
         
-    const CHUNK_DEPTH: usize = 8;
+    const CHUNK_DEPTH: usize = 7;
     const VOXEL_SIZE: f32 = 1.0 / 16.0;
 
     let info = TerrainInfo
@@ -270,8 +270,7 @@ fn generate_terrain<TStorage>(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>
     };
 
     let terrain = Arc::new(Mutex::new(VoxelTerrain::new(info, shader_info, device.clone(), queue))); 
-
-    terrain.lock().unwrap().generate_chunks([-2..3, 0..2, -2..3]);
+    terrain.lock().unwrap().generate_chunks([-2..=2, 0..=2, -2..=2]);
 
     terrain
 }

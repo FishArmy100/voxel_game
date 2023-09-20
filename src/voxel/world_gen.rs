@@ -15,8 +15,8 @@ pub struct VoxelGenerator
     queue: Arc<wgpu::Queue>,
 
     chunk_size: Vec3<u32>,
-    staging_buffer: GBuffer<u32>,
-    storage_buffer: GBuffer<u32>,
+    staging_buffer: GBuffer<i32>,
+    storage_buffer: GBuffer<i32>,
     chunk_size_buffer: GBuffer<GPUVec3<u32>>,
     chunk_pos_buffer: GBuffer<GPUVec3<i32>>,
 
@@ -36,13 +36,13 @@ impl VoxelGenerator
 
         let length = (chunk_size.x * chunk_size.y * chunk_size.z) as u64;
 
-        let staging_buffer = GBuffer::<u32>::new_empty(length, wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, &device, Some("Staging buffer"));
+        let staging_buffer = GBuffer::<i32>::new_empty(length, wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, &device, Some("Staging buffer"));
 
         let storage_buffer_usage = wgpu::BufferUsages::STORAGE
                                  | wgpu::BufferUsages::COPY_DST
                                  | wgpu::BufferUsages::COPY_SRC;
 
-        let storage_buffer = GBuffer::<u32>::new_empty(length, storage_buffer_usage, &device, Some("Storage buffer"));
+        let storage_buffer = GBuffer::<i32>::new_empty(length, storage_buffer_usage, &device, Some("Storage buffer"));
 
         let uniform_usage = wgpu::BufferUsages::UNIFORM 
                           | wgpu::BufferUsages::COPY_DST
@@ -138,16 +138,13 @@ impl VoxelGenerator
         }
     }
 
-    pub fn run(&mut self, chunk_pos: Vec3<i32>) -> Array3D<u32>
+    pub fn run(&mut self, chunk_pos: Vec3<i32>) -> Array3D<i32>
     {
         pollster::block_on(self.run_async(chunk_pos))
     }
 
-    pub async fn run_async(&mut self, chunk_pos: Vec3<i32>) -> Array3D<u32>
+    pub async fn run_async(&mut self, chunk_pos: Vec3<i32>) -> Array3D<i32>
     {
-        let voxel_count = self.chunk_size.x * self.chunk_size.y * self.chunk_size.z;
-        let size = (std::mem::size_of::<u32>() * voxel_count as usize) as wgpu::BufferAddress;
-
         self.chunk_pos_buffer.enqueue_set(&[chunk_pos.into()], &self.queue);
 
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });

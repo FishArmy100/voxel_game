@@ -52,9 +52,10 @@ impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
             {
                 for z in 0..data.length()
                 {
-                    if voxel_grid[Vec3::new(x, y, z)] == 1
+                    let voxel_index = voxel_grid[Vec3::new(x, y, z)];
+                    if voxel_index >= 0
                     {
-                        data.insert([x, y, z].into(), Some(Voxel::new(3)));
+                        data.insert([x, y, z].into(), Some(Voxel::new(voxel_index as u16)));
                     }
                 }
             }
@@ -195,7 +196,7 @@ impl<TStorage> VoxelTerrain<TStorage> where TStorage : VoxelStorage<Voxel> + Sen
         }
     }
 
-    pub fn generate_chunks(&mut self, bounds: [Range<isize>; 3])
+    pub fn generate_chunks<B>(&mut self, bounds: [B; 3]) where B : RangeBounds<isize> + IntoIterator<Item = isize> + Clone
     {
         for x in bounds[0].clone()
         {
