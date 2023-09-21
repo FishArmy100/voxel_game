@@ -343,10 +343,13 @@ impl<'a, TStorage> DrawCall for VoxelDrawCall<'a, TStorage> where TStorage : Vox
     {
         let chunk = &self.terrain.chunks()[self.chunk_index];
 
-        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice_all());
-        render_pass.set_vertex_buffer(1, chunk.faces_buffer().slice_all());
-        render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+        if let Some(faces_buffer) = &chunk.faces_buffer()
+        {
+            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice_all());
+            render_pass.set_vertex_buffer(1, faces_buffer.slice_all());
+            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-        render_pass.draw_indexed(0..6, 0, 0..(chunk.faces_buffer().capacity() as u32));
+            render_pass.draw_indexed(0..6, 0, 0..(faces_buffer.capacity() as u32));
+        }
     }
 }

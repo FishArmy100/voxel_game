@@ -1,4 +1,4 @@
-use crate::{utils::Array3D, math::Vec3};
+use crate::{utils::Array3D, math::Vec3, rendering::voxel_render_stage::{VoxelFaceData, VoxelFace}};
 
 use super::{VoxelStorage, IVoxel};
 
@@ -9,7 +9,6 @@ enum SubGridData<T> where T : Clone + PartialEq
     Value(T),
     Grid(Array3D<Option<T>>)
 }
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SubGrid<T> where T : Clone + PartialEq
@@ -363,5 +362,58 @@ impl<T, const D: usize> VoxelStorage<T> for SizedBrickMap<T, D> where T : IVoxel
             BrickMapData::Value(_) => false,
             BrickMapData::Grid(_) => false,
         }
+    }
+
+    fn new_from_grid<TArg, TFunc>(depth: usize, grid: &Array3D<TArg>, mut sampler: TFunc) -> Self
+            where TFunc : FnMut(&TArg) -> Option<T> 
+    {
+        let length = (2 as usize).pow(depth as u32);
+        debug_assert!(grid.width() == length && grid.height() == length && grid.depth() == length, "Grid initalization array is not of the right size");
+        let brick_map = gen_brick_map_from_grid(depth, D, grid, sampler);
+
+        Self
+        {
+            map: brick_map
+        }
+    }
+}
+
+fn gen_brick_map_from_grid<T, A, S>(depth: usize, sub_grid_depth: usize, grid: &Array3D<A>, mut sampler: S) -> BrickMap<T>
+    where T : IVoxel,
+          S : FnMut(&A) -> Option<T>
+{
+    let sub_length = (2 as usize).pow(sub_grid_depth as u32);
+    let sub_grid_count = (2 as usize).pow((depth - sub_grid_depth) as u32);
+
+    let brick_map_array = Array3D::new(sub_grid_count, sub_grid_count, sub_grid_count, |x, y, z| {
+        let current_index = Vec3::new(x, y, z) * sub_length;
+        gen_sub_grid(current_index, sub_grid_depth, grid, &mut sampler)
+    });
+
+    let mut brick_map = BrickMap
+    {
+        depth,
+        sub_grid_depth,
+        data: BrickMapData::Grid(brick_map_array)
+    };
+
+    brick_map.simplify();
+    brick_map
+}
+
+fn gen_sub_grid<T, S, A>(current_index: Vec3<usize>, sub_depth: usize, grid: &Array3D<A>, sampler: &mut S) -> SubGrid<T>
+    where T : IVoxel,
+          S : FnMut(&A) -> Option<T>
+{
+    let sub_length = (2 as usize).pow(sub_depth as u32);
+    let sub_grid_array = Array3D::new(sub_length, sub_length, sub_length, |x, y, z| {
+        let index = Vec3::new(x, y, z) + current_index;
+        sampler(&grid[index])
+    });
+
+    SubGrid 
+    { 
+        depth: sub_depth, 
+        data: SubGridData::Grid(sub_grid_array) 
     }
 }

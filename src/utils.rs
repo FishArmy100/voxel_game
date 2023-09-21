@@ -38,8 +38,8 @@ impl<T> Array3D<T>
     pub fn height(&self) -> usize {self.height}
     pub fn depth(&self) -> usize {self.depth}
 
-    pub fn new<F>(width: usize, height: usize, depth: usize, gen: &F) -> Self
-        where F : Fn(usize, usize, usize) -> T
+    pub fn new<F>(width: usize, height: usize, depth: usize, mut gen: F) -> Self
+        where F : FnMut(usize, usize, usize) -> T
     {
         let mut data = Vec::with_capacity(width * height * depth);
         for z in 0..depth

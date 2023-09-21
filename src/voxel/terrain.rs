@@ -21,13 +21,13 @@ pub struct Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
     chunk_index: Vec3<isize>,
     voxels: Arc<Vec<VoxelData>>,
 
-    faces_buffer: VertexBuffer<VoxelFaceData>,
+    faces_buffer: Option<VertexBuffer<VoxelFaceData>>,
 }
 
 impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
 {
     pub fn size(&self) -> usize { self.data.length() } 
-    pub fn faces_buffer(&self) -> &VertexBuffer<VoxelFaceData> { &self.faces_buffer }
+    pub fn faces_buffer(&self) -> &Option<VertexBuffer<VoxelFaceData>> { &self.faces_buffer }
     pub fn storage(&self) -> &TStorage
     {
         &self.data
@@ -54,9 +54,20 @@ impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
         let elapsed = now.elapsed().unwrap().as_micros() as f32 / 1000.0;
         println!("took {}ms to create and populate voxel storage", elapsed);
 
-        let faces = data.get_faces(chunk_position);
-
-        let faces_buffer = VertexBuffer::new(&faces, device, Some("Faces buffer"));
+        let faces_buffer = if data.is_empty()
+        {
+            None
+        }
+        else 
+        {    
+            let now = SystemTime::now();
+            let faces = data.get_faces(chunk_position);
+            let elapsed = now.elapsed().unwrap().as_micros() as f32 / 1000.0;
+            println!("took {}ms to generated the faces", elapsed);
+            println!("\n\n");
+            
+            Some(VertexBuffer::new(&faces, device, Some("Faces buffer")))
+        };
 
         Self 
         {
