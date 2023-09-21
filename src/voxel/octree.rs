@@ -1,18 +1,8 @@
 use cgmath::{Array, Zero};
 
-use crate::{math::Vec3, utils, rendering::voxel_render_stage::{VoxelFaceData, VoxelFace}};
+use crate::{math::Vec3, utils::{self, Array3D}, rendering::voxel_render_stage::{VoxelFaceData, VoxelFace}};
 
 use super::{VoxelStorage, IVoxel};
-#[cfg(test)]
-mod test 
-{
-    #[test]
-    fn it_works()
-    {
-        let result = 2 + 2;
-        assert!(result == 4)
-    }
-}
 
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -90,6 +80,21 @@ impl<T> VoxelStorage<T> for Octree<T> where T : IVoxel + Copy + PartialEq
             NodeType::Empty => true,
             NodeType::Leaf(_) => false,
             NodeType::Branches(_) => false,
+        }
+    }
+
+    fn new_from_grid<TArg, TFunc>(depth: usize, grid: &Array3D<TArg>, mut sampler: TFunc) -> Self
+        where TFunc : FnMut(&TArg) -> Option<T> 
+    {
+        let bounds = NodeBounds::new_from_max(depth);
+        let mut node = Node::new(bounds);
+        fill_node_from_grid(&mut node, &grid, &mut sampler);
+        node.simplify();
+
+        Self 
+        { 
+            depth, 
+            root: node 
         }
     }
 
@@ -292,17 +297,30 @@ impl<T> Node<T> where T : Copy + Clone + Eq
     }
 }
 
-fn fill_node<T>(node: &mut Node<T>) where T : Copy + Clone + Eq
+fn fill_node_from_grid<T, A, S>(node: &mut Node<T>, grid: &Array3D<A>, sampler: &mut S) 
+    where T : Copy + Clone + Eq,
+          S : FnMut(&A) -> Option<T>
 {
     if !node.bounds.is_max_depth()
     {
         let children = node.bounds.get_child_bounds().map(|b| {
             let mut child: Node<T> = Node::new(b);
-            fill_node(&mut child);
+            fill_node_from_grid(&mut child, grid, sampler);
             child
         });
 
         node.data = NodeType::Branches(Box::new(children));
+    }
+    else 
+    {
+        let voxel = sampler(&grid[node.bounds.position_relative]);
+
+        let new_data = match voxel {
+            Some(value) => NodeType::Leaf(value),
+            None => NodeType::Empty,
+        };
+
+        node.data = new_data;
     }
 }
 
