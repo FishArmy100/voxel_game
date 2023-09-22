@@ -64,7 +64,6 @@ impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
             let faces = data.get_faces(chunk_position);
             let elapsed = now.elapsed().unwrap().as_micros() as f32 / 1000.0;
             println!("took {}ms to generated the faces", elapsed);
-            println!("\n\n");
             
             Some(VertexBuffer::new(&faces, device, Some("Faces buffer")))
         };

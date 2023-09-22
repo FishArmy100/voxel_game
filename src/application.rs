@@ -233,7 +233,7 @@ impl AppState
         let frame_state = self.frame_builder.build(delta_time);
 
         self.camera_entity.update(&frame_state);
-        //println!("{}ms", delta_time * 1000.0);
+        println!("{}ms", delta_time * 1000.0);
         self.current_time = SystemTime::now();
         self.terrain.lock().unwrap().tick();
 
@@ -270,7 +270,7 @@ fn generate_terrain<TStorage>(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>
     };
 
     let terrain = Arc::new(Mutex::new(VoxelTerrain::new(info, shader_info, device.clone(), queue))); 
-    terrain.lock().unwrap().generate_chunks([-1..=1, 0..=1, -1..=1]);
+    terrain.lock().unwrap().generate_chunks([-2..=2, 0..=1, -2..=2]);
 
     terrain
 }
