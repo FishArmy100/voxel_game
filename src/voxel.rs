@@ -7,6 +7,8 @@ use crate::math::Vec3;
 use crate::rendering::voxel_render_stage::{VoxelFaceData, VoxelRenderData, VoxelFace};
 use crate::utils::Array3D;
 
+const VOXEL_FACE_TRIANGLES: [u32; 6] = [2, 1, 0, 2, 3, 1];
+
 pub trait VoxelStorage<T> : Sized where T : IVoxel
 {
     fn new(depth: usize) -> Self;
@@ -116,6 +118,80 @@ impl IVoxel for Voxel
     fn id(&self) -> u16 
     {
         self.id    
+    }
+}
+
+#[cfg(test)]
+mod test 
+{
+    use std::mem::size_of_val;
+
+    use super::*;
+    #[test]
+    fn this_should_work()
+    {
+        let vertex = VoxelVertex {
+            pos: [1, 0, 0].into(),
+            face_id: 0,
+            block_id: 0,
+            _buffer: [0, 0]
+        };
+
+        let as_u64: u64 = bytemuck::cast(vertex);
+        assert!(size_of_val(&vertex) == 8);
+        assert!(as_u64 == 1);
+    }
+
+    pub fn get_byte(number: u64, offset: u32) -> u64
+    {
+        (number >> (offset * 8)) & 255
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VoxelVertex
+{
+    pos: Vec3<u8>,
+    face_id: u8,
+    block_id: u16,
+    _buffer: [u8; 2] // unused space, so it is the size of a u64
+}
+
+unsafe impl bytemuck::Pod for VoxelVertex {}
+unsafe impl bytemuck::Zeroable for VoxelVertex {}
+
+pub struct VoxelMesh
+{
+    verticies: Vec<VoxelVertex>,
+    triangles: Vec<u32>
+}
+
+impl VoxelMesh
+{
+    pub fn verticies(&self) -> &[VoxelVertex] { &self.verticies }
+    pub fn triangles(&self) -> &[u32] { &self.triangles }
+
+    pub fn new() -> Self 
+    {
+        Self 
+        {
+            verticies: vec![],
+            triangles: vec![]
+        }
+    }
+
+    pub fn add_face(&mut self, pos: Vec3<u8>, face_id: VoxelFace, block_id: u16)
+    {
+        let vertex = VoxelVertex {
+            pos,
+            face_id: face_id.to_index() as u8,
+            block_id,
+            _buffer: [0, 0]
+        };
+
+        self.verticies.extend([vertex; 4]);
+        self.triangles.extend(VOXEL_FACE_TRIANGLES.map(|i| i + 1))
     }
 }
 

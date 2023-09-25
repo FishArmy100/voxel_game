@@ -12,7 +12,7 @@ use crate::colors::Color;
 use super::{RenderStage, DrawCall, BindGroupData, VertexBuffer, VertexData, IndexBuffer};
 
 pub const VOXEL_FACE_VERTICES: [VoxelVertex; 4] = [VoxelVertex::new(0, Color::WHITE), VoxelVertex::new(1, Color::RED), VoxelVertex::new(2, Color::GREEN), VoxelVertex::new(3, Color::BLUE)];
-pub const VOXEL_FACE_TRIANGLES: [u16; 6] = [2, 1, 0, 2, 3, 1];
+pub const VOXEL_FACE_TRIANGLES: [u32; 6] = [2, 1, 0, 2, 3, 1];
 
 pub enum VoxelFace 
 {
@@ -347,7 +347,7 @@ impl<'a, TStorage> DrawCall for VoxelDrawCall<'a, TStorage> where TStorage : Vox
         {
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice_all());
             render_pass.set_vertex_buffer(1, faces_buffer.slice_all());
-            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
 
             render_pass.draw_indexed(0..6, 0, 0..(faces_buffer.capacity() as u32));
         }

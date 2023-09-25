@@ -255,7 +255,7 @@ impl IndexBuffer
 {
     pub fn capacity(&self) -> u64 { self.capacity }
 
-    pub fn new(device: &wgpu::Device, indices: &[u16], label: Option<&str>) -> Self
+    pub fn new(device: &wgpu::Device, indices: &[u32], label: Option<&str>) -> Self
     {
         let capacity = indices.len() as u64;
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -271,14 +271,14 @@ impl IndexBuffer
     {
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label,
-            contents: &vec![0 as u8; capacity as usize * 2],
+            contents: &vec![0 as u8; capacity as usize * std::mem::size_of::<u32>()],
             usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST
         });
 
         Self { buffer, capacity }
     }
 
-    pub fn enqueue_set_data<T>(&self, queue: &wgpu::Queue, indices: &[u16])
+    pub fn enqueue_set_data<T>(&self, queue: &wgpu::Queue, indices: &[u32])
         where T : VertexData
     {
         assert!(indices.len() as u64 <= self.capacity, "Data is larger than the capacity of this buffer.");

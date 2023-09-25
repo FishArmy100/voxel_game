@@ -233,7 +233,7 @@ impl AppState
         let frame_state = self.frame_builder.build(delta_time);
 
         self.camera_entity.update(&frame_state);
-        println!("{}ms", delta_time * 1000.0);
+        // println!("{}ms", delta_time * 1000.0);
         self.current_time = SystemTime::now();
         self.terrain.lock().unwrap().tick();
 
@@ -254,7 +254,7 @@ fn generate_terrain<TStorage>(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>
         VoxelData::new(Color::GREEN)
     ];
         
-    const CHUNK_DEPTH: usize = 8;
+    const CHUNK_DEPTH: usize = 7;
     const VOXEL_SIZE: f32 = 1.0 / 16.0;
 
     let info = TerrainInfo

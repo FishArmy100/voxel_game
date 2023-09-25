@@ -45,7 +45,7 @@ impl VertexData for Vertex
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Triangle(u16, u16, u16);
+pub struct Triangle(u32, u32, u32);
 
 unsafe impl bytemuck::Pod for Triangle {}
 unsafe impl bytemuck::Zeroable for Triangle {}
@@ -63,7 +63,7 @@ impl Mesh
         Self { vertices, triangles }
     }
 
-    pub fn get_triangle_indexes(&self) -> &[u16]
+    pub fn get_triangle_indexes(&self) -> &[u32]
     {
         bytemuck::cast_slice(&self.triangles)
     }
@@ -245,7 +245,7 @@ impl<'buffer> DrawCall for MeshDrawCall<'buffer>
     {
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice_all());
         render_pass.set_vertex_buffer(1, self.instance_buffer.slice_all());
-        render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+        render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
 
         render_pass.draw_indexed(0..(self.index_buffer.capacity as u32), 0, 0..(self.instance_buffer.capacity() as u32));
     }
