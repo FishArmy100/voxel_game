@@ -1,28 +1,22 @@
 // Vertex shader
 
 struct VertexInput {
-    @location(0) index: u32,
-    @location(1) color: vec4<f32>,
+    @location(0) compressed_location: u32,
+    @location(1) voxel_id: u32,
 }
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
-    @location(1) color: vec4<f32>,
-};
-
-struct InstanceInput {
-    @location(2) position: vec3<i32>,
-    @location(3) id: u32,
-    @location(4) face_index: u32,
-    @location(5) scale: u32
+    @location(1) voxel_id: u32,
 };
 
 struct CameraUniform {
     view_proj: mat4x4<f32>
 }
 
-struct ModelUniform {
-    model: mat4x4<f32>
+struct ChunkUniform {
+    position: vec3<i32>,
+    size: u32
 }
 
 struct VoxelRenderData {
@@ -41,7 +35,7 @@ struct VoxelSizeUniform {
 var<uniform> camera: CameraUniform;
 
 @group(1) @binding(0)
-var<uniform> model: ModelUniform;
+var<uniform> chunk: ChunkUniform;
 
 @group(2) @binding(0)
 var<uniform> render_data: VoxelRenderDataUniform;
@@ -104,22 +98,33 @@ struct FaceArrayIndirect {
     arr: array<array<vec3<f32>, 4>, 6>
 }
 
+fn get_byte(number: u32, offset: u32) -> u32
+{
+    (number >> (offset * 8)) & 255
+}
+
 @vertex
-fn vs_main(vertex: VertexInput, instance: InstanceInput) -> VertexOutput {
+fn vs_main(@builtin(vertex_index) in_vertex_index: u32, vertex: VertexInput) -> VertexOutput 
+{
     var face_array: FaceArrayIndirect;
     face_array.arr = voxel_face_array;
 
     var out: VertexOutput;
-    out.color = render_data.data[instance.id].color;
+    out.voxel_id = vertex.voxel_id;
 
-    var vert_pos = face_array.arr[instance.face_index][vertex.index];
-    vert_pos *= f32(instance.scale);
-    vert_pos.x += f32(instance.position.x);
-    vert_pos.y += f32(instance.position.y);
-    vert_pos.z += f32(instance.position.z);
+    let loc = vertex.compressed_location;
+
+    let x = f32(i32(get_byte(loc, u32(0))) + chunk_uniform.position.x * i32(chunk_uniform.size));
+    let y = f32(i32(get_byte(loc, u32(1))) + chunk_uniform.position.y * i32(chunk_uniform.size));
+    let z = f32(i32(get_byte(loc, u32(2))) + chunk_uniform.position.z * i32(chunk_uniform.size));
+
+    let face_index = get_byte(loc, u32(3));
+    let vertex_index = in_vertex_index % u32(4);
+    var vert_pos = face_array.arr[face_index][vertex_index];
+    vert_pos += vec3f(x, y, z);
     vert_pos *= voxel_size_uniform.voxel_size;
 
-    out.clip_position = camera.view_proj * model.model * vec4<f32>(vert_pos, 1.0);
+    out.clip_position = camera.view_proj * vec4<f32>(vert_pos, 1.0);
 
     return out;
 }
@@ -127,7 +132,8 @@ fn vs_main(vertex: VertexInput, instance: InstanceInput) -> VertexOutput {
 // Fragment shader
 
 @fragment
-fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return in.color;
+fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> 
+{
+    return render_data.data[in.voxel_id].color;
 }
  
