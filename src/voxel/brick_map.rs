@@ -1,4 +1,4 @@
-use crate::{utils::Array3D, math::Vec3, rendering::voxel_render_stage::{VoxelFaceData, VoxelFace}};
+use crate::{utils::Array3D, math::Vec3};
 
 use super::{VoxelStorage, IVoxel};
 

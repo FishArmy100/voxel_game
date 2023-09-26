@@ -7,12 +7,11 @@ use std::time::SystemTime;
 use cgmath::Array;
 
 use crate::gpu::ShaderInfo;
-use crate::rendering::VertexBuffer;
+use crate::rendering::{VertexBuffer, IndexBuffer};
 use crate::utils::Array3D;
 use crate::voxel::world_gen::VoxelGenerator;
 use super::octree::Octree;
-use super::{Voxel, VoxelData, VoxelFaceData, VoxelStorage, VoxelStorageExt};
-use crate::rendering::voxel_render_stage::{VoxelFace};
+use super::{Voxel, VoxelData, VoxelStorage, VoxelStorageExt, VoxelVertex};
 use crate::math::{Vec3, Point3D};
 
 pub struct Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
@@ -21,13 +20,14 @@ pub struct Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
     chunk_index: Vec3<isize>,
     voxels: Arc<Vec<VoxelData>>,
 
-    faces_buffer: Option<VertexBuffer<VoxelFaceData>>,
+    buffers: Option<(VertexBuffer<VoxelVertex>, IndexBuffer)>
 }
 
 impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
 {
     pub fn size(&self) -> usize { self.data.length() } 
-    pub fn faces_buffer(&self) -> &Option<VertexBuffer<VoxelFaceData>> { &self.faces_buffer }
+    pub fn chunk_index(&self) -> Vec3<isize> { self.chunk_index }
+    pub fn get_buffers(&self) -> &Option<(VertexBuffer<VoxelVertex>, IndexBuffer)> { &self.buffers }
     pub fn storage(&self) -> &TStorage
     {
         &self.data
@@ -54,18 +54,20 @@ impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
         let elapsed = now.elapsed().unwrap().as_micros() as f32 / 1000.0;
         println!("took {}ms to create and populate voxel storage", elapsed);
 
-        let faces_buffer = if data.is_empty()
+        let buffers = if data.is_empty()
         {
             None
         }
         else 
         {    
             let now = SystemTime::now();
-            let faces = data.get_faces(chunk_position);
+            let faces = data.get_faces();
             let elapsed = now.elapsed().unwrap().as_micros() as f32 / 1000.0;
             println!("took {}ms to generated the faces", elapsed);
             
-            Some(VertexBuffer::new(&faces, device, Some("Faces buffer")))
+            let vertex_buffer = VertexBuffer::new(faces.vertices(), device, Some("Voxel vertex buffer"));
+            let index_buffer = IndexBuffer::new(faces.triangles(), device, Some("Voxel index buffer"));
+            Some((vertex_buffer, index_buffer))
         };
 
         Self 
@@ -73,7 +75,7 @@ impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
             data,
             chunk_index,
             voxels,
-            faces_buffer
+            buffers
         }
     }
 }

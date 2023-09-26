@@ -7,7 +7,7 @@ use std::{sync::{Arc, Mutex}, marker::PhantomData, ops::RangeBounds};
 
 use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::{terrain::VoxelTerrain, VoxelStorage, Voxel}, camera::Camera, colors::Color, texture::Texture};
 use cgmath::Array;
-use wgpu::{util::DeviceExt};
+use wgpu::{util::DeviceExt, VertexBufferLayout};
 
 use self::{renderer::Renderer, debug_render_stage::{DebugRenderStage, DebugLine, DebugObject}, voxel_render_stage::VoxelRenderStage, mesh::{MeshRenderStage, Mesh, MeshInstance}};
 
@@ -255,7 +255,7 @@ impl IndexBuffer
 {
     pub fn capacity(&self) -> u64 { self.capacity }
 
-    pub fn new(device: &wgpu::Device, indices: &[u32], label: Option<&str>) -> Self
+    pub fn new(indices: &[u32], device: &wgpu::Device, label: Option<&str>) -> Self
     {
         let capacity = indices.len() as u64;
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -301,7 +301,7 @@ pub struct RenderPipelineInfo<'l>
     pub vs_main: &'l str,
     pub fs_main: &'l str,
 
-    pub vertex_buffers: &'l [&'l dyn IVertexBuffer],
+    pub vertex_buffer_layouts: &'l [&'l VertexBufferLayout<'l>],
     pub bind_groups: &'l [&'l BindGroupData],
 
     label: Option<&'l str>
@@ -328,8 +328,8 @@ pub fn construct_render_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceCo
         vertex: wgpu::VertexState {
             module: &shader,
             entry_point: info.vs_main,
-            buffers: &info.vertex_buffers.iter()
-                .map(|b| b.layout().clone())
+            buffers: &info.vertex_buffer_layouts.iter()
+                .map(|b| (*b).clone())
                 .collect::<Vec<_>>()
         },
         

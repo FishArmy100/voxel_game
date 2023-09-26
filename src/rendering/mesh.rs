@@ -167,7 +167,7 @@ impl MeshRenderStage
     pub fn new(mesh: Mesh, transforms: &[MeshInstance], camera: Camera, device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Self
     {
         let vertex_buffer = VertexBuffer::new(&mesh.vertices, device, None);
-        let index_buffer = IndexBuffer::new(device, mesh.get_triangle_indexes(), None);
+        let index_buffer = IndexBuffer::new(mesh.get_triangle_indexes(), device, None);
         let instance_buffer = VertexBuffer::new(transforms, device, None);
 
         let mut camera_uniform = CameraUniform::new();
@@ -180,7 +180,7 @@ impl MeshRenderStage
             shader_name: Some("Mesh Shader"),
             vs_main: "vs_main",
             fs_main: "fs_main",
-            vertex_buffers: &[&vertex_buffer, &instance_buffer],
+            vertex_buffer_layouts: &[vertex_buffer.layout(), instance_buffer.layout()],
             bind_groups: &[&camera_bind_group], 
             label: Some("Mesh render pipeline")
         });
