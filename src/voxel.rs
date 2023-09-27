@@ -4,7 +4,8 @@ pub mod world_gen;
 pub mod brick_map;
 use crate::colors::Color;
 use crate::math::Vec3;
-use crate::rendering::voxel_render_stage::{VoxelFaceData, VoxelRenderData, VoxelFace};
+use crate::rendering::VertexData;
+use crate::rendering::voxel_render_stage::{VoxelFace, VoxelRenderData, VoxelFaceOrientation, VoxelVertex};
 use crate::utils::Array3D;
 
 const VOXEL_FACE_TRIANGLES: [u32; 6] = [2, 1, 0, 2, 3, 1];
@@ -18,7 +19,7 @@ pub trait VoxelStorage<T> : Sized where T : IVoxel
     fn simplify(&mut self);
     fn is_empty(&self) -> bool;
 
-    fn get_faces(&self, position: Vec3<isize>) -> Vec<VoxelFaceData>
+    fn get_faces(&self, position: Vec3<isize>) -> Vec<VoxelFace>
     {
         get_voxel_faces(self, position)
     }
@@ -121,67 +122,30 @@ impl IVoxel for Voxel
     }
 }
 
-#[cfg(test)]
-mod test 
-{
-    use std::mem::size_of_val;
-
-    use super::*;
-    #[test]
-    fn this_should_work()
-    {
-        let vertex = VoxelVertex {
-            pos: [1, 0, 0].into(),
-            face_id: 0,
-            block_id: 0,
-            _buffer: [0, 0]
-        };
-
-        let as_u64: u64 = bytemuck::cast(vertex);
-        assert!(size_of_val(&vertex) == 8);
-        assert!(as_u64 == 1);
-    }
-
-    pub fn get_byte(number: u64, offset: u32) -> u64
-    {
-        (number >> (offset * 8)) & 255
-    }
-}
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct VoxelVertex
-{
-    pos: Vec3<u8>,
-    face_id: u8,
-    block_id: u16,
-    _buffer: [u8; 2] // unused space, so it is the size of a u64
-}
-
-unsafe impl bytemuck::Pod for VoxelVertex {}
-unsafe impl bytemuck::Zeroable for VoxelVertex {}
-
 pub struct VoxelMesh
 {
-    verticies: Vec<VoxelVertex>,
-    triangles: Vec<u32>
+    vertices: Vec<VoxelVertex>,
+    triangles: Vec<u32>,
+    faces: Vec<VoxelFace>
 }
 
 impl VoxelMesh
 {
-    pub fn verticies(&self) -> &[VoxelVertex] { &self.verticies }
+    pub fn vertices(&self) -> &[VoxelVertex] { &self.vertices }
     pub fn triangles(&self) -> &[u32] { &self.triangles }
+    pub fn faces(&self) -> &[VoxelFace] { &self.faces }
 
     pub fn new() -> Self 
     {
         Self 
         {
-            verticies: vec![],
-            triangles: vec![]
+            vertices: vec![],
+            triangles: vec![],
+            faces: vec![]
         }
     }
 
-    pub fn add_face(&mut self, pos: Vec3<u8>, face_id: VoxelFace, block_id: u16)
+    pub fn add_face(&mut self, pos: Vec3<u8>, face_id: VoxelFaceOrientation, block_id: u16)
     {
         let vertex = VoxelVertex {
             pos,
@@ -190,12 +154,12 @@ impl VoxelMesh
             _buffer: [0, 0]
         };
 
-        self.verticies.extend([vertex; 4]);
+        self.vertices.extend([vertex; 4]);
         self.triangles.extend(VOXEL_FACE_TRIANGLES.map(|i| i + 1))
     }
 }
 
-fn get_voxel_faces<TStorage, TVoxel>(data: &TStorage, position: Vec3<isize>) -> Vec<VoxelFaceData>
+fn get_voxel_faces<TStorage, TVoxel>(data: &TStorage, position: Vec3<isize>) -> Vec<VoxelFace>
     where TStorage : VoxelStorage<TVoxel>, TVoxel : IVoxel
 {
     let mut faces = vec![];
@@ -215,13 +179,13 @@ fn get_voxel_faces<TStorage, TVoxel>(data: &TStorage, position: Vec3<isize>) -> 
     faces
 }
 
-fn has_face<TStorage, TVoxel>(data: &TStorage, index: Vec3<usize>, face_id: VoxelFace) -> bool
+fn has_face<TStorage, TVoxel>(data: &TStorage, index: Vec3<usize>, face_id: VoxelFaceOrientation) -> bool
     where TStorage : VoxelStorage<TVoxel>, TVoxel : IVoxel
 {
     let size = data.length();
     match face_id
     {
-        VoxelFace::South => 
+        VoxelFaceOrientation::South => 
         {
             if index.z > size
             {
@@ -236,7 +200,7 @@ fn has_face<TStorage, TVoxel>(data: &TStorage, index: Vec3<usize>, face_id: Voxe
                 data.get([index.x, index.y, index.z + 1].into()).is_none()
             }
         },
-        VoxelFace::North => 
+        VoxelFaceOrientation::North => 
         {
             if index.z == 0
             {
@@ -247,7 +211,7 @@ fn has_face<TStorage, TVoxel>(data: &TStorage, index: Vec3<usize>, face_id: Voxe
                 data.get([index.x, index.y, index.z - 1].into()).is_none()
             }
         },
-        VoxelFace::West => 
+        VoxelFaceOrientation::West => 
         {
             if index.x == 0
             {
@@ -258,7 +222,7 @@ fn has_face<TStorage, TVoxel>(data: &TStorage, index: Vec3<usize>, face_id: Voxe
                 data.get([index.x - 1, index.y, index.z].into()).is_none()
             }
         },
-        VoxelFace::East => 
+        VoxelFaceOrientation::East => 
         {
             if index.x > size
             {
@@ -273,7 +237,7 @@ fn has_face<TStorage, TVoxel>(data: &TStorage, index: Vec3<usize>, face_id: Voxe
                 data.get([index.x + 1, index.y, index.z].into()).is_none()
             }
         },
-        VoxelFace::Up => 
+        VoxelFaceOrientation::Up => 
         {
             if index.y > size
             {
@@ -288,7 +252,7 @@ fn has_face<TStorage, TVoxel>(data: &TStorage, index: Vec3<usize>, face_id: Voxe
                 data.get([index.x, index.y + 1, index.z].into()).is_none()
             }
         },
-        VoxelFace::Down => 
+        VoxelFaceOrientation::Down => 
         {
             if index.y == 0
             {
@@ -303,7 +267,7 @@ fn has_face<TStorage, TVoxel>(data: &TStorage, index: Vec3<usize>, face_id: Voxe
     }
 }
 
-fn add_faces<TStorage, TVoxel>(data: &TStorage, index: Vec3<usize>, chunk_pos: Vec3<isize>, faces: &mut Vec<VoxelFaceData>)
+fn add_faces<TStorage, TVoxel>(data: &TStorage, index: Vec3<usize>, chunk_pos: Vec3<isize>, faces: &mut Vec<VoxelFace>)
     where TStorage : VoxelStorage<TVoxel>, TVoxel : IVoxel
 {
     let size = data.length();
@@ -317,39 +281,39 @@ fn add_faces<TStorage, TVoxel>(data: &TStorage, index: Vec3<usize>, chunk_pos: V
 
     let pos = chunk_pos.map(|v| v as i32) + Vec3::new(index.x as i32, index.y as i32, index.z as i32);
 
-    if has_face(data, index, VoxelFace::South)
+    if has_face(data, index, VoxelFaceOrientation::South)
     {
-        let face = VoxelFaceData::new(pos, voxel.id() as u32, VoxelFace::South.to_index(), 1);
+        let face = VoxelFace::new(pos, voxel.id() as u32, VoxelFaceOrientation::South.to_index(), 1);
         faces.push(face);
     }
 
-    if has_face(data, index, VoxelFace::North)
+    if has_face(data, index, VoxelFaceOrientation::North)
     {
-        let face = VoxelFaceData::new(pos, voxel.id() as u32, VoxelFace::North.to_index(), 1);
+        let face = VoxelFace::new(pos, voxel.id() as u32, VoxelFaceOrientation::North.to_index(), 1);
         faces.push(face);
     }
 
-    if has_face(data, index, VoxelFace::East)
+    if has_face(data, index, VoxelFaceOrientation::East)
     {
-        let face = VoxelFaceData::new(pos, voxel.id() as u32, VoxelFace::East.to_index(), 1);
+        let face = VoxelFace::new(pos, voxel.id() as u32, VoxelFaceOrientation::East.to_index(), 1);
         faces.push(face);
     }
 
-    if has_face(data, index, VoxelFace::West)
+    if has_face(data, index, VoxelFaceOrientation::West)
     {
-        let face = VoxelFaceData::new(pos, voxel.id() as u32, VoxelFace::West.to_index(), 1);
+        let face = VoxelFace::new(pos, voxel.id() as u32, VoxelFaceOrientation::West.to_index(), 1);
         faces.push(face);
     }
 
-    if has_face(data, index, VoxelFace::Up)
+    if has_face(data, index, VoxelFaceOrientation::Up)
     {
-        let face = VoxelFaceData::new(pos, voxel.id() as u32, VoxelFace::Up.to_index(), 1);
+        let face = VoxelFace::new(pos, voxel.id() as u32, VoxelFaceOrientation::Up.to_index(), 1);
         faces.push(face);
     }
 
-    if has_face(data, index, VoxelFace::Down)
+    if has_face(data, index, VoxelFaceOrientation::Down)
     {
-        let face = VoxelFaceData::new(pos, voxel.id() as u32, VoxelFace::Down.to_index(), 1);
+        let face = VoxelFace::new(pos, voxel.id() as u32, VoxelFaceOrientation::Down.to_index(), 1);
         faces.push(face);
     }
 }

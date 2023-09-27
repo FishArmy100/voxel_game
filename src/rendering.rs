@@ -5,9 +5,10 @@ pub mod mesh;
 
 use std::{sync::{Arc, Mutex}, marker::PhantomData, ops::RangeBounds};
 
-use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::{terrain::VoxelTerrain, VoxelStorage, Voxel}, camera::Camera, colors::Color, texture::Texture};
+use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::{terrain::VoxelTerrain, VoxelStorage, Voxel}, camera::Camera, colors::Color, texture::Texture, utils::Byteable};
 use cgmath::Array;
-use wgpu::{util::DeviceExt};
+use futures_intrusive::buffer;
+use wgpu::{util::DeviceExt, VertexBufferLayout};
 
 use self::{renderer::Renderer, debug_render_stage::{DebugRenderStage, DebugLine, DebugObject}, voxel_render_stage::VoxelRenderStage, mesh::{MeshRenderStage, Mesh, MeshInstance}};
 
@@ -51,7 +52,7 @@ impl BindGroupData
     pub fn bind_group(&self) -> &wgpu::BindGroup { &self.bind_group }
 
     pub fn uniform<T>(name: String, data: T, shader_stages: wgpu::ShaderStages, device: &wgpu::Device) -> Self 
-        where T : bytemuck::Pod + bytemuck::Zeroable 
+        where T : Byteable
     {
         let layout = Self::get_uniform_layout(shader_stages, device);
         Self::uniform_with_layout(name, data, layout, device)
@@ -64,19 +65,57 @@ impl BindGroupData
     }
 
     pub fn uniform_with_layout<T>(name: String, data: T, layout: wgpu::BindGroupLayout, device: &wgpu::Device) -> Self
-        where T : bytemuck::Pod + bytemuck::Zeroable 
+        where T : Byteable
     {
         let data_array = &[data];
         let data: &[u8] = bytemuck::cast_slice(data_array);
 
-        let (buffer, bind_group) = Self::get_bind_group(&layout, data, device);
+        let (buffer, bind_group) = Self::get_bind_group(&layout, data, device, wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST);
         Self { name, layout, buffer, bind_group }
+    }
+
+    pub fn storage<T>(name: String, data: &[T], shader_stages: wgpu::ShaderStages, device: &wgpu::Device) -> Self
+        where T : Byteable
+    {
+        let layout = Self::get_storage_layout(shader_stages, device);
+        
+        let (buffer, bind_group) = Self::get_bind_group(&layout, bytemuck::cast_slice(data), device, wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST);
+
+        Self 
+        { 
+            name, 
+            layout, 
+            buffer, 
+            bind_group 
+        }
     }
 
     pub fn uniform_with_layout_bytes(name: String, data: &[u8], layout: wgpu::BindGroupLayout, device: &wgpu::Device) -> Self
     {
-        let (buffer, bind_group) = Self::get_bind_group(&layout, data, device);
+        let (buffer, bind_group) = Self::get_bind_group(&layout, data, device, wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST);
         Self { name, layout, buffer, bind_group }
+    }
+
+    pub fn get_storage_layout(shader_stages: wgpu::ShaderStages, device: &wgpu::Device) -> wgpu::BindGroupLayout
+    {
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: shader_stages,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage 
+                        { 
+                            read_only: false 
+                        },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }
+            ],
+            label: None,
+        })
     }
 
     pub fn get_uniform_layout(shader_stages: wgpu::ShaderStages, device: &wgpu::Device) -> wgpu::BindGroupLayout
@@ -104,13 +143,13 @@ impl BindGroupData
         queue.write_buffer(self.buffer(), 0, bytemuck::cast_slice(&[data]));
     }
 
-    fn get_bind_group(layout: &wgpu::BindGroupLayout, data: &[u8], device: &wgpu::Device) -> (wgpu::Buffer, wgpu::BindGroup)
+    fn get_bind_group(layout: &wgpu::BindGroupLayout, data: &[u8], device: &wgpu::Device, usage: wgpu::BufferUsages) -> (wgpu::Buffer, wgpu::BindGroup)
     {
         let buffer = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: None,
                 contents: data,
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                usage,
             }
         );
 
@@ -255,7 +294,7 @@ impl IndexBuffer
 {
     pub fn capacity(&self) -> u64 { self.capacity }
 
-    pub fn new(device: &wgpu::Device, indices: &[u32], label: Option<&str>) -> Self
+    pub fn new(indices: &[u32], device: &wgpu::Device, label: Option<&str>) -> Self
     {
         let capacity = indices.len() as u64;
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -267,7 +306,7 @@ impl IndexBuffer
         Self { buffer, capacity }
     }
 
-    pub fn new_empty(device: &wgpu::Device, capacity: u64, label: Option<&str>) -> Self
+    pub fn new_empty(capacity: u64, device: &wgpu::Device, label: Option<&str>) -> Self
     {
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label,
@@ -301,7 +340,7 @@ pub struct RenderPipelineInfo<'l>
     pub vs_main: &'l str,
     pub fs_main: &'l str,
 
-    pub vertex_buffers: &'l [&'l dyn IVertexBuffer],
+    pub vertex_buffers: &'l [&'l VertexBufferLayout<'l>],
     pub bind_groups: &'l [&'l BindGroupData],
 
     label: Option<&'l str>
@@ -317,7 +356,7 @@ pub fn construct_render_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceCo
     let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: None,
         bind_group_layouts: &info.bind_groups.iter()
-            .map(|b| b.layout().clone())
+            .map(|b| &b.layout)
             .collect::<Vec<_>>(),
         push_constant_ranges: &[]
     });
@@ -329,7 +368,7 @@ pub fn construct_render_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceCo
             module: &shader,
             entry_point: info.vs_main,
             buffers: &info.vertex_buffers.iter()
-                .map(|b| b.layout().clone())
+                .map(|b| (*b).clone())
                 .collect::<Vec<_>>()
         },
         

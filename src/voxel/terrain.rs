@@ -7,13 +7,37 @@ use std::time::SystemTime;
 use cgmath::Array;
 
 use crate::gpu::ShaderInfo;
-use crate::rendering::VertexBuffer;
+use crate::rendering::{VertexBuffer, IndexBuffer, BindGroupData};
 use crate::utils::Array3D;
 use crate::voxel::world_gen::VoxelGenerator;
 use super::octree::Octree;
-use super::{Voxel, VoxelData, VoxelFaceData, VoxelStorage, VoxelStorageExt};
-use crate::rendering::voxel_render_stage::{VoxelFace};
+use super::{Voxel, VoxelData, VoxelFace, VoxelStorage, VoxelStorageExt, VoxelMesh};
+use crate::rendering::voxel_render_stage::{VoxelFaceOrientation, VoxelVertex};
 use crate::math::{Vec3, Point3D};
+
+pub struct ChunkMeshData
+{
+    vertex_buffer: VertexBuffer<VoxelVertex>,
+    index_buffer: IndexBuffer,
+    faces_bind_group: BindGroupData
+}
+
+impl ChunkMeshData
+{
+    pub fn vertex_buffer(&self) -> &VertexBuffer<VoxelVertex> { &self.vertex_buffer }
+    pub fn index_buffer(&self) -> &IndexBuffer { &self.index_buffer }
+    pub fn faces_bind_group(&self) -> &BindGroupData { &self.faces_bind_group }
+
+    pub fn new(mesh: VoxelMesh, device: &wgpu::Device) -> Self
+    {
+        Self 
+        { 
+            vertex_buffer: VertexBuffer::new(mesh.vertices(), device, "Voxel Vertex Buffer".into()), 
+            index_buffer: IndexBuffer::new(&mesh.triangles, device, "Voxel Index Buffer".into()), 
+            faces_bind_group: BindGroupData::storage("Faces Bind Group".into(), mesh.faces(), wgpu::ShaderStages::VERTEX, device) 
+        }
+    }
+}
 
 pub struct Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
 {
@@ -21,17 +45,14 @@ pub struct Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
     chunk_index: Vec3<isize>,
     voxels: Arc<Vec<VoxelData>>,
 
-    faces_buffer: Option<VertexBuffer<VoxelFaceData>>,
+    mesh_data: Option<ChunkMeshData>,
 }
 
 impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
 {
     pub fn size(&self) -> usize { self.data.length() } 
-    pub fn faces_buffer(&self) -> &Option<VertexBuffer<VoxelFaceData>> { &self.faces_buffer }
-    pub fn storage(&self) -> &TStorage
-    {
-        &self.data
-    }
+    pub fn mesh_data(&self) -> &Option<ChunkMeshData> { &self.mesh_data }
+    pub fn storage(&self) -> &TStorage { &self.data }
 
     pub fn new(mut generator: MutexGuard<VoxelGenerator>, chunk_index: Vec3<isize>, voxels: Arc<Vec<VoxelData>>, chunk_depth: usize, device: &wgpu::Device) -> Self
     {

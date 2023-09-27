@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use cgmath::Array;
 
 use crate::camera::{Camera, CameraUniform};
-use crate::math::{Vec3, Mat4x4, Point3D};
+use crate::math::{Vec3, Point3D};
 use crate::rendering::{ModelUniform, construct_render_pipeline};
 use crate::voxel::{VoxelStorage, Voxel};
 use crate::voxel::terrain::VoxelTerrain;
@@ -11,10 +11,9 @@ use crate::voxel::terrain::VoxelTerrain;
 use crate::colors::Color;
 use super::{RenderStage, DrawCall, BindGroupData, VertexBuffer, VertexData, IndexBuffer};
 
-pub const VOXEL_FACE_VERTICES: [VoxelVertex; 4] = [VoxelVertex::new(0, Color::WHITE), VoxelVertex::new(1, Color::RED), VoxelVertex::new(2, Color::GREEN), VoxelVertex::new(3, Color::BLUE)];
 pub const VOXEL_FACE_TRIANGLES: [u32; 6] = [2, 1, 0, 2, 3, 1];
 
-pub enum VoxelFace 
+pub enum VoxelFaceOrientation 
 {
     Up,
     Down,
@@ -24,18 +23,18 @@ pub enum VoxelFace
     West
 }
 
-impl VoxelFace
+impl VoxelFaceOrientation
 {
     pub fn to_index(&self) -> u32
     {
         match self 
         {
-            VoxelFace::Up => 0,
-            VoxelFace::Down => 1,
-            VoxelFace::North => 2,
-            VoxelFace::South => 3,
-            VoxelFace::East => 4,
-            VoxelFace::West => 5,
+            VoxelFaceOrientation::Up => 0,
+            VoxelFaceOrientation::Down => 1,
+            VoxelFaceOrientation::North => 2,
+            VoxelFaceOrientation::South => 3,
+            VoxelFaceOrientation::East => 4,
+            VoxelFaceOrientation::West => 5,
         }
     }
 
@@ -58,14 +57,13 @@ impl VoxelFace
 #[derive(Debug, Clone, Copy)]
 pub struct VoxelVertex 
 {
-    pub index: u32,
-    pub color: Color
+    pub face_id: u32
 }
 
 impl VoxelVertex
 {
-    const ATTRIBUTES: [wgpu::VertexAttribute; 2] =
-            wgpu::vertex_attr_array![0 => Uint32, 1 => Float32x4];
+    const ATTRIBUTES: [wgpu::VertexAttribute; 1] =
+            wgpu::vertex_attr_array![0 => Uint32];
 
     pub fn desc() -> wgpu::VertexBufferLayout<'static>
     {
@@ -76,9 +74,9 @@ impl VoxelVertex
         }
     }
 
-    pub const fn new(index: u32, color: Color) -> Self
+    pub const fn new(face_id: u32) -> Self
     {
-        Self { index, color }
+        Self { face_id }
     }
 }
 
@@ -98,47 +96,15 @@ impl VertexData for VoxelVertex
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
-pub struct VoxelFaceData
+pub struct VoxelFace
 {
     pub position: Vec3<i32>,
-    pub id: u32,
-    pub face_index: u32,
-    pub scale: u32
+    pub orientation: u32,
+    pub voxel_id: u32
 }
 
-impl VoxelFaceData
-{
-    const ATTRIBUTES: [wgpu::VertexAttribute; 4] =
-            wgpu::vertex_attr_array![2 => Sint32x3, 3 => Uint32, 4 => Uint32, 5 => Uint32];
-
-    pub fn desc() -> wgpu::VertexBufferLayout<'static>
-    {
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Instance,
-            attributes: &Self::ATTRIBUTES,
-        }
-    }
-
-    pub fn new(position: Vec3<i32>, id: u32, face_index: u32, scale: u32) -> Self
-    {
-        Self { position, id, face_index, scale }
-    }
-}
-
-unsafe impl bytemuck::Pod for VoxelFaceData {}
-unsafe impl bytemuck::Zeroable for VoxelFaceData {}
-
-impl VertexData for VoxelFaceData
-{
-    fn desc() -> wgpu::VertexBufferLayout<'static> {
-        Self::desc()
-    }
-
-    fn append_bytes(&self, bytes: &mut Vec<u8>) {
-        bytes.extend(bytemuck::cast_slice(&[*self]).iter());
-    }
-}
+unsafe impl bytemuck::Pod for VoxelFace {}
+unsafe impl bytemuck::Zeroable for VoxelFace {}
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -208,9 +174,6 @@ pub struct VoxelRenderStage<TStorage> where TStorage : VoxelStorage<Voxel> + Sen
     render_pipeline: wgpu::RenderPipeline,
 
     camera: Camera,
-
-    vertex_buffer: VertexBuffer<VoxelVertex>,
-    index_buffer: IndexBuffer
 }
 
 impl<TStorage> VoxelRenderStage<TStorage> where TStorage : VoxelStorage<Voxel> + Send + 'static
@@ -232,20 +195,13 @@ impl<TStorage> VoxelRenderStage<TStorage> where TStorage : VoxelStorage<Voxel> +
         let voxel_size_bind_group = BindGroupData::uniform("voxel_size_bind_group".into(), voxel_size_uniform, wgpu::ShaderStages::VERTEX, device);
         drop(terrain_mutex);
 
-        let vertex_buffer = VertexBuffer::new(&VOXEL_FACE_VERTICES, device, Some("Voxel vertex buffer"));
-        let index_buffer = IndexBuffer::new(device, &VOXEL_FACE_TRIANGLES, Some("Voxel index buffer"));
-        
-
-        const FACE_BUFFER_CAPACITY: u64 = 1;
-        let faces_buffer = VertexBuffer::<VoxelFaceData>::new_empty(device, FACE_BUFFER_CAPACITY, Some("Faces instance buffer"));
-
         let render_pipeline = construct_render_pipeline(device, config, &crate::rendering::RenderPipelineInfo 
         { 
             shader_source: include_str!("../shaders/voxel_shader.wgsl"), 
             shader_name: Some("Voxel shader"), 
             vs_main: "vs_main", 
             fs_main: "fs_main", 
-            vertex_buffers: &[&vertex_buffer, &faces_buffer], 
+            vertex_buffers: &[&VoxelVertex::desc()], 
             bind_groups: &[&camera_bind_group, &model_bind_group, &voxel_bind_group, &voxel_size_bind_group], 
             label: Some("Voxel Render Pipeline")
         });
@@ -259,8 +215,6 @@ impl<TStorage> VoxelRenderStage<TStorage> where TStorage : VoxelStorage<Voxel> +
             voxel_size_bind_group,
             render_pipeline,
             camera,
-            vertex_buffer,
-            index_buffer
         }
     }
 
@@ -295,8 +249,6 @@ impl<TStorage> RenderStage for VoxelRenderStage<TStorage> where TStorage : Voxel
 
             let draw_call = VoxelDrawCall
             {
-                vertex_buffer: &self.vertex_buffer,
-                index_buffer: &self.index_buffer,
                 chunk_index,
                 camera: self.camera.clone(),
                 position: Point3D::from_value(0.0),
@@ -314,8 +266,6 @@ impl<TStorage> RenderStage for VoxelRenderStage<TStorage> where TStorage : Voxel
 
 pub struct VoxelDrawCall<'a, TStorage> where TStorage : VoxelStorage<Voxel> 
 {
-    vertex_buffer: &'a VertexBuffer<VoxelVertex>,
-    index_buffer: &'a IndexBuffer,
     chunk_index: usize,
 
     camera: Camera,
