@@ -164,7 +164,7 @@ impl VertexData for VoxelVertex
 {
     fn desc() -> wgpu::VertexBufferLayout<'static> {
         const ATTRIBUTES: [wgpu::VertexAttribute; 2] =
-            wgpu::vertex_attr_array![0 => Float32, 1 => Float32];
+            wgpu::vertex_attr_array![0 => Uint32, 1 => Uint32];
 
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,

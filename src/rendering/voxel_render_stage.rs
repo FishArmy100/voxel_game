@@ -102,7 +102,7 @@ impl<TStorage> VoxelRenderStage<TStorage> where TStorage : VoxelStorage<Voxel> +
 
         let terrain_mutex = terrain.lock().unwrap();
         let voxel_uniform = VoxelRenderDataUniform::new(terrain_mutex.voxel_types().iter().map(|v| v.get_render_data()).collect());
-        let voxel_bind_group = BindGroupData::uniform_bytes("voxel_bind_group".into(), voxel_uniform.as_bytes(), wgpu::ShaderStages::VERTEX, device);
+        let voxel_bind_group = BindGroupData::uniform_bytes("voxel_bind_group".into(), voxel_uniform.as_bytes(), wgpu::ShaderStages::FRAGMENT, device);
 
         let chunk_uniform = ChunkUniform {
             position: Vec3::zero(),

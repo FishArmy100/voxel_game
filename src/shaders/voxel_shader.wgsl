@@ -100,7 +100,7 @@ struct FaceArrayIndirect {
 
 fn get_byte(number: u32, offset: u32) -> u32
 {
-    (number >> (offset * 8)) & 255
+    return (number << (offset * u32(8))) & u32(255);
 }
 
 @vertex
@@ -114,12 +114,12 @@ fn vs_main(@builtin(vertex_index) in_vertex_index: u32, vertex: VertexInput) -> 
 
     let loc = vertex.compressed_location;
 
-    let x = f32(i32(get_byte(loc, u32(0))) + chunk_uniform.position.x * i32(chunk_uniform.size));
-    let y = f32(i32(get_byte(loc, u32(1))) + chunk_uniform.position.y * i32(chunk_uniform.size));
-    let z = f32(i32(get_byte(loc, u32(2))) + chunk_uniform.position.z * i32(chunk_uniform.size));
+    let x = f32(i32(get_byte(loc, u32(3))) + chunk.position.x * i32(chunk.size));
+    let y = f32(i32(get_byte(loc, u32(2))) + chunk.position.y * i32(chunk.size));
+    let z = f32(i32(get_byte(loc, u32(1))) + chunk.position.z * i32(chunk.size));
 
-    let face_index = get_byte(loc, u32(3));
-    let vertex_index = in_vertex_index % u32(4);
+    let face_index = get_byte(loc, u32(0));
+    let vertex_index = (in_vertex_index + u32(3)) % u32(4);
     var vert_pos = face_array.arr[face_index][vertex_index];
     vert_pos += vec3f(x, y, z);
     vert_pos *= voxel_size_uniform.voxel_size;
