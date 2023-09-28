@@ -19,9 +19,9 @@ pub trait VoxelStorage<T> : Sized where T : IVoxel
     fn simplify(&mut self);
     fn is_empty(&self) -> bool;
 
-    fn get_faces(&self, position: Vec3<isize>) -> Vec<VoxelFace>
+    fn get_mesh(&self) -> VoxelMesh
     {
-        get_voxel_faces(self, position)
+        get_voxel_faces(self)
     }
 
     fn new_from_grid<TArg, TFunc>(depth: usize, grid: &Array3D<TArg>, mut sampler: TFunc) -> Self
@@ -145,24 +145,24 @@ impl VoxelMesh
         }
     }
 
-    pub fn add_face(&mut self, pos: Vec3<u8>, face_id: VoxelFaceOrientation, block_id: u16)
+    pub fn add_face(&mut self, pos: Vec3<u32>, orientation: VoxelFaceOrientation, voxel_id: u16)
     {
         let vertex = VoxelVertex {
-            pos,
-            face_id: face_id.to_index() as u8,
-            block_id,
-            _buffer: [0, 0]
+            face_id: self.faces.len() as u32
         };
 
         self.vertices.extend([vertex; 4]);
-        self.triangles.extend(VOXEL_FACE_TRIANGLES.map(|i| i + 1))
+        self.triangles.extend(VOXEL_FACE_TRIANGLES.map(|i| i + 1));
+
+        let face = VoxelFace::new(pos, orientation, voxel_id as u32);
+        self.faces.push(face);
     }
 }
 
-fn get_voxel_faces<TStorage, TVoxel>(data: &TStorage, position: Vec3<isize>) -> Vec<VoxelFace>
+fn get_voxel_faces<TStorage, TVoxel>(data: &TStorage) -> VoxelMesh
     where TStorage : VoxelStorage<TVoxel>, TVoxel : IVoxel
 {
-    let mut faces = vec![];
+    let mut mesh = VoxelMesh::new();
 
     let length = data.length();
     for x in 0..length
@@ -171,12 +171,12 @@ fn get_voxel_faces<TStorage, TVoxel>(data: &TStorage, position: Vec3<isize>) -> 
         {
             for z in 0..length 
             {
-                add_faces(data, Vec3::new(x, y, z), position, &mut faces);
+                add_faces(data, Vec3::new(x, y, z), &mut mesh);
             }
         }
     }
 
-    faces
+    mesh
 }
 
 fn has_face<TStorage, TVoxel>(data: &TStorage, index: Vec3<usize>, face_id: VoxelFaceOrientation) -> bool
@@ -267,7 +267,7 @@ fn has_face<TStorage, TVoxel>(data: &TStorage, index: Vec3<usize>, face_id: Voxe
     }
 }
 
-fn add_faces<TStorage, TVoxel>(data: &TStorage, index: Vec3<usize>, chunk_pos: Vec3<isize>, faces: &mut Vec<VoxelFace>)
+fn add_faces<TStorage, TVoxel>(data: &TStorage, index: Vec3<usize>, mesh: &mut VoxelMesh)
     where TStorage : VoxelStorage<TVoxel>, TVoxel : IVoxel
 {
     let size = data.length();
@@ -278,42 +278,35 @@ fn add_faces<TStorage, TVoxel>(data: &TStorage, index: Vec3<usize>, chunk_pos: V
     }
 
     let Some(voxel) = data.get([index.x, index.y, index.z].into()) else { return; };
-
-    let pos = chunk_pos.map(|v| v as i32) + Vec3::new(index.x as i32, index.y as i32, index.z as i32);
+    let pos = Vec3::new(index.x as u32, index.y as u32, index.z as u32);
 
     if has_face(data, index, VoxelFaceOrientation::South)
     {
-        let face = VoxelFace::new(pos, voxel.id() as u32, VoxelFaceOrientation::South.to_index(), 1);
-        faces.push(face);
+        mesh.add_face(pos, VoxelFaceOrientation::South, voxel.id());
     }
 
     if has_face(data, index, VoxelFaceOrientation::North)
     {
-        let face = VoxelFace::new(pos, voxel.id() as u32, VoxelFaceOrientation::North.to_index(), 1);
-        faces.push(face);
+        mesh.add_face(pos, VoxelFaceOrientation::North, voxel.id());
     }
 
     if has_face(data, index, VoxelFaceOrientation::East)
     {
-        let face = VoxelFace::new(pos, voxel.id() as u32, VoxelFaceOrientation::East.to_index(), 1);
-        faces.push(face);
+        mesh.add_face(pos, VoxelFaceOrientation::East, voxel.id());
     }
 
     if has_face(data, index, VoxelFaceOrientation::West)
     {
-        let face = VoxelFace::new(pos, voxel.id() as u32, VoxelFaceOrientation::West.to_index(), 1);
-        faces.push(face);
+        mesh.add_face(pos, VoxelFaceOrientation::West, voxel.id());
     }
 
     if has_face(data, index, VoxelFaceOrientation::Up)
     {
-        let face = VoxelFace::new(pos, voxel.id() as u32, VoxelFaceOrientation::Up.to_index(), 1);
-        faces.push(face);
+        mesh.add_face(pos, VoxelFaceOrientation::Up, voxel.id());
     }
 
     if has_face(data, index, VoxelFaceOrientation::Down)
     {
-        let face = VoxelFace::new(pos, voxel.id() as u32, VoxelFaceOrientation::Down.to_index(), 1);
-        faces.push(face);
+        mesh.add_face(pos, VoxelFaceOrientation::Down, voxel.id());
     }
 }

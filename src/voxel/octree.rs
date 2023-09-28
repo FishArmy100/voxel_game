@@ -323,30 +323,3 @@ fn fill_node_from_grid<T, A, S>(node: &mut Node<T>, grid: &Array3D<A>, sampler: 
         node.data = new_data;
     }
 }
-
-fn stupid_get_faces<T>(node: &Node<T>, faces: &mut Vec<VoxelFace>, octree_position: Vec3<isize>) where T : IVoxel + Copy
-{
-    match &node.data 
-    {
-        NodeType::Empty => {},
-        NodeType::Leaf(leaf) => 
-        {
-            let (node_pos, scale) = node.bounds.get_bounds_location();
-            let face_pos: Vec3<i32> = (node_pos.cast().unwrap() + octree_position).cast().unwrap();
-
-            faces.push(VoxelFace::new(face_pos, leaf.id() as u32, VoxelFaceOrientation::Up.to_index() as u32, scale as u32));
-            faces.push(VoxelFace::new(face_pos, leaf.id() as u32, VoxelFaceOrientation::Down.to_index() as u32, scale as u32));
-            faces.push(VoxelFace::new(face_pos, leaf.id() as u32, VoxelFaceOrientation::East.to_index() as u32, scale as u32));
-            faces.push(VoxelFace::new(face_pos, leaf.id() as u32, VoxelFaceOrientation::West.to_index() as u32, scale as u32));
-            faces.push(VoxelFace::new(face_pos, leaf.id() as u32, VoxelFaceOrientation::North.to_index() as u32, scale as u32));
-            faces.push(VoxelFace::new(face_pos, leaf.id() as u32, VoxelFaceOrientation::South.to_index() as u32, scale as u32));
-        },
-        NodeType::Branches(branches) => 
-        {
-            for sub_node in branches.iter()
-            {
-                stupid_get_faces(sub_node, faces, octree_position)
-            }
-        },
-    }
-}

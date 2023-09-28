@@ -1,5 +1,3 @@
-// Vertex shader
-
 struct VertexInput {
     @location(0) face_id: u32,
 }

@@ -320,10 +320,6 @@ impl DebugRenderStage
 
 impl RenderStage for DebugRenderStage
 {
-    fn bind_groups(&self) -> Box<[&BindGroupData]> {
-        Box::new([&self.camera_bind_group])
-    }
-
     fn render_pipeline(&self) -> &wgpu::RenderPipeline {
         &self.render_pipeline
     }
@@ -353,6 +349,11 @@ impl<'buffer, 'group> DebugDrawCall<'buffer, 'group>
 
 impl<'buffer, 'group> DrawCall for DebugDrawCall<'buffer, 'group>
 {
+    fn bind_groups(&self) -> Box<[&BindGroupData]> 
+    {
+        Box::new([&self.camera_bind_group])
+    }
+
     fn on_pre_draw(&self, queue: &wgpu::Queue) 
     {
         let mut camera_uniform = CameraUniform::new();

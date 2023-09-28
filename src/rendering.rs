@@ -8,7 +8,7 @@ use std::{sync::{Arc, Mutex}, marker::PhantomData, ops::RangeBounds};
 use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::{terrain::VoxelTerrain, VoxelStorage, Voxel}, camera::Camera, colors::Color, texture::Texture, utils::Byteable};
 use cgmath::Array;
 use futures_intrusive::buffer;
-use wgpu::{util::DeviceExt, VertexBufferLayout};
+use wgpu::{util::DeviceExt, VertexBufferLayout, BindGroupLayout};
 
 use self::{renderer::Renderer, debug_render_stage::{DebugRenderStage, DebugLine, DebugObject}, voxel_render_stage::VoxelRenderStage, mesh::{MeshRenderStage, Mesh, MeshInstance}};
 
@@ -170,13 +170,13 @@ impl BindGroupData
 
 pub trait RenderStage
 {
-    fn bind_groups(&self) -> Box<[&BindGroupData]>;
     fn render_pipeline(&self) -> &wgpu::RenderPipeline;
     fn get_draw_calls<'s>(&'s self) -> Vec<Box<(dyn DrawCall + 's)>>;
 }
 
 pub trait DrawCall
 {
+    fn bind_groups(&self) -> Box<[&BindGroupData]>;
     fn on_pre_draw(&self, queue: &wgpu::Queue);
     fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>);
 }
@@ -341,7 +341,7 @@ pub struct RenderPipelineInfo<'l>
     pub fs_main: &'l str,
 
     pub vertex_buffers: &'l [&'l VertexBufferLayout<'l>],
-    pub bind_groups: &'l [&'l BindGroupData],
+    pub bind_groups: &'l [&'l BindGroupLayout],
 
     label: Option<&'l str>
 }
@@ -355,9 +355,7 @@ pub fn construct_render_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceCo
 
     let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: None,
-        bind_group_layouts: &info.bind_groups.iter()
-            .map(|b| &b.layout)
-            .collect::<Vec<_>>(),
+        bind_group_layouts: &info.bind_groups,
         push_constant_ranges: &[]
     });
 

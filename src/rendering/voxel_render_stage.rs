@@ -5,11 +5,12 @@ use cgmath::Array;
 use crate::camera::{Camera, CameraUniform};
 use crate::math::{Vec3, Point3D};
 use crate::rendering::{ModelUniform, construct_render_pipeline};
+use crate::utils::Byteable;
 use crate::voxel::{VoxelStorage, Voxel};
 use crate::voxel::terrain::VoxelTerrain;
 
 use crate::colors::Color;
-use super::{RenderStage, DrawCall, BindGroupData, VertexBuffer, VertexData, IndexBuffer};
+use super::{RenderStage, DrawCall, BindGroupData, VertexBuffer, VertexData, IndexBuffer, RenderPipelineInfo};
 
 pub const VOXEL_FACE_TRIANGLES: [u32; 6] = [2, 1, 0, 2, 3, 1];
 
@@ -98,13 +99,26 @@ impl VertexData for VoxelVertex
 #[derive(Debug, Clone, Copy)]
 pub struct VoxelFace
 {
-    pub position: Vec3<i32>,
+    pub position: Vec3<u32>,
     pub orientation: u32,
     pub voxel_id: u32
 }
 
 unsafe impl bytemuck::Pod for VoxelFace {}
 unsafe impl bytemuck::Zeroable for VoxelFace {}
+
+impl VoxelFace
+{
+    pub fn new(position: Vec3<u32>, orientation: VoxelFaceOrientation, voxel_id: u32) -> Self
+    {
+        Self 
+        {
+            position,
+            orientation: orientation.to_index(),
+            voxel_id
+        }
+    }
+}
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -146,19 +160,26 @@ impl VoxelRenderDataUniform
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
-struct VoxelSizeUniform
+struct ChunkUniform
 {
-    pub voxel_size: f32
+    position: Vec3<i32>,
+    size: u32,
+    voxel_size: f32
 }
 
-unsafe impl bytemuck::Pod for VoxelSizeUniform {}
-unsafe impl bytemuck::Zeroable for VoxelSizeUniform {}
+unsafe impl bytemuck::Zeroable for ChunkUniform {}
+unsafe impl bytemuck::Pod for ChunkUniform {}
 
-impl VoxelSizeUniform
+impl ChunkUniform
 {
-    fn new(voxel_size: f32) -> Self
+    pub fn new(position: Vec3<i32>, size: u32, voxel_size: f32) -> Self
     {
-        Self { voxel_size }
+        Self 
+        { 
+            position, 
+            size, 
+            voxel_size
+        }
     }
 }
 
@@ -167,9 +188,8 @@ pub struct VoxelRenderStage<TStorage> where TStorage : VoxelStorage<Voxel> + Sen
     terrain: Arc<Mutex<VoxelTerrain<TStorage>>>,
     
     camera_bind_group: BindGroupData,
-    model_bind_group: BindGroupData,
+    chunk_bind_group: BindGroupData,
     voxel_bind_group: BindGroupData,
-    voxel_size_bind_group: BindGroupData,
 
     render_pipeline: wgpu::RenderPipeline,
 
@@ -188,21 +208,20 @@ impl<TStorage> VoxelRenderStage<TStorage> where TStorage : VoxelStorage<Voxel> +
         let voxel_uniform = VoxelRenderDataUniform::new(terrain_mutex.voxel_types().iter().map(|v| v.get_render_data()).collect());
         let voxel_bind_group = BindGroupData::uniform_bytes("voxel_bind_group".into(), voxel_uniform.as_bytes(), wgpu::ShaderStages::VERTEX, device);
 
-        let model_uniform = ModelUniform::from_position(Point3D::from_value(0.0));
-        let model_bind_group = BindGroupData::uniform("model_bind_group".into(), model_uniform, wgpu::ShaderStages::VERTEX, device);
-
-        let voxel_size_uniform = VoxelSizeUniform::new(terrain_mutex.info().voxel_size);
-        let voxel_size_bind_group = BindGroupData::uniform("voxel_size_bind_group".into(), voxel_size_uniform, wgpu::ShaderStages::VERTEX, device);
+        let chunk_uniform = ChunkUniform::new(Vec3::new(0, 0, 0), 0, 0.0);
+        let chunk_bind_group = BindGroupData::uniform("voxel_size_bind_group".into(), chunk_uniform, wgpu::ShaderStages::VERTEX, device);
         drop(terrain_mutex);
 
-        let render_pipeline = construct_render_pipeline(device, config, &crate::rendering::RenderPipelineInfo 
+        let face_storage_layout = BindGroupData::get_storage_layout(wgpu::ShaderStages::VERTEX, device);
+
+        let render_pipeline = construct_render_pipeline(device, config, &RenderPipelineInfo 
         { 
             shader_source: include_str!("../shaders/voxel_shader.wgsl"), 
             shader_name: Some("Voxel shader"), 
             vs_main: "vs_main", 
             fs_main: "fs_main", 
             vertex_buffers: &[&VoxelVertex::desc()], 
-            bind_groups: &[&camera_bind_group, &model_bind_group, &voxel_bind_group, &voxel_size_bind_group], 
+            bind_groups: &[camera_bind_group.layout(), chunk_bind_group.layout(), voxel_bind_group.layout(), &face_storage_layout], 
             label: Some("Voxel Render Pipeline")
         });
 
@@ -210,9 +229,8 @@ impl<TStorage> VoxelRenderStage<TStorage> where TStorage : VoxelStorage<Voxel> +
         {
             terrain, 
             camera_bind_group,
-            model_bind_group,
             voxel_bind_group, 
-            voxel_size_bind_group,
+            chunk_bind_group,
             render_pipeline,
             camera,
         }
@@ -226,11 +244,6 @@ impl<TStorage> VoxelRenderStage<TStorage> where TStorage : VoxelStorage<Voxel> +
 
 impl<TStorage> RenderStage for VoxelRenderStage<TStorage> where TStorage : VoxelStorage<Voxel> + Send + 'static
 {
-    fn bind_groups(&self) -> Box<[&BindGroupData]>
-    {
-        Box::new([&self.camera_bind_group, &self.model_bind_group, &self.voxel_bind_group, &self.voxel_size_bind_group])
-    }
-
     fn render_pipeline(&self) -> &wgpu::RenderPipeline 
     {
         &self.render_pipeline
@@ -242,7 +255,7 @@ impl<TStorage> RenderStage for VoxelRenderStage<TStorage> where TStorage : Voxel
         let terrain = Arc::new(self.terrain.lock().unwrap());
         for chunk_index in 0..terrain.chunks().len()
         {
-            if terrain.chunks()[chunk_index].storage().is_empty()
+            if terrain.chunks()[chunk_index].mesh_data().is_none()
             {
                 continue;
             }
@@ -253,7 +266,8 @@ impl<TStorage> RenderStage for VoxelRenderStage<TStorage> where TStorage : Voxel
                 camera: self.camera.clone(),
                 position: Point3D::from_value(0.0),
                 camera_bind_group: &self.camera_bind_group,
-                model_bind_group: &self.model_bind_group,
+                chunk_bind_group: &self.chunk_bind_group,
+                voxel_bind_group: &self.voxel_bind_group,
                 terrain: terrain.clone()
             };
 
@@ -272,34 +286,45 @@ pub struct VoxelDrawCall<'a, TStorage> where TStorage : VoxelStorage<Voxel>
     position: Point3D<f32>,
 
     camera_bind_group: &'a BindGroupData,
-    model_bind_group: &'a BindGroupData,
+    chunk_bind_group: &'a BindGroupData,
+    voxel_bind_group: &'a BindGroupData,
 
     terrain: Arc<MutexGuard<'a, VoxelTerrain<TStorage>>>
 }
 
 impl<'a, TStorage> DrawCall for VoxelDrawCall<'a, TStorage> where TStorage : VoxelStorage<Voxel> + Send + 'static
 {
+    fn bind_groups(&self) -> Box<[&BindGroupData]> 
+    {
+        let face_storage = self.terrain.chunks()[self.chunk_index].mesh_data().as_ref().unwrap().faces_bind_group();
+        Box::new([&self.camera_bind_group, &self.chunk_bind_group, &self.voxel_bind_group, face_storage])
+    }
+
     fn on_pre_draw(&self, queue: &wgpu::Queue) 
     {
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&self.camera);
         self.camera_bind_group.enqueue_set_data(queue, camera_uniform);
 
-        let model_uniform = ModelUniform::from_position(self.position);
-        self.model_bind_group.enqueue_set_data(queue, model_uniform);
+        let chunk = &self.terrain.chunks()[self.chunk_index];
+
+        let chunk_uniform = ChunkUniform::new(chunk.index().cast().unwrap(), chunk.size() as u32, self.terrain.info().voxel_size);
+        
+        let face_storage = self.terrain.chunks()[self.chunk_index].mesh_data().as_ref().unwrap().faces_bind_group();
+        face_storage.enqueue_set_data(queue, chunk_uniform);
     }
 
     fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>)
     {
         let chunk = &self.terrain.chunks()[self.chunk_index];
 
-        if let Some(faces_buffer) = &chunk.faces_buffer()
+        if let Some(chunk_mesh) = &chunk.mesh_data()
         {
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice_all());
-            render_pass.set_vertex_buffer(1, faces_buffer.slice_all());
-            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            render_pass.set_vertex_buffer(0, chunk_mesh.vertex_buffer().slice_all());
+            render_pass.set_index_buffer(chunk_mesh.index_buffer().slice(..), wgpu::IndexFormat::Uint32);
 
-            render_pass.draw_indexed(0..6, 0, 0..(faces_buffer.capacity() as u32));
+            let indices_count = chunk_mesh.index_buffer().capacity() as u32;
+            render_pass.draw_indexed(0..indices_count, 0, 0..0);
         }
     }
 }

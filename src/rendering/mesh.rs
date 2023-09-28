@@ -167,7 +167,7 @@ impl MeshRenderStage
     pub fn new(mesh: Mesh, transforms: &[MeshInstance], camera: Camera, device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Self
     {
         let vertex_buffer = VertexBuffer::new(&mesh.vertices, device, None);
-        let index_buffer = IndexBuffer::new(device, mesh.get_triangle_indexes(), None);
+        let index_buffer = IndexBuffer::new(mesh.get_triangle_indexes(), device, None);
         let instance_buffer = VertexBuffer::new(transforms, device, None);
 
         let mut camera_uniform = CameraUniform::new();
@@ -180,8 +180,8 @@ impl MeshRenderStage
             shader_name: Some("Mesh Shader"),
             vs_main: "vs_main",
             fs_main: "fs_main",
-            vertex_buffers: &[&vertex_buffer, &instance_buffer],
-            bind_groups: &[&camera_bind_group], 
+            vertex_buffers: &[vertex_buffer.layout(), instance_buffer.layout()],
+            bind_groups: &[camera_bind_group.layout()], 
             label: Some("Mesh render pipeline")
         });
 
@@ -204,10 +204,6 @@ impl MeshRenderStage
 
 impl RenderStage for MeshRenderStage
 {
-    fn bind_groups(&self) -> Box<[&BindGroupData]> {
-        Box::new([&self.camera_bind_group])
-    }
-
     fn render_pipeline(&self) -> &wgpu::RenderPipeline {
         &self.render_pipeline
     }
@@ -234,6 +230,11 @@ pub struct MeshDrawCall<'b>
 
 impl<'buffer> DrawCall for MeshDrawCall<'buffer>
 {
+    fn bind_groups(&self) -> Box<[&BindGroupData]> 
+    {
+        Box::new([&self.camera_bind_group])
+    }
+
     fn on_pre_draw(&self, queue: &wgpu::Queue) 
     {
         let mut camera_uniform = CameraUniform::new();

@@ -52,7 +52,6 @@ impl Renderer
 
     fn render_stage(&self, stage: &dyn RenderStage, view: &wgpu::TextureView)
     {
-        let bind_groups = stage.bind_groups();
         let pipeline = stage.render_pipeline();
 
         for draw_call in stage.get_draw_calls()
@@ -60,6 +59,7 @@ impl Renderer
             let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Command Encoder") });
             let mut render_pass = self.get_render_pass(&mut encoder, &view);
 
+            let bind_groups = draw_call.bind_groups();
             draw_call.on_pre_draw(&self.queue);
 
             render_pass.set_pipeline(pipeline);

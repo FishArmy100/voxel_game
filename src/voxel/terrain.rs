@@ -42,7 +42,7 @@ impl ChunkMeshData
 pub struct Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
 {
     data: TStorage,
-    chunk_index: Vec3<isize>,
+    index: Vec3<isize>,
     voxels: Arc<Vec<VoxelData>>,
 
     mesh_data: Option<ChunkMeshData>,
@@ -52,13 +52,14 @@ impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
 {
     pub fn size(&self) -> usize { self.data.length() } 
     pub fn mesh_data(&self) -> &Option<ChunkMeshData> { &self.mesh_data }
+    pub fn index(&self) -> Vec3<isize> { self.index }
     pub fn storage(&self) -> &TStorage { &self.data }
 
-    pub fn new(mut generator: MutexGuard<VoxelGenerator>, chunk_index: Vec3<isize>, voxels: Arc<Vec<VoxelData>>, chunk_depth: usize, device: &wgpu::Device) -> Self
+    pub fn new(mut generator: MutexGuard<VoxelGenerator>, index: Vec3<isize>, voxels: Arc<Vec<VoxelData>>, chunk_depth: usize, device: &wgpu::Device) -> Self
     {
         let length = (2 as isize).pow(chunk_depth as u32);
-        let chunk_position = chunk_index * length;
-        let voxel_grid = generator.run(chunk_index.cast().unwrap());
+        let chunk_position = index * length;
+        let voxel_grid = generator.run(index.cast().unwrap());
         
         let now = SystemTime::now();
         let data = TStorage::new_from_grid(chunk_depth, &voxel_grid, |i| {
@@ -75,26 +76,26 @@ impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
         let elapsed = now.elapsed().unwrap().as_micros() as f32 / 1000.0;
         println!("took {}ms to create and populate voxel storage", elapsed);
 
-        let faces_buffer = if data.is_empty()
+        let mesh_data = if data.is_empty()
         {
             None
         }
         else 
         {    
             let now = SystemTime::now();
-            let faces = data.get_faces(chunk_position);
+            let mesh = data.get_mesh();
             let elapsed = now.elapsed().unwrap().as_micros() as f32 / 1000.0;
             println!("took {}ms to generated the faces", elapsed);
             
-            Some(VertexBuffer::new(&faces, device, Some("Faces buffer")))
+            Some(ChunkMeshData::new(mesh, device))
         };
 
         Self 
         {
             data,
-            chunk_index,
+            index,
             voxels,
-            faces_buffer
+            mesh_data
         }
     }
 }
@@ -200,7 +201,7 @@ impl<TStorage> VoxelTerrain<TStorage> where TStorage : VoxelStorage<Voxel> + Sen
 
     pub fn generate_chunk(&mut self, chunk_index: Vec3<isize>) -> bool
     {
-        if self.chunks.iter().any(|c| c.chunk_index == chunk_index)
+        if self.chunks.iter().any(|c| c.index == chunk_index)
         {
             false
         }
