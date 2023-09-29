@@ -12,7 +12,9 @@ struct CameraUniform {
 }
 
 struct ChunkUniform {
-    position: vec3<i32>,
+    pos_x: i32,
+    pos_y: i32,
+    pos_z: i32,
     size: u32,
     voxel_size: f32
 }
@@ -115,9 +117,7 @@ fn vs_main(@builtin(vertex_index) index: u32, vertex: VertexInput) -> VertexOutp
     var vert_pos = face_array.arr[face_data.orientation][index];
 
     let face_position = vec3f(f32(face_data.position_x), f32(face_data.position_y), f32(face_data.position_z));
-    vert_pos += face_position; // + vec3f(chunk.position) * f32(chunk.size);
-
-    vert_pos += vec3f(f32(index / u32(4)), 0.0, 0.0);
+    vert_pos += face_position;
 
     vert_pos *= 1.0;
 

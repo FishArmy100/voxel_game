@@ -151,8 +151,9 @@ impl VoxelMesh
             face_id: self.faces.len() as u32
         };
 
+        let vertex_len_old = self.vertices.len();
         self.vertices.extend([vertex; 4]);
-        self.triangles.extend(VOXEL_FACE_TRIANGLES.map(|i| i + 1));
+        self.triangles.extend(VOXEL_FACE_TRIANGLES.map(|i| i + vertex_len_old as u32));
 
         let face = VoxelFace::new(pos, orientation, voxel_id as u32);
         self.faces.push(face);

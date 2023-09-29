@@ -163,12 +163,11 @@ impl VoxelRenderDataUniform
 #[derive(Debug, Clone, Copy)]
 struct ChunkUniform
 {
-    position: Vec3<i32>,
-    _padding1: u32,
+    pos_x: i32,
+    pos_y: i32,
+    pos_z: i32,
     size: u32,
-    _padding2: u32,
     voxel_size: f32,
-    _padding3: u32
 }
 
 unsafe impl bytemuck::Zeroable for ChunkUniform {}
@@ -180,12 +179,11 @@ impl ChunkUniform
     {
         Self 
         { 
-            position, 
-            _padding1: 0,
-            size, 
-            _padding2: 0,
-            voxel_size,
-            _padding3: 0
+            pos_x: position.x,
+            pos_y: position.y,
+            pos_z: position.z,
+            size,
+            voxel_size
         }
     }
 }
