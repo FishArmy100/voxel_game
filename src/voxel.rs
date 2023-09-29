@@ -2,6 +2,7 @@ pub mod octree;
 pub mod terrain;
 pub mod world_gen;
 pub mod brick_map;
+pub mod rendering;
 use crate::colors::Color;
 use crate::math::Vec3;
 use crate::rendering::VertexData;
