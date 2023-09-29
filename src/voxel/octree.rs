@@ -1,6 +1,6 @@
 use cgmath::{Array, Zero};
 
-use crate::{math::Vec3, utils::{self, Array3D}, rendering::voxel_render_stage::{VoxelFace, VoxelFaceOrientation}};
+use crate::{math::Vec3, utils::{self, Array3D}};
 
 use super::{VoxelStorage, IVoxel};
 

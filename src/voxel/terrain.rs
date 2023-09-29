@@ -8,50 +8,20 @@ use cgmath::Array;
 
 use crate::gpu::ShaderInfo;
 use crate::rendering::{VertexBuffer, IndexBuffer, BindGroupData};
-use crate::utils::Array3D;
 use crate::voxel::world_gen::VoxelGenerator;
-use super::octree::Octree;
-use super::{Voxel, VoxelData, VoxelFace, VoxelStorage, VoxelStorageExt, VoxelMesh};
-use crate::rendering::voxel_render_stage::{VoxelFaceOrientation, VoxelVertex};
+use super::{Voxel, VoxelData, VoxelStorage, VoxelStorageExt};
 use crate::math::{Vec3, Point3D};
-
-pub struct ChunkMeshData
-{
-    vertex_buffer: VertexBuffer<VoxelVertex>,
-    index_buffer: IndexBuffer,
-    faces_bind_group: BindGroupData
-}
-
-impl ChunkMeshData
-{
-    pub fn vertex_buffer(&self) -> &VertexBuffer<VoxelVertex> { &self.vertex_buffer }
-    pub fn index_buffer(&self) -> &IndexBuffer { &self.index_buffer }
-    pub fn faces_bind_group(&self) -> &BindGroupData { &self.faces_bind_group }
-
-    pub fn new(mesh: VoxelMesh, device: &wgpu::Device) -> Self
-    {
-        Self 
-        { 
-            vertex_buffer: VertexBuffer::new(mesh.vertices(), device, "Voxel Vertex Buffer".into()), 
-            index_buffer: IndexBuffer::new(&mesh.triangles, device, "Voxel Index Buffer".into()), 
-            faces_bind_group: BindGroupData::storage("Faces Bind Group".into(), mesh.faces(), wgpu::ShaderStages::VERTEX, device) 
-        }
-    }
-}
 
 pub struct Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
 {
     data: TStorage,
     index: Vec3<isize>,
     voxels: Arc<Vec<VoxelData>>,
-
-    mesh_data: Option<ChunkMeshData>,
 }
 
 impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
 {
     pub fn size(&self) -> usize { self.data.length() } 
-    pub fn mesh_data(&self) -> &Option<ChunkMeshData> { &self.mesh_data }
     pub fn index(&self) -> Vec3<isize> { self.index }
     pub fn storage(&self) -> &TStorage { &self.data }
 
@@ -76,26 +46,11 @@ impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
         let elapsed = now.elapsed().unwrap().as_micros() as f32 / 1000.0;
         println!("took {}ms to create and populate voxel storage", elapsed);
 
-        let mesh_data = if data.is_empty()
-        {
-            None
-        }
-        else 
-        {    
-            let now = SystemTime::now();
-            let mesh = data.get_mesh();
-            let elapsed = now.elapsed().unwrap().as_micros() as f32 / 1000.0;
-            println!("took {}ms to generated the faces", elapsed);
-            
-            Some(ChunkMeshData::new(mesh, device))
-        };
-
         Self 
         {
             data,
             index,
             voxels,
-            mesh_data
         }
     }
 }

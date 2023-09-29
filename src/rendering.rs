@@ -1,5 +1,4 @@
 pub mod renderer;
-pub mod voxel_render_stage;
 pub mod debug_render_stage;
 pub mod mesh;
 
@@ -10,7 +9,7 @@ use cgmath::Array;
 use futures_intrusive::buffer;
 use wgpu::{util::DeviceExt, VertexBufferLayout, BindGroupLayout};
 
-use self::{renderer::Renderer, debug_render_stage::{DebugRenderStage, DebugLine, DebugObject}, voxel_render_stage::VoxelRenderStage, mesh::{MeshRenderStage, Mesh, MeshInstance}};
+use self::{renderer::Renderer, debug_render_stage::{DebugRenderStage, DebugLine, DebugObject}, mesh::{MeshRenderStage, Mesh, MeshInstance}};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -412,9 +411,9 @@ pub fn construct_render_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceCo
 pub struct GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Send
 {
     renderer: Renderer,
-    voxel_stage: VoxelRenderStage<TStorage>,
     debug_stage: DebugRenderStage,
-    mesh_stage: MeshRenderStage
+    mesh_stage: MeshRenderStage,
+    _phantom: PhantomData<TStorage>
 }
 
 impl<TStorage> GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Send + 'static
@@ -424,23 +423,21 @@ impl<TStorage> GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Sen
         let clear_color = Color::new(0.1, 0.2, 0.3, 1.0);
         let renderer = Renderer::new(device.clone(), surface, queue, config, clear_color);
 
-        let voxel_stage = VoxelRenderStage::new(terrain, camera.clone(), &device, config);
         let debug_stage = DebugRenderStage::new(device.clone(), config, camera.clone(), &[]);
         let mesh_stage = MeshRenderStage::new(Mesh::cube(Color::RED), &[MeshInstance::from_position([0.0, 2.0, 0.0].into())], camera, &device, config);
 
-        Self { renderer, voxel_stage, debug_stage, mesh_stage }
+        Self { renderer, debug_stage, mesh_stage, _phantom: PhantomData{} }
     }
 
     pub fn update(&mut self, camera: &Camera, debug_objects: &[DebugObject])
     {
-        self.voxel_stage.update(camera.clone());
         self.debug_stage.update(debug_objects, camera.clone());
         self.mesh_stage.update(camera.clone())
     }
 
     pub fn render(&self) -> Result<(), wgpu::SurfaceError>
     {
-        self.renderer.render(&[&self.voxel_stage, &self.debug_stage, &self.mesh_stage])
+        self.renderer.render(&[&self.debug_stage, &self.mesh_stage])
     }
 
     pub fn resize(&mut self, config: &wgpu::SurfaceConfiguration)
