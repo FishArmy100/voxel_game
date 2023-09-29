@@ -12,7 +12,7 @@ struct CameraUniform {
 }
 
 struct ChunkUniform {
-    position: vec3<i32>
+    position: vec3<i32>,
     size: u32,
     voxel_size: f32
 }
@@ -30,7 +30,9 @@ struct VoxelSizeUniform {
 }
 
 struct FaceData {
-    position: vec3<u32>,
+    position_x: u32,
+    position_y: u32,
+    position_z: u32,
     orientation: u32,
     voxel_id: u32
 }
@@ -103,18 +105,21 @@ struct FaceArrayIndirect {
 }
 
 @vertex
-fn vs_main(@builtin(vertex_index) vertex_index: u32, vertex: VertexInput) -> VertexOutput {
+fn vs_main(@builtin(vertex_index) index: u32, vertex: VertexInput) -> VertexOutput {
     var face_array: FaceArrayIndirect;
     face_array.arr = voxel_face_array;
 
-    let face_vertex_index = vertex_index % u32(4);
-    let face_data = faces[vertex.face_id]
+    let face_vertex_index = index % u32(4);
+    let face_data = faces[vertex.face_id];
 
-    var vert_pos = face_array.arr[face_data.orientation][face_vertex_index];
+    var vert_pos = face_array.arr[face_data.orientation][index];
 
-    vert_pos += vec3f(face_data.position) + vec3f(chunk.position) * f32(chunk.size);
+    let face_position = vec3f(f32(face_data.position_x), f32(face_data.position_y), f32(face_data.position_z));
+    vert_pos += face_position; // + vec3f(chunk.position) * f32(chunk.size);
 
-    vert_pos *= voxel_size_uniform.voxel_size;
+    vert_pos += vec3f(f32(index / u32(4)), 0.0, 0.0);
+
+    vert_pos *= 1.0;
 
     
     var out: VertexOutput;

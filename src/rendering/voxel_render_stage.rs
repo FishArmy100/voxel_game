@@ -4,15 +4,12 @@ use cgmath::Array;
 
 use crate::camera::{Camera, CameraUniform};
 use crate::math::{Vec3, Point3D};
-use crate::rendering::{ModelUniform, construct_render_pipeline};
-use crate::utils::Byteable;
+use crate::rendering::construct_render_pipeline;
 use crate::voxel::{VoxelStorage, Voxel};
 use crate::voxel::terrain::VoxelTerrain;
 
 use crate::colors::Color;
-use super::{RenderStage, DrawCall, BindGroupData, VertexBuffer, VertexData, IndexBuffer, RenderPipelineInfo};
-
-pub const VOXEL_FACE_TRIANGLES: [u32; 6] = [2, 1, 0, 2, 3, 1];
+use super::{RenderStage, DrawCall, BindGroupData, VertexData, RenderPipelineInfo};
 
 pub enum VoxelFaceOrientation 
 {
@@ -99,9 +96,11 @@ impl VertexData for VoxelVertex
 #[derive(Debug, Clone, Copy)]
 pub struct VoxelFace
 {
-    pub position: Vec3<u32>,
+    pub position_x: u32,
+    pub position_y: u32,
+    pub position_z: u32,
     pub orientation: u32,
-    pub voxel_id: u32
+    pub voxel_id: u32,
 }
 
 unsafe impl bytemuck::Pod for VoxelFace {}
@@ -113,9 +112,11 @@ impl VoxelFace
     {
         Self 
         {
-            position,
+            position_x: position.x,
+            position_y: position.y,
+            position_z: position.z,
             orientation: orientation.to_index(),
-            voxel_id
+            voxel_id,
         }
     }
 }
@@ -163,8 +164,11 @@ impl VoxelRenderDataUniform
 struct ChunkUniform
 {
     position: Vec3<i32>,
+    _padding1: u32,
     size: u32,
-    voxel_size: f32
+    _padding2: u32,
+    voxel_size: f32,
+    _padding3: u32
 }
 
 unsafe impl bytemuck::Zeroable for ChunkUniform {}
@@ -177,8 +181,11 @@ impl ChunkUniform
         Self 
         { 
             position, 
+            _padding1: 0,
             size, 
-            voxel_size
+            _padding2: 0,
+            voxel_size,
+            _padding3: 0
         }
     }
 }
@@ -206,7 +213,7 @@ impl<TStorage> VoxelRenderStage<TStorage> where TStorage : VoxelStorage<Voxel> +
 
         let terrain_mutex = terrain.lock().unwrap();
         let voxel_uniform = VoxelRenderDataUniform::new(terrain_mutex.voxel_types().iter().map(|v| v.get_render_data()).collect());
-        let voxel_bind_group = BindGroupData::uniform_bytes("voxel_bind_group".into(), voxel_uniform.as_bytes(), wgpu::ShaderStages::VERTEX, device);
+        let voxel_bind_group = BindGroupData::uniform_bytes("voxel_bind_group".into(), voxel_uniform.as_bytes(), wgpu::ShaderStages::FRAGMENT, device);
 
         let chunk_uniform = ChunkUniform::new(Vec3::new(0, 0, 0), 0, 0.0);
         let chunk_bind_group = BindGroupData::uniform("voxel_size_bind_group".into(), chunk_uniform, wgpu::ShaderStages::VERTEX, device);
@@ -324,7 +331,7 @@ impl<'a, TStorage> DrawCall for VoxelDrawCall<'a, TStorage> where TStorage : Vox
             render_pass.set_index_buffer(chunk_mesh.index_buffer().slice(..), wgpu::IndexFormat::Uint32);
 
             let indices_count = chunk_mesh.index_buffer().capacity() as u32;
-            render_pass.draw_indexed(0..indices_count, 0, 0..0);
+            render_pass.draw_indexed(0..indices_count, 0, 0..1);
         }
     }
 }
