@@ -1,12 +1,12 @@
 pub mod renderer;
 pub mod debug_render_stage;
 pub mod mesh;
+pub mod bind_group;
+pub mod buffer;
 
 use std::{sync::{Arc, Mutex}, marker::PhantomData, ops::RangeBounds};
 
 use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::{terrain::VoxelTerrain, VoxelStorage, Voxel}, camera::Camera, colors::Color, texture::Texture, utils::Byteable};
-use cgmath::Array;
-use futures_intrusive::buffer;
 use wgpu::{util::DeviceExt, VertexBufferLayout, BindGroupLayout};
 
 use self::{renderer::Renderer, debug_render_stage::{DebugRenderStage, DebugLine, DebugObject}, mesh::{MeshRenderStage, Mesh, MeshInstance}};
