@@ -85,7 +85,7 @@ impl<T> Uniform<T> where T : Byteable
         }
     }
 
-    pub fn enqueue_set(&self, value: T, queue: &wgpu::Queue)
+    pub fn enqueue_set(&mut self, value: T, queue: &wgpu::Queue)
     {
         self.buffer.enqueue_set(&[value], queue);
     }
@@ -113,4 +113,54 @@ impl<T> Entry for Uniform<T> where T : Byteable
     {
         self.buffer.as_entire_binding()
     }
+}
+
+pub trait WritableStorage<T> where T : Byteable
+{
+    fn enqueue_write(&mut self, data: &[T], queue: &wgpu::Queue);
+    fn copy_from(&mut self, src: &dyn WritableStorage<T>, command_encoder: &wgpu::CommandEncoder);
+}
+
+pub struct Storage<T> where T : Byteable
+{
+    buffer: GBuffer<T>,
+    visibility: wgpu::ShaderStages
+}
+
+impl<T> Storage<T> where T : Byteable
+{
+    pub fn buffer_usage() -> wgpu::BufferUsages 
+    {
+        wgpu::BufferUsages::COPY_DST | 
+        wgpu::BufferUsages::COPY_SRC | 
+        wgpu::BufferUsages::STORAGE
+    }
+
+    pub fn new(data: &[T], visibility: wgpu::ShaderStages, device: &wgpu::Device) -> Self 
+    {
+        let buffer = GBuffer::new(data, Self::buffer_usage(), device, None);
+
+        Self 
+        { 
+            buffer, 
+            visibility
+        }
+    }
+
+    pub fn with_capacity(capacity: u64, visibility: wgpu::ShaderStages, device: &wgpu::Device) -> Self 
+    {
+        let buffer = GBuffer::<T>::with_capacity(capacity, Self::buffer_usage(), device, None);
+
+        Self 
+        { 
+            buffer, 
+            visibility
+        }
+    }
+}
+
+pub struct MappedStorage<T> where T : Byteable
+{
+    buffer: GBuffer<T>,
+    visibility: wgpu::ShaderStages
 }

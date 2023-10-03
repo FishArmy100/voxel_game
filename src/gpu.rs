@@ -37,7 +37,7 @@ impl<T> From<Vec3<T>> for GPUVec3<T> where T : Byteable
 
 pub struct GBuffer<T> where T : Byteable
 {
-    length: Mutex<RefCell<u64>>,
+    length: u64,
     capacity: u64,
     handle: wgpu::Buffer,
     usage: wgpu::BufferUsages,
@@ -58,7 +58,7 @@ impl<T> GBuffer<T> where T : Byteable
 
         Self
         {
-            length: Mutex::new(RefCell::new(length)),
+            length,
             capacity,
             handle,
             usage,
@@ -77,7 +77,7 @@ impl<T> GBuffer<T> where T : Byteable
 
         Self
         {
-            length: Mutex::new(RefCell::new(capacity)),
+            length: capacity,
             capacity,
             handle,
             usage,
@@ -85,13 +85,13 @@ impl<T> GBuffer<T> where T : Byteable
         }
     }
 
-    pub fn length(&self) -> u64 { *self.length.lock().unwrap().borrow() }
+    pub fn length(&self) -> u64 { self.length }
     pub fn capacity(&self) -> u64 { self.capacity }
     pub fn size(&self) -> u64 { self.length() * std::mem::size_of::<T>() as u64 }
 
-    pub fn enqueue_set(&self, data: &[T], queue: &wgpu::Queue)
+    pub fn enqueue_set(&mut self, data: &[T], queue: &wgpu::Queue)
     {
-        *self.length.lock().unwrap().borrow_mut() = data.len() as u64;
+        self.length = data.len() as u64;
         queue.write_buffer(&self.handle, 0, bytemuck::cast_slice(data));
     }
 
@@ -140,11 +140,11 @@ impl<T> GBuffer<T> where T : Byteable
         } 
     }
 
-    pub fn copy(&self, dest: &GBuffer<T>, command_encoder: &mut wgpu::CommandEncoder)
+    pub fn copy(&self, dest: &mut GBuffer<T>, command_encoder: &mut wgpu::CommandEncoder)
     {
         assert!(dest.capacity >= self.length(), "Destination buffer capacity not large enough");
         command_encoder.copy_buffer_to_buffer(&self.handle, 0, &dest.handle, 0, self.size());
-        *dest.length.lock().unwrap().borrow_mut() = *self.length.lock().unwrap().borrow();
+        dest.length = self.length;
     }
 
     pub fn as_entire_binding(&self) -> wgpu::BindingResource

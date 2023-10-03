@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use crate::camera::{Camera, CameraUniform};
 use crate::math::*;
 use crate::colors::Color;
@@ -160,7 +162,7 @@ pub struct MeshRenderStage
     instance_buffer: VertexBuffer<MeshInstance>,
     render_pipeline: wgpu::RenderPipeline,
 
-    camera_uniform: Uniform<CameraUniform>,
+    camera_uniform: RefCell<Uniform<CameraUniform>>,
     camera_bind_group: BindGroup,
     camera: Camera
 }
@@ -196,7 +198,7 @@ impl MeshRenderStage
             index_buffer, 
             instance_buffer, 
             render_pipeline,
-            camera_uniform, 
+            camera_uniform: RefCell::new(camera_uniform), 
             camera_bind_group, 
             camera 
         }
@@ -231,7 +233,7 @@ pub struct MeshDrawCall<'b>
     vertex_buffer: &'b VertexBuffer<Vertex>,
     index_buffer: &'b IndexBuffer,
     instance_buffer: &'b VertexBuffer<MeshInstance>,
-    camera_uniform: &'b Uniform<CameraUniform>,
+    camera_uniform: &'b RefCell<Uniform<CameraUniform>>,
     camera_bind_group: &'b BindGroup,
     camera: Camera
 }
@@ -247,7 +249,7 @@ impl<'buffer> DrawCall for MeshDrawCall<'buffer>
     {
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&self.camera);
-        self.camera_uniform.enqueue_set(camera_uniform, queue);
+        self.camera_uniform.borrow_mut().enqueue_set(camera_uniform, queue);
     }
 
     fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>) 

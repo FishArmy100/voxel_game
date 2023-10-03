@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::cell::RefCell;
 
 use cgmath::{Zero, ElementWise};
 use wgpu::util::DeviceExt;
@@ -205,7 +206,7 @@ pub struct DebugRenderStage
 
     render_pipeline: wgpu::RenderPipeline,
 
-    camera_uniform: Uniform<CameraUniform>,
+    camera_uniform: RefCell<Uniform<CameraUniform>>,
     bind_group: BindGroup,
 
     camera: Camera,
@@ -229,7 +230,7 @@ impl DebugRenderStage
         { 
             device: device.clone(), 
             render_pipeline, 
-            camera_uniform,
+            camera_uniform: RefCell::new(camera_uniform),
             bind_group, 
             camera: default_camera, 
             vertex_buffer, 
@@ -338,7 +339,7 @@ pub struct DebugDrawCall<'b>
 {
     camera: Camera,
 
-    camera_uniform: &'b Uniform<CameraUniform>,
+    camera_uniform: &'b RefCell<Uniform<CameraUniform>>,
     bind_group: &'b BindGroup,
 
     vertex_buffer: &'b wgpu::Buffer,
@@ -347,7 +348,7 @@ pub struct DebugDrawCall<'b>
 
 impl<'b> DebugDrawCall<'b>
 {
-    pub fn new(camera: Camera, camera_uniform: &'b Uniform<CameraUniform>, bind_group: &'b BindGroup, vertex_buffer: &'b wgpu::Buffer, vertex_count: u32) -> Self
+    pub fn new(camera: Camera, camera_uniform: &'b RefCell<Uniform<CameraUniform>>, bind_group: &'b BindGroup, vertex_buffer: &'b wgpu::Buffer, vertex_count: u32) -> Self
     {
         Self 
         { 
@@ -371,7 +372,7 @@ impl<'b> DrawCall for DebugDrawCall<'b>
     {
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&self.camera);
-        self.camera_uniform.enqueue_set(camera_uniform, queue);
+        self.camera_uniform.borrow_mut().enqueue_set(camera_uniform, queue);
     }
 
     fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>) 
