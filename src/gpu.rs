@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, sync::Mutex, cell::RefCell};
+use std::{marker::PhantomData, sync::{Mutex, Arc}, cell::RefCell};
 use wgpu::util::{DeviceExt, BufferInitDescriptor};
 use crate::{utils::Byteable, math::Vec3};
 
@@ -35,76 +35,91 @@ impl<T> From<Vec3<T>> for GPUVec3<T> where T : Byteable
     }
 }
 
-pub struct GBuffer<T> where T : Byteable
+pub struct Buffer<T> where T : Byteable
 {
-    length: u64,
     capacity: u64,
+    length: u64,
     handle: wgpu::Buffer,
     usage: wgpu::BufferUsages,
-    phantom: PhantomData<T>,
+    _phantom: PhantomData<T>
 }
 
-impl<T> GBuffer<T> where T : Byteable 
+impl<T> Buffer<T> where T : Byteable
 {
-    pub fn new(data: &[T], usage: wgpu::BufferUsages, device: &wgpu::Device, label: Option<&str>) -> Self
+    pub fn capacity(&self) -> u64 { self.capacity }
+    pub fn length(&self) -> u64 { self.length }
+    pub fn usage(&self) -> wgpu::BufferUsages { self.usage }
+
+    pub fn new(data: &[T], usage: wgpu::BufferUsages, device: &wgpu::Device) -> Self
     {
-        let length = data.len() as u64;
-        let capacity = data.len() as u64;
         let handle = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label,
-            contents: &bytemuck::cast_slice(data),
-            usage,
+            label: None,
+            contents: bytemuck::cast_slice(data),
+            usage
         });
 
-        Self
-        {
-            length,
-            capacity,
-            handle,
+        let capacity = data.len() as u64;
+        let length = capacity;
+
+        Self 
+        { 
+            capacity, 
+            length, 
+            handle, 
             usage,
-            phantom: PhantomData {}
+            _phantom: PhantomData {} 
         }
     }
 
-    pub fn new_empty(capacity: u64, usage: wgpu::BufferUsages, device: &wgpu::Device, label: Option<&str>) -> Self
+    pub fn with_capacity(capacity: u64, usage: wgpu::BufferUsages, device: &wgpu::Device,) -> Self 
     {
         let handle = device.create_buffer(&wgpu::BufferDescriptor {
-            label,
+            label: None,
             size: capacity * std::mem::size_of::<T>() as u64,
             usage,
-            mapped_at_creation: false
+            mapped_at_creation: false,
         });
 
-        Self
-        {
-            length: capacity,
-            capacity,
-            handle,
+        Self 
+        { 
+            capacity, 
+            length: 0, 
+            handle, 
             usage,
-            phantom: PhantomData {}
+            _phantom: PhantomData{} 
         }
     }
 
-    pub fn length(&self) -> u64 { self.length }
-    pub fn capacity(&self) -> u64 { self.capacity }
-    pub fn size(&self) -> u64 { self.length * std::mem::size_of::<T>() as u64 }
-
-    pub fn enqueue_set(&mut self, data: &[T], queue: &wgpu::Queue)
+    pub fn get_slice(&self, start: u64, end: u64) -> wgpu::BufferSlice
     {
-        self.length = data.len() as u64;
-        queue.write_buffer(&self.handle, 0, bytemuck::cast_slice(data));
-    }
-
-    pub fn slice(&self, start: u64, end: u64) -> wgpu::BufferSlice
-    {
-        assert!(start <= end, "Start index must be less than or equal to the end index");
-        assert!(end < self.length(), "Slice is larger than the contained data");
+        debug_assert!(start < self.length && end < self.length, "Slice is not inside buffer");
+        debug_assert!(start <= end, "`start` must be less that or equal to `end`");
         self.handle.slice(start..end)
     }
 
-    pub fn slice_all(&self) -> wgpu::BufferSlice
+    pub fn slice_all(&self, start: u64, end: u64) -> wgpu::BufferSlice
     {
-        self.handle.slice(0..self.length())
+        self.handle.slice(0..self.length)
+    }
+
+    pub fn as_entire_binding(&self) -> wgpu::BindingResource
+    {
+        self.handle.as_entire_binding()
+    }
+
+    pub fn enqueue_write(&mut self, data: &[T], queue: &wgpu::Queue)
+    {
+        debug_assert!(data.len() as u64 <= self.capacity, "Cannot writing data with length {} to buffer with capacity {}", data.len(), self.capacity);
+        
+        queue.write_buffer(&self.handle, 0, bytemuck::cast_slice(data));
+        self.length = data.len() as u64;
+    }
+
+    pub fn copy_to(&self, dest: &Buffer<T>, command_encoder: &mut wgpu::CommandEncoder)
+    {
+        debug_assert!(self.usage.contains(wgpu::BufferUsages::COPY_SRC) && dest.usage.contains(wgpu::BufferUsages::COPY_DST), "`self` buffer must be COPY_SRC and `dest` buffer must be COPY_DST");
+        debug_assert!(self.length <= dest.capacity, "Cannot copy buffer with length {} to buffer with capacity {}", self.length, self.capacity);
+        command_encoder.copy_buffer_to_buffer(&self.handle, 0, &dest.handle, 0, self.length);
     }
 
     pub fn read(&self, device: &wgpu::Device) -> Vec<T>
@@ -114,6 +129,7 @@ impl<T> GBuffer<T> where T : Byteable
 
     pub async fn read_async(&self, device: &wgpu::Device) -> Vec<T>
     {
+        debug_assert!(self.usage.contains(wgpu::BufferUsages::MAP_READ));
         let buffer_slice = self.handle.slice(..);
         let (sender, receiver) = futures_intrusive::channel::shared::oneshot_channel();
         buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
@@ -122,7 +138,8 @@ impl<T> GBuffer<T> where T : Byteable
 
         match receiver.receive().await
         {
-            Some(Ok(())) => {
+            Some(Ok(())) => 
+            {
                 let data = buffer_slice.get_mapped_range();
                 let result = bytemuck::cast_slice(&data).to_vec();
     
@@ -131,25 +148,15 @@ impl<T> GBuffer<T> where T : Byteable
     
                 result
             },
-            Some(Err(error)) => {
+            Some(Err(error)) => 
+            {
                 panic!("{}", error);
             } 
-            None => {
+            None => 
+            {
                 panic!("Failed to read data from buffer");
             }
         } 
-    }
-
-    pub fn copy(&self, dest: &mut GBuffer<T>, command_encoder: &mut wgpu::CommandEncoder)
-    {
-        assert!(dest.capacity >= self.length, "Destination buffer capacity not large enough");
-        command_encoder.copy_buffer_to_buffer(&self.handle, 0, &dest.handle, 0, self.size());
-        dest.length = self.length;
-    }
-
-    pub fn as_entire_binding(&self) -> wgpu::BindingResource
-    {
-        self.handle.as_entire_binding()
     }
 }
 

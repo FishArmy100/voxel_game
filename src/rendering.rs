@@ -2,7 +2,6 @@ pub mod renderer;
 pub mod debug_render_stage;
 pub mod mesh;
 pub mod bind_group;
-pub mod buffer;
 
 use std::{sync::{Arc, Mutex}, marker::PhantomData, ops::RangeBounds};
 

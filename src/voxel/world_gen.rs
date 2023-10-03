@@ -5,7 +5,7 @@ use wgpu::util::DeviceExt;
 use crate::math::Vec3;
 use crate::gpu::{GPUVec3, ShaderInfo};
 use crate::utils::Array3D;
-use crate::gpu::GBuffer;
+use crate::gpu::Buffer;
 
 use super::Voxel;
 
@@ -15,10 +15,10 @@ pub struct VoxelGenerator
     queue: Arc<wgpu::Queue>,
 
     chunk_size: Vec3<u32>,
-    staging_buffer: GBuffer<i32>,
-    storage_buffer: GBuffer<i32>,
-    chunk_size_buffer: GBuffer<GPUVec3<u32>>,
-    chunk_pos_buffer: GBuffer<GPUVec3<i32>>,
+    staging_buffer: Buffer<i32>,
+    storage_buffer: Buffer<i32>,
+    chunk_size_buffer: Buffer<GPUVec3<u32>>,
+    chunk_pos_buffer: Buffer<GPUVec3<i32>>,
 
     bind_group: wgpu::BindGroup,
     compute_pipeline: wgpu::ComputePipeline,
@@ -36,21 +36,21 @@ impl VoxelGenerator
 
         let length = (chunk_size.x * chunk_size.y * chunk_size.z) as u64;
 
-        let staging_buffer = GBuffer::<i32>::new_empty(length, wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, &device, Some("Staging buffer"));
+        let staging_buffer = Buffer::<i32>::with_capacity(length, wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, &device);
 
         let storage_buffer_usage = wgpu::BufferUsages::STORAGE
                                  | wgpu::BufferUsages::COPY_DST
                                  | wgpu::BufferUsages::COPY_SRC;
 
-        let storage_buffer = GBuffer::<i32>::new_empty(length, storage_buffer_usage, &device, Some("Storage buffer"));
+        let storage_buffer = Buffer::<i32>::with_capacity(length, storage_buffer_usage, &device);
 
         let uniform_usage = wgpu::BufferUsages::UNIFORM 
                           | wgpu::BufferUsages::COPY_DST
                           | wgpu::BufferUsages::COPY_SRC;
 
-        let chunk_size_buffer = GBuffer::new(&[chunk_size.into()], uniform_usage, &device, Some("Chunk size buffer"));
+        let chunk_size_buffer = Buffer::new(&[chunk_size.into()], uniform_usage, &device);
 
-        let chunk_pos_buffer = GBuffer::<GPUVec3<i32>>::new_empty(1, uniform_usage, &device, Some("Chunk position buffer"));
+        let chunk_pos_buffer = Buffer::<GPUVec3<i32>>::with_capacity(1, uniform_usage, &device);
 
         let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: None,
@@ -145,7 +145,7 @@ impl VoxelGenerator
 
     pub async fn run_async(&mut self, chunk_pos: Vec3<i32>) -> Array3D<i32>
     {
-        self.chunk_pos_buffer.enqueue_set(&[chunk_pos.into()], &self.queue);
+        self.chunk_pos_buffer.enqueue_write(&[chunk_pos.into()], &self.queue);
 
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         {
@@ -159,7 +159,7 @@ impl VoxelGenerator
             compute_pass.dispatch_workgroups(self.chunk_size.x, self.chunk_size.y, self.chunk_size.z); // Number of cells to run, the (x,y,z) size of item being processed
         }
 
-        self.storage_buffer.copy(&mut self.staging_buffer, &mut encoder);
+        self.storage_buffer.copy_to(&mut self.staging_buffer, &mut encoder);
 
         self.queue.submit(Some(encoder.finish()));
         
