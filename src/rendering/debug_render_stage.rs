@@ -3,7 +3,8 @@ use std::sync::Arc;
 use cgmath::{Zero, ElementWise};
 use wgpu::util::DeviceExt;
 
-use super::{RenderStage, DrawCall, BindGroupData};
+use super::bind_group::{Uniform, BindGroup};
+use super::{RenderStage, DrawCall};
 use crate::camera::{Camera, CameraUniform};
 use crate::math::Vec3;
 use crate::colors::Color;
@@ -203,7 +204,9 @@ pub struct DebugRenderStage
     device: Arc<wgpu::Device>,
 
     render_pipeline: wgpu::RenderPipeline,
-    camera_bind_group: BindGroupData,
+
+    camera_uniform: Uniform<CameraUniform>,
+    bind_group: BindGroup,
 
     camera: Camera,
 
@@ -215,10 +218,10 @@ impl DebugRenderStage
 {
     pub fn new(device: Arc<wgpu::Device>, config: &wgpu::SurfaceConfiguration, default_camera: Camera, debug_objects: &[DebugObject]) -> Self
     {
-        let camera_uniform = CameraUniform::new();
-        let camera_bind_group = BindGroupData::uniform("camera_bind_group".into(), camera_uniform, wgpu::ShaderStages::VERTEX, &device);
+        let camera_uniform = Uniform::<CameraUniform>::new_empty(wgpu::ShaderStages::VERTEX, &device);
+        let bind_group = BindGroup::new(&[&camera_uniform], &device);
 
-        let render_pipeline = Self::gen_render_pipeline(&device, config, &camera_bind_group);
+        let render_pipeline = Self::gen_render_pipeline(&device, config, &bind_group);
 
         let (vertex_buffer, vertex_count) = Self::get_vertex_buffer(&device, debug_objects);
 
@@ -226,7 +229,8 @@ impl DebugRenderStage
         { 
             device: device.clone(), 
             render_pipeline, 
-            camera_bind_group, 
+            camera_uniform,
+            bind_group, 
             camera: default_camera, 
             vertex_buffer, 
             vertex_count
@@ -260,7 +264,7 @@ impl DebugRenderStage
         (buffer, vertices.len() as u32)
     }
 
-    fn gen_render_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, camera_bind_group: &BindGroupData) -> wgpu::RenderPipeline
+    fn gen_render_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, camera_bind_group: &BindGroup) -> wgpu::RenderPipeline
     {
         let shader = device.create_shader_module(wgpu::include_wgsl!("../shaders/debug_shader.wgsl"));
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -326,39 +330,48 @@ impl RenderStage for DebugRenderStage
 
     fn get_draw_calls<'s>(&'s self) -> Vec<Box<(dyn DrawCall + 's)>> 
     {
-        vec![Box::new(DebugDrawCall::new(self.camera.clone(), &self.camera_bind_group, &self.vertex_buffer, self.vertex_count))]
+        vec![Box::new(DebugDrawCall::new(self.camera.clone(), &self.camera_uniform, &self.bind_group, &self.vertex_buffer, self.vertex_count))]
     }
 }
 
-pub struct DebugDrawCall<'buffer, 'group>
+pub struct DebugDrawCall<'b>
 {
     camera: Camera,
-    camera_bind_group: &'group BindGroupData,
 
-    vertex_buffer: &'buffer wgpu::Buffer,
+    camera_uniform: &'b Uniform<CameraUniform>,
+    bind_group: &'b BindGroup,
+
+    vertex_buffer: &'b wgpu::Buffer,
     vertex_count: u32
 }
 
-impl<'buffer, 'group> DebugDrawCall<'buffer, 'group>
+impl<'b> DebugDrawCall<'b>
 {
-    pub fn new(camera: Camera, camera_bind_group: &'group BindGroupData, vertex_buffer: &'buffer wgpu::Buffer, vertex_count: u32) -> Self
+    pub fn new(camera: Camera, camera_uniform: &'b Uniform<CameraUniform>, bind_group: &'b BindGroup, vertex_buffer: &'b wgpu::Buffer, vertex_count: u32) -> Self
     {
-        Self { camera, camera_bind_group, vertex_buffer, vertex_count }
+        Self 
+        { 
+            camera, 
+            camera_uniform,
+            bind_group, 
+            vertex_buffer, 
+            vertex_count 
+        }
     }
 }
 
-impl<'buffer, 'group> DrawCall for DebugDrawCall<'buffer, 'group>
+impl<'b> DrawCall for DebugDrawCall<'b>
 {
-    fn bind_groups(&self) -> Box<[&BindGroupData]> 
+    fn bind_groups(&self) -> Box<[&BindGroup]> 
     {
-        Box::new([&self.camera_bind_group])
+        Box::new([&self.bind_group])
     }
 
     fn on_pre_draw(&self, queue: &wgpu::Queue) 
     {
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&self.camera);
-        self.camera_bind_group.enqueue_set_data(queue, camera_uniform);
+        self.camera_uniform.enqueue_set(camera_uniform, queue);
     }
 
     fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>) 

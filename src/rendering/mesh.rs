@@ -3,7 +3,8 @@ use crate::math::*;
 use crate::colors::Color;
 use crate::rendering::{VertexData, RenderStage, DrawCall};
 
-use super::{VertexBuffer, IndexBuffer, BindGroupData, construct_render_pipeline, RenderPipelineInfo};
+use super::bind_group::{BindGroup, Uniform};
+use super::{VertexBuffer, IndexBuffer, construct_render_pipeline, RenderPipelineInfo};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -158,7 +159,9 @@ pub struct MeshRenderStage
     index_buffer: IndexBuffer,
     instance_buffer: VertexBuffer<MeshInstance>,
     render_pipeline: wgpu::RenderPipeline,
-    camera_bind_group: BindGroupData,
+
+    camera_uniform: Uniform<CameraUniform>,
+    camera_bind_group: BindGroup,
     camera: Camera
 }
 
@@ -170,9 +173,11 @@ impl MeshRenderStage
         let index_buffer = IndexBuffer::new(mesh.get_triangle_indexes(), device, None);
         let instance_buffer = VertexBuffer::new(transforms, device, None);
 
-        let mut camera_uniform = CameraUniform::new();
-        camera_uniform.update_view_proj(&camera);
-        let camera_bind_group = BindGroupData::uniform("camera_bind_group".into(), camera_uniform, wgpu::ShaderStages::VERTEX, device);
+        let mut camera_uniform_data = CameraUniform::new();
+        camera_uniform_data.update_view_proj(&camera);
+        let camera_uniform = Uniform::new(camera_uniform_data, wgpu::ShaderStages::VERTEX, device);
+
+        let camera_bind_group = BindGroup::new(&[&camera_uniform], device);
 
         let render_pipeline = construct_render_pipeline(device, config, &RenderPipelineInfo 
         { 
@@ -190,7 +195,8 @@ impl MeshRenderStage
             vertex_buffer, 
             index_buffer, 
             instance_buffer, 
-            render_pipeline, 
+            render_pipeline,
+            camera_uniform, 
             camera_bind_group, 
             camera 
         }
@@ -213,6 +219,7 @@ impl RenderStage for MeshRenderStage
             vertex_buffer: &self.vertex_buffer,
             index_buffer: &self.index_buffer,
             instance_buffer: &self.instance_buffer,
+            camera_uniform: &self.camera_uniform,
             camera_bind_group: &self.camera_bind_group,
             camera: self.camera.clone()
         })]
@@ -224,13 +231,14 @@ pub struct MeshDrawCall<'b>
     vertex_buffer: &'b VertexBuffer<Vertex>,
     index_buffer: &'b IndexBuffer,
     instance_buffer: &'b VertexBuffer<MeshInstance>,
-    camera_bind_group: &'b BindGroupData,
+    camera_uniform: &'b Uniform<CameraUniform>,
+    camera_bind_group: &'b BindGroup,
     camera: Camera
 }
 
 impl<'buffer> DrawCall for MeshDrawCall<'buffer>
 {
-    fn bind_groups(&self) -> Box<[&BindGroupData]> 
+    fn bind_groups(&self) -> Box<[&BindGroup]> 
     {
         Box::new([&self.camera_bind_group])
     }
@@ -239,7 +247,7 @@ impl<'buffer> DrawCall for MeshDrawCall<'buffer>
     {
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&self.camera);
-        self.camera_bind_group.enqueue_set_data(queue, camera_uniform);
+        self.camera_uniform.enqueue_set(camera_uniform, queue);
     }
 
     fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>) 

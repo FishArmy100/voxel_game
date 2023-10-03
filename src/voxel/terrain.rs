@@ -7,7 +7,7 @@ use std::time::SystemTime;
 use cgmath::Array;
 
 use crate::gpu::ShaderInfo;
-use crate::rendering::{VertexBuffer, IndexBuffer, BindGroupData};
+use crate::rendering::{VertexBuffer, IndexBuffer};
 use crate::voxel::world_gen::VoxelGenerator;
 use super::{Voxel, VoxelData, VoxelStorage, VoxelStorageExt};
 use crate::math::{Vec3, Point3D};

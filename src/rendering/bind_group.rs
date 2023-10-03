@@ -1,6 +1,6 @@
 use wgpu::BindGroupDescriptor;
 
-use crate::{gpu::Buffer, utils::Byteable};
+use crate::{gpu::GBuffer, utils::Byteable};
 
 pub trait Entry
 {
@@ -16,6 +16,9 @@ pub struct BindGroup
 
 impl BindGroup
 {
+    pub fn layout(&self) -> &wgpu::BindGroupLayout { &self.layout }
+    pub fn bind_group(&self) -> &wgpu::BindGroup { &self.handle }
+
     pub fn new(entries: &[&dyn Entry], device: &wgpu::Device) -> Self
     {
         let mut entry_layouts = Vec::with_capacity(entries.len());
@@ -50,23 +53,11 @@ impl BindGroup
             handle 
         }
     }
-
-    pub fn enqueue_set<'s, 'r>(&'s self, index: u32, render_pass: &'r mut wgpu::RenderPass<'r>)
-        where 's : 'r
-    {
-        render_pass.set_bind_group(index, &self.handle, &[]);
-    }
-
-    pub fn compute_enqueue_set<'s, 'c>(&'s self, index: u32, compute_pass: &'c mut wgpu::ComputePass<'c>)
-        where 's : 'c
-    {
-        compute_pass.set_bind_group(index, &self.handle, &[]);
-    }
 }
 
 pub struct Uniform<T> where T : Byteable
 {
-    buffer: Buffer<T>, 
+    buffer: GBuffer<T>, 
     visibility: wgpu::ShaderStages
 }
 
@@ -74,8 +65,8 @@ impl<T> Uniform<T> where T : Byteable
 {
     pub fn new(value: T, visibility: wgpu::ShaderStages, device: &wgpu::Device) -> Self 
     {
-        let buffer_usage = wgpu::BufferUsages::UNIFORM;
-        let buffer = Buffer::new(&[value], buffer_usage, device);
+        let buffer_usage = wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST;
+        let buffer = GBuffer::new(&[value], buffer_usage, device, None);
         Self 
         { 
             buffer,
@@ -85,8 +76,8 @@ impl<T> Uniform<T> where T : Byteable
 
     pub fn new_empty(visibility: wgpu::ShaderStages, device: &wgpu::Device) -> Self
     {
-        let buffer_usage = wgpu::BufferUsages::UNIFORM;
-        let buffer = Buffer::<T>::with_capacity(1, buffer_usage, device);
+        let buffer_usage = wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST;
+        let buffer = GBuffer::<T>::with_capacity(1, buffer_usage, device, None);
         Self
         {
             buffer,
@@ -94,9 +85,9 @@ impl<T> Uniform<T> where T : Byteable
         }
     }
 
-    pub fn enqueue_set(&mut self, value: T, queue: &wgpu::Queue)
+    pub fn enqueue_set(&self, value: T, queue: &wgpu::Queue)
     {
-        self.buffer.enqueue_write(&[value], queue);
+        self.buffer.enqueue_set(&[value], queue);
     }
 }
 

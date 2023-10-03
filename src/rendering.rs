@@ -8,7 +8,7 @@ use std::{sync::{Arc, Mutex}, marker::PhantomData, ops::RangeBounds};
 use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::{terrain::VoxelTerrain, VoxelStorage, Voxel}, camera::Camera, colors::Color, texture::Texture, utils::Byteable};
 use wgpu::{util::DeviceExt, VertexBufferLayout, BindGroupLayout};
 
-use self::{renderer::Renderer, debug_render_stage::{DebugRenderStage, DebugLine, DebugObject}, mesh::{MeshRenderStage, Mesh, MeshInstance}};
+use self::{renderer::Renderer, debug_render_stage::{DebugRenderStage, DebugLine, DebugObject}, mesh::{MeshRenderStage, Mesh, MeshInstance}, bind_group::BindGroup};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -34,138 +34,6 @@ impl ModelUniform
 unsafe impl bytemuck::Pod for ModelUniform {}
 unsafe impl bytemuck::Zeroable for ModelUniform {}
 
-pub struct BindGroupData
-{
-    name: String,
-    layout: wgpu::BindGroupLayout,
-    buffer: wgpu::Buffer,
-    bind_group: wgpu::BindGroup,
-}
-
-impl BindGroupData
-{
-    pub fn name(&self) -> &str { &self.name }
-    pub fn layout(&self) -> &wgpu::BindGroupLayout { &self.layout }
-    pub fn buffer(&self) -> &wgpu::Buffer { &self.buffer }
-    pub fn bind_group(&self) -> &wgpu::BindGroup { &self.bind_group }
-
-    pub fn uniform<T>(name: String, data: T, shader_stages: wgpu::ShaderStages, device: &wgpu::Device) -> Self 
-        where T : Byteable
-    {
-        let layout = Self::get_uniform_layout(shader_stages, device);
-        Self::uniform_with_layout(name, data, layout, device)
-    }
-
-    pub fn uniform_bytes(name: String, data: &[u8], shader_stages: wgpu::ShaderStages, device: &wgpu::Device) -> Self
-    {
-        let layout = Self::get_uniform_layout(shader_stages, device);
-        Self::uniform_with_layout_bytes(name, data, layout, device)
-    }
-
-    pub fn uniform_with_layout<T>(name: String, data: T, layout: wgpu::BindGroupLayout, device: &wgpu::Device) -> Self
-        where T : Byteable
-    {
-        let data_array = &[data];
-        let data: &[u8] = bytemuck::cast_slice(data_array);
-
-        let (buffer, bind_group) = Self::get_bind_group(&layout, data, device, wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST);
-        Self { name, layout, buffer, bind_group }
-    }
-
-    pub fn storage<T>(name: String, data: &[T], shader_stages: wgpu::ShaderStages, device: &wgpu::Device) -> Self
-        where T : Byteable
-    {
-        let layout = Self::get_storage_layout(shader_stages, device);
-        
-        let (buffer, bind_group) = Self::get_bind_group(&layout, bytemuck::cast_slice(data), device, wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST);
-
-        Self 
-        { 
-            name, 
-            layout, 
-            buffer, 
-            bind_group 
-        }
-    }
-
-    pub fn uniform_with_layout_bytes(name: String, data: &[u8], layout: wgpu::BindGroupLayout, device: &wgpu::Device) -> Self
-    {
-        let (buffer, bind_group) = Self::get_bind_group(&layout, data, device, wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST);
-        Self { name, layout, buffer, bind_group }
-    }
-
-    pub fn get_storage_layout(shader_stages: wgpu::ShaderStages, device: &wgpu::Device) -> wgpu::BindGroupLayout
-    {
-        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: shader_stages,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage 
-                        { 
-                            read_only: true 
-                        },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }
-            ],
-            label: None,
-        })
-    }
-
-    pub fn get_uniform_layout(shader_stages: wgpu::ShaderStages, device: &wgpu::Device) -> wgpu::BindGroupLayout
-    {
-        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: shader_stages,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }
-            ],
-            label: None,
-        })
-    }
-
-    pub fn enqueue_set_data<T>(&self, queue: &wgpu::Queue, data: T) 
-        where T : bytemuck::Pod + bytemuck::Zeroable 
-    {
-        queue.write_buffer(self.buffer(), 0, bytemuck::cast_slice(&[data]));
-    }
-
-    fn get_bind_group(layout: &wgpu::BindGroupLayout, data: &[u8], device: &wgpu::Device, usage: wgpu::BufferUsages) -> (wgpu::Buffer, wgpu::BindGroup)
-    {
-        let buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: None,
-                contents: data,
-                usage,
-            }
-        );
-
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: buffer.as_entire_binding(),
-                }
-            ],
-            label: None,
-        });
-
-        (buffer, bind_group)
-    }
-}
-
 pub trait RenderStage
 {
     fn render_pipeline(&self) -> &wgpu::RenderPipeline;
@@ -174,7 +42,7 @@ pub trait RenderStage
 
 pub trait DrawCall
 {
-    fn bind_groups(&self) -> Box<[&BindGroupData]>;
+    fn bind_groups(&self) -> Box<[&BindGroup]>;
     fn on_pre_draw(&self, queue: &wgpu::Queue);
     fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>);
 }

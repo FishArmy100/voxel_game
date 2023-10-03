@@ -54,18 +54,18 @@ impl Renderer
     {
         let pipeline = stage.render_pipeline();
 
-        for draw_call in stage.get_draw_calls()
+        for mut draw_call in stage.get_draw_calls()
         {
             let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Command Encoder") });
             let mut render_pass = self.get_render_pass(&mut encoder, &view);
 
-            let bind_groups = draw_call.bind_groups();
             draw_call.on_pre_draw(&self.queue);
+            let bind_groups = draw_call.bind_groups();
 
             render_pass.set_pipeline(pipeline);
             for bind_group_index in 0..bind_groups.len()
             {
-                render_pass.set_bind_group(bind_group_index as u32, &bind_groups[bind_group_index].bind_group, &[])
+                render_pass.set_bind_group(bind_group_index as u32, bind_groups[bind_group_index].bind_group(), &[]);
             }
 
             draw_call.on_draw(&mut render_pass);
