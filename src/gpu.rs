@@ -99,12 +99,12 @@ impl<T> GBuffer<T> where T : Byteable
     {
         assert!(start <= end, "Start index must be less than or equal to the end index");
         assert!(end < self.length(), "Slice is larger than the contained data");
-        self.handle.slice(start..end)
+        self.handle.slice((start * std::mem::size_of::<T>() as u64)..(end * std::mem::size_of::<T>() as u64))
     }
 
     pub fn slice_all(&self) -> wgpu::BufferSlice
     {
-        self.handle.slice(0..self.length())
+        self.handle.slice(0..self.size())
     }
 
     pub fn read(&self, device: &wgpu::Device) -> Vec<T>

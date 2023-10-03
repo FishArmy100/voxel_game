@@ -383,6 +383,7 @@ fn gen_brick_map_from_grid<T, A, S>(depth: usize, sub_grid_depth: usize, grid: &
           S : FnMut(&A) -> Option<T>
 {
     let sub_length = (2 as usize).pow(sub_grid_depth as u32);
+    println!("depth: {}; sub_grid_depth: {}", depth, sub_grid_depth);
     let sub_grid_count = (2 as usize).pow((depth - sub_grid_depth) as u32);
 
     let brick_map_array = Array3D::new(sub_grid_count, sub_grid_count, sub_grid_count, |x, y, z| {
