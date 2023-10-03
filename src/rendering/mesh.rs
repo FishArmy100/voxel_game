@@ -5,7 +5,7 @@ use crate::math::*;
 use crate::colors::Color;
 use crate::rendering::{VertexData, RenderStage, DrawCall};
 
-use super::bind_group::{BindGroup, Uniform};
+use crate::gpu_utils::bind_group::{BindGroup, Uniform};
 use super::{VertexBuffer, IndexBuffer, construct_render_pipeline, RenderPipelineInfo};
 
 #[repr(C)]
@@ -249,7 +249,7 @@ impl<'buffer> DrawCall for MeshDrawCall<'buffer>
     {
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&self.camera);
-        self.camera_uniform.borrow_mut().enqueue_set(camera_uniform, queue);
+        self.camera_uniform.borrow_mut().enqueue_write(camera_uniform, queue);
     }
 
     fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>) 

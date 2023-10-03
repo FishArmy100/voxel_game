@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use cgmath::{Zero, ElementWise};
 use wgpu::util::DeviceExt;
 
-use super::bind_group::{Uniform, BindGroup};
+use crate::gpu_utils::bind_group::{Uniform, BindGroup};
 use super::{RenderStage, DrawCall};
 use crate::camera::{Camera, CameraUniform};
 use crate::math::Vec3;
@@ -372,7 +372,7 @@ impl<'b> DrawCall for DebugDrawCall<'b>
     {
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&self.camera);
-        self.camera_uniform.borrow_mut().enqueue_set(camera_uniform, queue);
+        self.camera_uniform.borrow_mut().enqueue_write(camera_uniform, queue);
     }
 
     fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>) 

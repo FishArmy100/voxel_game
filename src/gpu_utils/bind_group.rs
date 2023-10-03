@@ -1,6 +1,6 @@
 use wgpu::BindGroupDescriptor;
 
-use crate::{gpu::GBuffer, utils::Byteable};
+use crate::{gpu_utils::GBuffer, utils::Byteable};
 
 pub trait Entry
 {
@@ -85,7 +85,7 @@ impl<T> Uniform<T> where T : Byteable
         }
     }
 
-    pub fn enqueue_set(&mut self, value: T, queue: &wgpu::Queue)
+    pub fn enqueue_write(&mut self, value: T, queue: &wgpu::Queue)
     {
         self.buffer.enqueue_write(&[value], queue);
     }
@@ -220,7 +220,7 @@ impl<T> MappedBuffer<T> where T : Byteable
         }
     }
 
-    pub fn with_capacity(capacity: u64, visibility: wgpu::ShaderStages, device: &wgpu::Device) -> Self 
+    pub fn with_capacity(capacity: u64, visibility: wgpu::ShaderStages, device: &wgpu::Device) -> Self
     {
         let buffer = GBuffer::<T>::with_capacity(capacity, Self::buffer_usage(), device, None);
 

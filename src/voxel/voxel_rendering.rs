@@ -1,3 +1,5 @@
+use crate::math::Vec3;
+
 
 pub enum FaceDir
 {
@@ -23,4 +25,13 @@ impl FaceDir
             FaceDir::West =>    5,
         }
     }
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct VoxelFace
+{
+    location: Vec3<u32>,
+    direction: u32,
+    voxel_id: u32,
 }

@@ -1,14 +1,13 @@
 pub mod renderer;
-pub mod debug_render_stage;
+pub mod debug_rendering;
 pub mod mesh;
-pub mod bind_group;
 
 use std::{sync::{Arc, Mutex}, marker::PhantomData, ops::RangeBounds};
 
-use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::{terrain::VoxelTerrain, VoxelStorage, Voxel}, camera::Camera, colors::Color, texture::Texture, utils::Byteable};
+use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::{terrain::VoxelTerrain, VoxelStorage, Voxel}, camera::Camera, colors::Color, texture::Texture, utils::Byteable, gpu_utils::bind_group::BindGroup};
 use wgpu::{util::DeviceExt, VertexBufferLayout, BindGroupLayout};
 
-use self::{renderer::Renderer, debug_render_stage::{DebugRenderStage, DebugLine, DebugObject}, mesh::{MeshRenderStage, Mesh, MeshInstance}, bind_group::BindGroup};
+use self::{renderer::Renderer, debug_rendering::{DebugRenderStage, DebugLine, DebugObject}, mesh::{MeshRenderStage, Mesh, MeshInstance}};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]

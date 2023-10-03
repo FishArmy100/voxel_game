@@ -1,39 +1,8 @@
-use std::{marker::PhantomData, sync::{Mutex, Arc}, cell::RefCell};
-use wgpu::util::{DeviceExt, BufferInitDescriptor};
-use crate::{utils::Byteable, math::Vec3};
+use std::marker::PhantomData;
 
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct GPUVec3<T> where T : Byteable
-{
-    pub x: T,
-    pub y: T,
-    pub z: T
-}
+use wgpu::util::DeviceExt;
 
-unsafe impl<T> bytemuck::Pod for GPUVec3<T> where T : Byteable {}
-unsafe impl<T> bytemuck::Zeroable for GPUVec3<T> where T : Byteable {}
-
-impl<T> GPUVec3<T> where T : Byteable 
-{
-    pub fn new(x: T, y: T, z: T) -> Self
-    {
-        Self 
-        { 
-            x, 
-            y, 
-            z 
-        }
-    }
-}
-
-impl<T> From<Vec3<T>> for GPUVec3<T> where T : Byteable
-{
-    fn from(value: Vec3<T>) -> Self 
-    {
-        GPUVec3::new(value.x, value.y, value.z)
-    }
-}
+use crate::utils::Byteable;
 
 pub struct GBuffer<T> where T : Byteable
 {
@@ -151,10 +120,4 @@ impl<T> GBuffer<T> where T : Byteable
     {
         self.handle.as_entire_binding()
     }
-}
-
-pub struct ShaderInfo<'a>
-{
-    pub entry_point: &'a str,
-    pub source: &'a str
 }
