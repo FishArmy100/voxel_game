@@ -89,7 +89,7 @@ impl<T> GBuffer<T> where T : Byteable
     pub fn capacity(&self) -> u64 { self.capacity }
     pub fn size(&self) -> u64 { self.length() * std::mem::size_of::<T>() as u64 }
 
-    pub fn enqueue_set(&mut self, data: &[T], queue: &wgpu::Queue)
+    pub fn enqueue_write(&mut self, data: &[T], queue: &wgpu::Queue)
     {
         self.length = data.len() as u64;
         queue.write_buffer(&self.handle, 0, bytemuck::cast_slice(data));

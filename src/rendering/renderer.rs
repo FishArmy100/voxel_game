@@ -54,7 +54,7 @@ impl Renderer
     {
         let pipeline = stage.render_pipeline();
 
-        for mut draw_call in stage.get_draw_calls()
+        for draw_call in stage.get_draw_calls()
         {
             let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Command Encoder") });
             let mut render_pass = self.get_render_pass(&mut encoder, &view);

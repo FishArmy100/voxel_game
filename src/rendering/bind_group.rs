@@ -87,7 +87,7 @@ impl<T> Uniform<T> where T : Byteable
 
     pub fn enqueue_set(&mut self, value: T, queue: &wgpu::Queue)
     {
-        self.buffer.enqueue_set(&[value], queue);
+        self.buffer.enqueue_write(&[value], queue);
     }
 }
 
@@ -113,12 +113,6 @@ impl<T> Entry for Uniform<T> where T : Byteable
     {
         self.buffer.as_entire_binding()
     }
-}
-
-pub trait WritableStorage<T> where T : Byteable
-{
-    fn enqueue_write(&mut self, data: &[T], queue: &wgpu::Queue);
-    fn copy_from(&mut self, src: &dyn WritableStorage<T>, command_encoder: &wgpu::CommandEncoder);
 }
 
 pub struct Storage<T> where T : Byteable
@@ -157,10 +151,120 @@ impl<T> Storage<T> where T : Byteable
             visibility
         }
     }
+
+    pub fn copy_to(&self, dest: &mut Storage<T>, command_encoder: &mut wgpu::CommandEncoder)
+    {
+        self.buffer.copy(&mut dest.buffer, command_encoder);
+    }
+
+    pub fn copy_to_mapped(&self, dest: &mut MappedBuffer<T>, command_encoder: &mut wgpu::CommandEncoder)
+    {
+        self.buffer.copy(&mut dest.buffer, command_encoder);
+    }
+
+    pub fn enqueue_write(&mut self, data: &[T], queue: &wgpu::Queue)
+    {
+        self.buffer.enqueue_write(data, queue);
+    }
 }
 
-pub struct MappedStorage<T> where T : Byteable
+impl<T> Entry for Storage<T> where T : Byteable
+{
+    fn get_layout(&self, binding: u32) -> wgpu::BindGroupLayoutEntry 
+    {
+        wgpu::BindGroupLayoutEntry 
+        { 
+            binding, 
+            visibility: self.visibility, 
+            ty: wgpu::BindingType::Buffer 
+            { 
+                ty: wgpu::BufferBindingType::Storage 
+                { 
+                    read_only: false 
+                }, 
+                has_dynamic_offset: false, 
+                min_binding_size: None 
+            }, 
+            count: None 
+        }
+    }
+
+    fn get_resource(&self) -> wgpu::BindingResource 
+    {
+        self.buffer.as_entire_binding()
+    }
+}
+
+pub struct MappedBuffer<T> where T : Byteable
 {
     buffer: GBuffer<T>,
     visibility: wgpu::ShaderStages
+}
+
+impl<T> MappedBuffer<T> where T : Byteable
+{
+    pub fn buffer_usage() -> wgpu::BufferUsages 
+    {
+        wgpu::BufferUsages::COPY_DST | 
+        wgpu::BufferUsages::MAP_READ
+    }
+
+    pub fn new(data: &[T], visibility: wgpu::ShaderStages, device: &wgpu::Device) -> Self 
+    {
+        let buffer = GBuffer::new(data, Self::buffer_usage(), device, None);
+
+        Self 
+        { 
+            buffer, 
+            visibility
+        }
+    }
+
+    pub fn with_capacity(capacity: u64, visibility: wgpu::ShaderStages, device: &wgpu::Device) -> Self 
+    {
+        let buffer = GBuffer::<T>::with_capacity(capacity, Self::buffer_usage(), device, None);
+
+        Self 
+        { 
+            buffer, 
+            visibility
+        }
+    }
+
+    pub fn enqueue_write(&mut self, data: &[T], queue: &wgpu::Queue)
+    {
+        self.buffer.enqueue_write(data, queue);
+    }
+
+    pub fn read(&self, device: &wgpu::Device) -> Vec<T>
+    {
+        self.buffer.read(device)
+    }
+}
+
+impl<T> Entry for MappedBuffer<T> where T : Byteable
+{
+    fn get_layout(&self, binding: u32) -> wgpu::BindGroupLayoutEntry 
+    {
+        wgpu::BindGroupLayoutEntry 
+        { 
+            binding, 
+            visibility: self.visibility, 
+            ty: wgpu::BindingType::Buffer 
+            { 
+                ty: wgpu::BufferBindingType::Storage 
+                { 
+                    read_only: false 
+                }, 
+                has_dynamic_offset: false, 
+                min_binding_size: None 
+            }, 
+            count: None 
+        }
+    }
+
+    fn get_resource(&self) -> wgpu::BindingResource 
+    {
+        self.buffer.as_entire_binding()
+    }
 }

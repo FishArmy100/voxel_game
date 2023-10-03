@@ -145,7 +145,7 @@ impl VoxelGenerator
 
     pub async fn run_async(&mut self, chunk_pos: Vec3<i32>) -> Array3D<i32>
     {
-        self.chunk_pos_buffer.enqueue_set(&[chunk_pos.into()], &self.queue);
+        self.chunk_pos_buffer.enqueue_write(&[chunk_pos.into()], &self.queue);
 
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         {
