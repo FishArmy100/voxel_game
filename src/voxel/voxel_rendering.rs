@@ -1,6 +1,6 @@
-use std::sync::Arc;
+use std::{sync::Arc, cell::RefCell};
 
-use crate::{math::Vec3, rendering::{VertexData, VertexBuffer}, gpu_utils::{Storage, BindGroup, Uniform}, camera::{Camera, CameraUniform}};
+use crate::{math::Vec3, rendering::{VertexData, VertexBuffer, construct_render_pipeline, RenderPipelineInfo, DrawCall, IVertexBuffer}, gpu_utils::{Storage, BindGroup, Uniform}, camera::{Camera, CameraUniform}};
 
 pub enum FaceDir
 {
@@ -136,27 +136,79 @@ impl VoxelMesh
 pub struct VoxelRenderStage
 {
     device: Arc<wgpu::Device>,
+    
+    camera: Camera,
+    camera_uniform: RefCell<Uniform<CameraUniform>>,
 
-    camera_uniform: Uniform<CameraUniform>,
     face_storage: Storage<VoxelFace>,
     vertex_buffer: VertexBuffer<VoxelVertex>,
 
     bind_group: BindGroup,
 
     render_pipeline: wgpu::RenderPipeline,
-
-    camera: Camera,
 }
 
 impl VoxelRenderStage
 {
-    pub fn new(mesh: VoxelMesh, camera: Camera, device: Arc<wgpu::Device>) -> Self 
+    pub fn new(mesh: VoxelMesh, camera: Camera, device: Arc<wgpu::Device>, config: &wgpu::SurfaceConfiguration) -> Self 
     {
-        let camera_uniform_data = CameraUniform::new();
+        let mut camera_uniform_data = CameraUniform::new();
         camera_uniform_data.update_view_proj(&camera);
         let camera_uniform = Uniform::new(camera_uniform_data, wgpu::ShaderStages::VERTEX, &device);
 
         let face_storage = Storage::new(mesh.faces(), wgpu::ShaderStages::VERTEX, &device);
         let bind_group = BindGroup::new(&[&camera_uniform, &face_storage], &device);
+
+        let vertex_buffer = VertexBuffer::new(mesh.vertices(), &device, Some("Voxel Vertex Buffer"));
+
+        let render_pipeline = construct_render_pipeline(&device, config, &RenderPipelineInfo {
+            shader_source: include_str!("../shaders/voxel_shader.wgsl"),
+            shader_name: Some("Voxel Shader"),
+            vs_main: "vs_main",
+            fs_main: "fs_main",
+            vertex_buffers: &[vertex_buffer.layout()],
+            bind_groups: &[bind_group.layout()],
+            label: Some("Voxel Render Pipeline")
+        });
+
+        Self 
+        { 
+            device, 
+            camera, 
+            camera_uniform: RefCell::new(camera_uniform), 
+            face_storage, 
+            vertex_buffer, 
+            bind_group,
+            render_pipeline, 
+        }
+    }
+}
+
+pub struct VoxelDrawCall<'a>
+{
+    bind_group: &'a BindGroup,
+    camera: Camera,
+    camera_uniform: &'a RefCell<Uniform<CameraUniform>>,
+    vertex_buffer: &'a VertexBuffer<VoxelVertex>
+}
+
+impl<'a> DrawCall for VoxelDrawCall<'a>
+{
+    fn bind_groups(&self) -> Box<[&BindGroup]> 
+    {
+        Box::new([self.bind_group])
+    }
+
+    fn on_pre_draw(&self, queue: &wgpu::Queue) 
+    {
+        let mut data = CameraUniform::new();
+        data.update_view_proj(&self.camera);
+        self.camera_uniform.borrow_mut().enqueue_write(data, queue);
+    }
+
+    fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>) 
+    {
+        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice_all());
+        render_pass.draw(0..(self.vertex_buffer.capacity() as u32), 0..1)
     }
 }

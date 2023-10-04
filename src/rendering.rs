@@ -208,7 +208,7 @@ pub struct RenderPipelineInfo<'l>
     pub vertex_buffers: &'l [&'l VertexBufferLayout<'l>],
     pub bind_groups: &'l [&'l BindGroupLayout],
 
-    label: Option<&'l str>
+    pub label: Option<&'l str>
 }
 
 pub fn construct_render_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, info: &RenderPipelineInfo) -> wgpu::RenderPipeline
