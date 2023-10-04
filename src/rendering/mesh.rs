@@ -41,7 +41,8 @@ impl VertexData for Vertex
         }
     }
 
-    fn append_bytes(&self, bytes: &mut Vec<u8>) {
+    fn append_bytes(&self, bytes: &mut Vec<u8>) 
+    {
         bytes.extend(bytemuck::cast_slice(&[*self]).iter());
     }
 }
