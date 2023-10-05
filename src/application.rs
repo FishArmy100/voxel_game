@@ -36,7 +36,7 @@ struct AppState
     config: wgpu::SurfaceConfiguration,
     size: WindowSize,
     window_handle: Arc<WinitWindow>,
-    renderer: GameRenderer<Storage>,
+    renderer: GameRenderer,
 
     // TEMP
     camera_entity: CameraEntity,
@@ -270,7 +270,7 @@ fn generate_terrain<TStorage>(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>
     };
 
     let terrain = Arc::new(Mutex::new(VoxelTerrain::new(info, shader_info, device.clone(), queue))); 
-    terrain.lock().unwrap().generate_chunk([0, 0, 0].into());
+    terrain.lock().unwrap().generate_chunk_immediate([0, 0, 0].into());
 
     terrain
 }

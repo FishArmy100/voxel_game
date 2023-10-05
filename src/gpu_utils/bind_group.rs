@@ -123,16 +123,25 @@ pub struct Storage<T> where T : Byteable
 
 impl<T> Storage<T> where T : Byteable
 {
-    pub fn buffer_usage() -> wgpu::BufferUsages 
+    pub fn buffer_usage(is_vertex: bool) -> wgpu::BufferUsages 
     {
-        wgpu::BufferUsages::COPY_DST | 
-        wgpu::BufferUsages::COPY_SRC | 
-        wgpu::BufferUsages::STORAGE
+        if is_vertex 
+        {
+            wgpu::BufferUsages::STORAGE |
+            wgpu::BufferUsages::COPY_SRC
+        }
+        else 
+        {
+            wgpu::BufferUsages::COPY_DST | 
+            wgpu::BufferUsages::COPY_SRC | 
+            wgpu::BufferUsages::STORAGE
+        }
     }
 
     pub fn new(data: &[T], visibility: wgpu::ShaderStages, device: &wgpu::Device) -> Self 
     {
-        let buffer = GBuffer::new(data, Self::buffer_usage(), device, None);
+        let is_vertex = visibility.contains(wgpu::ShaderStages::VERTEX);
+        let buffer = GBuffer::new(data, Self::buffer_usage(is_vertex), device, None);
 
         Self 
         { 
@@ -143,7 +152,8 @@ impl<T> Storage<T> where T : Byteable
 
     pub fn with_capacity(capacity: u64, visibility: wgpu::ShaderStages, device: &wgpu::Device) -> Self 
     {
-        let buffer = GBuffer::<T>::with_capacity(capacity, Self::buffer_usage(), device, None);
+        let is_vertex = visibility.contains(wgpu::ShaderStages::VERTEX);
+        let buffer = GBuffer::<T>::with_capacity(capacity, Self::buffer_usage(is_vertex), device, None);
 
         Self 
         { 
@@ -172,6 +182,8 @@ impl<T> Entry for Storage<T> where T : Byteable
 {
     fn get_layout(&self, binding: u32) -> wgpu::BindGroupLayoutEntry 
     {
+        let read_only = self.visibility.contains(wgpu::ShaderStages::VERTEX);
+
         wgpu::BindGroupLayoutEntry 
         { 
             binding, 
@@ -180,7 +192,7 @@ impl<T> Entry for Storage<T> where T : Byteable
             { 
                 ty: wgpu::BufferBindingType::Storage 
                 { 
-                    read_only: false 
+                    read_only 
                 }, 
                 has_dynamic_offset: false, 
                 min_binding_size: None 
@@ -246,15 +258,17 @@ impl<T> Entry for MappedBuffer<T> where T : Byteable
 {
     fn get_layout(&self, binding: u32) -> wgpu::BindGroupLayoutEntry 
     {
+        let read_only = self.visibility.contains(wgpu::ShaderStages::VERTEX);
+
         wgpu::BindGroupLayoutEntry 
         { 
-            binding, 
+            binding,
             visibility: self.visibility, 
             ty: wgpu::BindingType::Buffer 
             { 
                 ty: wgpu::BufferBindingType::Storage 
                 { 
-                    read_only: false 
+                    read_only
                 }, 
                 has_dynamic_offset: false, 
                 min_binding_size: None 

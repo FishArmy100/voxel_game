@@ -167,6 +167,20 @@ impl<TStorage> VoxelTerrain<TStorage> where TStorage : VoxelStorage<Voxel> + Sen
         }
     }
 
+    pub fn generate_chunk_immediate(&mut self, chunk_index: Vec3<isize>) -> bool
+    {
+        if self.chunks.iter().any(|c| c.index == chunk_index)
+        {
+            false
+        }
+        else 
+        {
+            let chunk: Chunk<TStorage> = Chunk::new(self.generator.generator.lock().unwrap(), chunk_index, self.info.voxel_types.clone(), self.info.chunk_depth, &self.device);
+            self.chunks.push(chunk);
+            true
+        }
+    }
+
     pub fn generate_chunks<B>(&mut self, bounds: [B; 3]) where B : RangeBounds<isize> + IntoIterator<Item = isize> + Clone
     {
         for x in bounds[0].clone()

@@ -10,7 +10,8 @@ struct VertexOutput {
     @location(1) color: vec4<f32>,
 };
 
-struct CameraUniform {
+struct CameraUniform 
+{
     view_proj: mat4x4<f32>
 }
 

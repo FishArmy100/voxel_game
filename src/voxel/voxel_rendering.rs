@@ -1,6 +1,6 @@
 use std::{sync::Arc, cell::RefCell};
 
-use crate::{math::Vec3, rendering::{VertexData, VertexBuffer, construct_render_pipeline, RenderPipelineInfo, DrawCall, IVertexBuffer}, gpu_utils::{Storage, BindGroup, Uniform}, camera::{Camera, CameraUniform}};
+use crate::{math::Vec3, rendering::{VertexData, VertexBuffer, construct_render_pipeline, RenderPipelineInfo, DrawCall, IVertexBuffer, RenderStage}, gpu_utils::{Storage, BindGroup, Uniform}, camera::{Camera, CameraUniform}};
 
 pub enum FaceDir
 {
@@ -32,7 +32,9 @@ impl FaceDir
 #[derive(Debug, Clone, Copy)]
 pub struct VoxelFace
 {
-    location: Vec3<u32>,
+    pos_x: u32,
+    pos_y: u32,
+    pos_z: u32,
     direction: u32,
     voxel_id: u32,
 }
@@ -46,7 +48,9 @@ impl VoxelFace
     {
         Self 
         { 
-            location, 
+            pos_x: location.x, 
+            pos_y: location.y, 
+            pos_z: location.z, 
             direction: direction.to_index(), 
             voxel_id: voxel_id as u32 
         }
@@ -58,7 +62,6 @@ impl VoxelFace
 pub struct VoxelVertex
 {
     pub face_index: u32,
-    pub vertex_index: u32
 }
 
 unsafe impl bytemuck::Pod for VoxelVertex {}
@@ -66,12 +69,11 @@ unsafe impl bytemuck::Zeroable for VoxelVertex {}
 
 impl VoxelVertex
 {
-    pub fn new(face_index: u32, vertex_index: u32) -> Self 
+    pub fn new(face_index: u32) -> Self 
     {
         Self 
         { 
             face_index, 
-            vertex_index 
         }
     }
 }
@@ -80,8 +82,8 @@ impl VertexData for VoxelVertex
 {
     fn desc() -> wgpu::VertexBufferLayout<'static>
     {
-        const ATTRIBUTES: [wgpu::VertexAttribute; 2] =
-            wgpu::vertex_attr_array![0 => Uint32, 1 => Uint32];
+        const ATTRIBUTES: [wgpu::VertexAttribute; 1] =
+            wgpu::vertex_attr_array![0 => Uint32];
 
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
@@ -118,15 +120,15 @@ impl VoxelMesh
 
     pub fn add_face(&mut self, location: Vec3<u32>, direction: FaceDir, voxel_id: u16)
     {
-        let face_count = self.vertices.len() as u32;
+        let face_count = self.faces.len() as u32;
         self.vertices.extend(
         [
-            VoxelVertex::new(face_count, 0), 
-            VoxelVertex::new(face_count, 1), 
-            VoxelVertex::new(face_count, 2), 
-            VoxelVertex::new(face_count, 2),
-            VoxelVertex::new(face_count, 3),
-            VoxelVertex::new(face_count, 0)
+            VoxelVertex::new(face_count),
+            VoxelVertex::new(face_count),
+            VoxelVertex::new(face_count),
+            VoxelVertex::new(face_count),
+            VoxelVertex::new(face_count),
+            VoxelVertex::new(face_count)
         ]);
 
         self.faces.push(VoxelFace::new(location, direction, voxel_id))
@@ -182,6 +184,32 @@ impl VoxelRenderStage
             render_pipeline, 
         }
     }
+
+    pub fn update(&mut self, camera: Camera)
+    {
+        self.camera = camera;
+    }
+}
+
+impl RenderStage for VoxelRenderStage
+{
+    fn render_pipeline(&self) -> &wgpu::RenderPipeline 
+    {
+        &self.render_pipeline
+    }
+
+    fn get_draw_calls<'s>(&'s self) -> Vec<Box<(dyn DrawCall + 's)>> 
+    {
+        let draw_call = VoxelDrawCall
+        {
+            bind_group: &self.bind_group,
+            camera: self.camera.clone(),
+            camera_uniform: &self.camera_uniform,
+            vertex_buffer: &self.vertex_buffer
+        };
+
+        vec![Box::new(draw_call)]
+    }
 }
 
 pub struct VoxelDrawCall<'a>
@@ -209,6 +237,6 @@ impl<'a> DrawCall for VoxelDrawCall<'a>
     fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>) 
     {
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice_all());
-        render_pass.draw(0..(self.vertex_buffer.capacity() as u32), 0..1)
+        render_pass.draw(0..(self.vertex_buffer.capacity() as u32), 0..1);
     }
 }

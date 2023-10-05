@@ -4,7 +4,7 @@ pub mod mesh;
 
 use std::{sync::{Arc, Mutex}, marker::PhantomData, ops::RangeBounds};
 
-use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::{terrain::VoxelTerrain, VoxelStorage, Voxel}, camera::Camera, colors::Color, texture::Texture, utils::Byteable, gpu_utils::bind_group::BindGroup};
+use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::{terrain::VoxelTerrain, VoxelStorage, Voxel, voxel_rendering::{VoxelMesh, FaceDir, VoxelRenderStage}, brick_map::{BrickMap, SizedBrickMap}}, camera::Camera, colors::Color, texture::Texture, utils::Byteable, gpu_utils::bind_group::BindGroup};
 use wgpu::{util::DeviceExt, VertexBufferLayout, BindGroupLayout};
 
 use self::{renderer::Renderer, debug_rendering::{DebugRenderStage, DebugLine, DebugObject}, mesh::{MeshRenderStage, Mesh, MeshInstance}};
@@ -274,36 +274,48 @@ pub fn construct_render_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceCo
     render_pipeline
 }
 
-pub struct GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Send
+pub struct GameRenderer
 {
     renderer: Renderer,
     debug_stage: DebugRenderStage,
     mesh_stage: MeshRenderStage,
-    _phantom: PhantomData<TStorage>
+    voxel_stage: VoxelRenderStage,
 }
 
-impl<TStorage> GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Send + 'static
+impl GameRenderer
 {
-    pub fn new(terrain: Arc<Mutex<VoxelTerrain<TStorage>>>, camera: Camera, device: Arc<wgpu::Device>, surface: Arc<wgpu::Surface>, queue: Arc<wgpu::Queue>, config: &wgpu::SurfaceConfiguration) -> Self
+    pub fn new<TStorage>(terrain: Arc<Mutex<VoxelTerrain<TStorage>>>, camera: Camera, device: Arc<wgpu::Device>, surface: Arc<wgpu::Surface>, queue: Arc<wgpu::Queue>, config: &wgpu::SurfaceConfiguration) -> Self
+        where TStorage : VoxelStorage<Voxel> + Send + 'static
     {
         let clear_color = Color::new(0.1, 0.2, 0.3, 1.0);
         let renderer = Renderer::new(device.clone(), surface, queue, config, clear_color);
 
         let debug_stage = DebugRenderStage::new(device.clone(), config, camera.clone(), &[]);
-        let mesh_stage = MeshRenderStage::new(Mesh::cube(Color::RED), &[MeshInstance::from_position([0.0, 2.0, 0.0].into())], camera, &device, config);
+        let mesh_stage = MeshRenderStage::new(Mesh::cube(Color::RED), &[MeshInstance::from_position([0.0, 2.0, 0.0].into())], camera.clone(), &device, config);
+        
+        let mesh = terrain.lock().unwrap().chunks()[0].storage().get_mesh(); 
 
-        Self { renderer, debug_stage, mesh_stage, _phantom: PhantomData{} }
+        let voxel_stage = VoxelRenderStage::new(mesh, camera.clone(), device.clone(), config);
+
+        Self 
+        { 
+            renderer, 
+            debug_stage, 
+            mesh_stage, 
+            voxel_stage,
+        }
     }
 
     pub fn update(&mut self, camera: &Camera, debug_objects: &[DebugObject])
     {
         self.debug_stage.update(debug_objects, camera.clone());
-        self.mesh_stage.update(camera.clone())
+        self.mesh_stage.update(camera.clone());
+        self.voxel_stage.update(camera.clone());
     }
 
     pub fn render(&self) -> Result<(), wgpu::SurfaceError>
     {
-        self.renderer.render(&[&self.debug_stage, &self.mesh_stage])
+        self.renderer.render(&[&self.voxel_stage, &self.debug_stage])
     }
 
     pub fn resize(&mut self, config: &wgpu::SurfaceConfiguration)
