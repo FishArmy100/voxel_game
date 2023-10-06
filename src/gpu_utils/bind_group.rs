@@ -4,6 +4,8 @@ use crate::{gpu_utils::GBuffer, utils::Byteable};
 
 pub trait Entry
 {
+    fn get_layout_static(visibility: wgpu::ShaderStages, binding: u32) -> wgpu::BindGroupLayoutEntry
+        where Self : Sized;
     fn get_layout(&self, binding: u32) -> wgpu::BindGroupLayoutEntry;
     fn get_resource(&self) -> wgpu::BindingResource;
 }
@@ -19,6 +21,14 @@ impl BindGroup
     pub fn layout(&self) -> &wgpu::BindGroupLayout { &self.layout }
     pub fn bind_group(&self) -> &wgpu::BindGroup { &self.handle }
 
+    pub fn construct_layout_from_entries(entries: &[wgpu::BindGroupLayoutEntry], device: &wgpu::Device) -> wgpu::BindGroupLayout
+    {
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { 
+            label: None, 
+            entries: &entries 
+        })
+    }
+
     pub fn new(entries: &[&dyn Entry], device: &wgpu::Device) -> Self
     {
         let mut entry_layouts = Vec::with_capacity(entries.len());
@@ -27,10 +37,7 @@ impl BindGroup
             entry_layouts.push(entries[i].get_layout(i as u32));
         }
 
-        let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { 
-            label: None, 
-            entries: &entry_layouts 
-        });
+        let layout = Self::construct_layout_from_entries(&entry_layouts, device);
 
         let mut bind_group_entries = Vec::with_capacity(entries.len());
         for i in 0..entries.len()
@@ -95,10 +102,21 @@ impl<T> Entry for Uniform<T> where T : Byteable
 {
     fn get_layout(&self, binding: u32) -> wgpu::BindGroupLayoutEntry 
     {
+        Self::get_layout_static(self.visibility, binding)
+    }
+
+    fn get_resource(&self) -> wgpu::BindingResource 
+    {
+        self.buffer.as_entire_binding()
+    }
+
+    fn get_layout_static(visibility: wgpu::ShaderStages, binding: u32) -> wgpu::BindGroupLayoutEntry
+        where Self : Sized 
+    {
         wgpu::BindGroupLayoutEntry 
         { 
             binding, 
-            visibility: self.visibility, 
+            visibility, 
             ty: wgpu::BindingType::Buffer 
             { 
                 ty: wgpu::BufferBindingType::Uniform, 
@@ -107,11 +125,6 @@ impl<T> Entry for Uniform<T> where T : Byteable
             }, 
             count: None 
         }
-    }
-
-    fn get_resource(&self) -> wgpu::BindingResource 
-    {
-        self.buffer.as_entire_binding()
     }
 }
 
@@ -182,13 +195,24 @@ impl<T> Entry for Storage<T> where T : Byteable
 {
     fn get_layout(&self, binding: u32) -> wgpu::BindGroupLayoutEntry 
     {
-        let read_only = self.visibility.contains(wgpu::ShaderStages::VERTEX);
+        Self::get_layout_static(self.visibility, binding)
+    }
+
+    fn get_resource(&self) -> wgpu::BindingResource 
+    {
+        self.buffer.as_entire_binding()
+    }
+
+    fn get_layout_static(visibility: wgpu::ShaderStages, binding: u32) -> wgpu::BindGroupLayoutEntry
+        where Self : Sized 
+    {
+        let read_only = visibility.contains(wgpu::ShaderStages::VERTEX);
 
         wgpu::BindGroupLayoutEntry 
-        { 
-            binding, 
-            visibility: self.visibility, 
-            ty: wgpu::BindingType::Buffer 
+        {
+            binding,
+            visibility,
+            ty: wgpu::BindingType::Buffer
             { 
                 ty: wgpu::BufferBindingType::Storage 
                 { 
@@ -199,11 +223,6 @@ impl<T> Entry for Storage<T> where T : Byteable
             }, 
             count: None 
         }
-    }
-
-    fn get_resource(&self) -> wgpu::BindingResource 
-    {
-        self.buffer.as_entire_binding()
     }
 }
 
@@ -258,12 +277,23 @@ impl<T> Entry for MappedBuffer<T> where T : Byteable
 {
     fn get_layout(&self, binding: u32) -> wgpu::BindGroupLayoutEntry 
     {
-        let read_only = self.visibility.contains(wgpu::ShaderStages::VERTEX);
+        Self::get_layout_static(self.visibility, binding)
+    }
+
+    fn get_resource(&self) -> wgpu::BindingResource 
+    {
+        self.buffer.as_entire_binding()
+    }
+
+    fn get_layout_static(visibility: wgpu::ShaderStages, binding: u32) -> wgpu::BindGroupLayoutEntry
+        where Self : Sized 
+    {
+        let read_only = visibility.contains(wgpu::ShaderStages::VERTEX);
 
         wgpu::BindGroupLayoutEntry 
         { 
             binding,
-            visibility: self.visibility, 
+            visibility,
             ty: wgpu::BindingType::Buffer 
             { 
                 ty: wgpu::BufferBindingType::Storage 
@@ -275,10 +305,5 @@ impl<T> Entry for MappedBuffer<T> where T : Byteable
             }, 
             count: None 
         }
-    }
-
-    fn get_resource(&self) -> wgpu::BindingResource 
-    {
-        self.buffer.as_entire_binding()
     }
 }

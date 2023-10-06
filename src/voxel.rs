@@ -2,13 +2,14 @@ pub mod octree;
 pub mod terrain;
 pub mod world_gen;
 pub mod brick_map;
+pub mod terrain_renderer;
 pub mod voxel_rendering;
 use crate::colors::Color;
 use crate::math::Vec3;
 use crate::rendering::VertexData;
 use crate::utils::Array3D;
 
-use self::voxel_rendering::{VoxelMesh, VoxelFace, FaceDir};
+use self::terrain_renderer::{VoxelMesh, VoxelFace, FaceDir};
 
 const VOXEL_FACE_TRIANGLES: [u32; 6] = [2, 1, 0, 2, 3, 1];
 

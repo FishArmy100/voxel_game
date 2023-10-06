@@ -4,7 +4,8 @@ pub mod mesh;
 
 use std::{sync::{Arc, Mutex}, marker::PhantomData, ops::RangeBounds};
 
-use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::{terrain::VoxelTerrain, VoxelStorage, Voxel, voxel_rendering::{VoxelMesh, FaceDir, VoxelRenderStage}, brick_map::{BrickMap, SizedBrickMap}}, camera::Camera, colors::Color, texture::Texture, utils::Byteable, gpu_utils::bind_group::BindGroup};
+use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::{terrain::VoxelTerrain, VoxelStorage, Voxel, terrain_renderer::{VoxelMesh, FaceDir, VoxelRenderStage}, brick_map::{BrickMap, SizedBrickMap}}, camera::Camera, colors::Color, texture::Texture, utils::Byteable, gpu_utils::bind_group::BindGroup};
+use cgmath::Array;
 use wgpu::{util::DeviceExt, VertexBufferLayout, BindGroupLayout};
 
 use self::{renderer::Renderer, debug_rendering::{DebugRenderStage, DebugLine, DebugObject}, mesh::{MeshRenderStage, Mesh, MeshInstance}};
@@ -293,9 +294,11 @@ impl GameRenderer
         let debug_stage = DebugRenderStage::new(device.clone(), config, camera.clone(), &[]);
         let mesh_stage = MeshRenderStage::new(Mesh::cube(Color::RED), &[MeshInstance::from_position([0.0, 2.0, 0.0].into())], camera.clone(), &device, config);
         
-        let mesh = terrain.lock().unwrap().chunks()[0].storage().get_mesh(); 
+        let terrain = terrain.lock().unwrap();
+        let mesh = terrain.chunks()[0].storage().get_mesh(); 
 
-        let voxel_stage = VoxelRenderStage::new(mesh, camera.clone(), device.clone(), config);
+        let mut voxel_stage = VoxelRenderStage::new(camera.clone(), device.clone(), config);
+        voxel_stage.add_mesh(&mesh, terrain.info().voxel_size, Vec3::from_value(0));
 
         Self 
         { 

@@ -255,7 +255,7 @@ fn generate_terrain<TStorage>(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>
     ];
         
     const CHUNK_DEPTH: usize = 7;
-    const VOXEL_SIZE: f32 = 1.0;
+    const VOXEL_SIZE: f32 = 1.0 / 16.0;
 
     let info = TerrainInfo
     {

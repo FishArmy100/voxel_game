@@ -35,8 +35,14 @@ struct IndexArrayWrapper
 @group(0) @binding(0)
 var<uniform> camera: CameraUniform;
 
-@group(0) @binding(1)
+@group(1) @binding(0)
 var<storage> faces: array<VoxelFace>;
+
+@group(1) @binding(1)
+var<uniform> voxel_size: f32;
+
+@group(1) @binding(2)
+var<uniform> position: vec3<u32>;
 
 const voxel_south_face_position_array = array<vec3<f32>, 4>(
     vec3<f32>(0.0, 1.0, 1.0),
@@ -111,6 +117,7 @@ fn vs_main(@builtin(vertex_index) index: u32, vertex: VoxelVertex) -> OutVertex
     let face = faces[vertex.face_index];
 
     var vertex_pos = face_array.arr[face.direction][vertex_index] + vec3<f32>(f32(face.pos_x), f32(face.pos_y), f32(face.pos_z));
+    vertex_pos *= voxel_size;
 
     var out: OutVertex;
     out.clip_position = camera.view_proj * vec4<f32>(vertex_pos, 1.0);
