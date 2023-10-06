@@ -4,7 +4,7 @@ pub mod mesh;
 
 use std::{sync::{Arc, Mutex}, marker::PhantomData, ops::RangeBounds};
 
-use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::{terrain::VoxelTerrain, VoxelStorage, Voxel, terrain_renderer::{VoxelMesh, FaceDir, VoxelRenderStage}, brick_map::{BrickMap, SizedBrickMap}}, camera::Camera, colors::Color, texture::Texture, utils::Byteable, gpu_utils::bind_group::BindGroup};
+use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::{terrain::VoxelTerrain, VoxelStorage, Voxel, terrain_renderer::VoxelTerrainRenderStage, brick_map::{BrickMap, SizedBrickMap}}, camera::Camera, colors::Color, texture::Texture, utils::Byteable, gpu_utils::bind_group::BindGroup};
 use cgmath::Array;
 use wgpu::{util::DeviceExt, VertexBufferLayout, BindGroupLayout};
 
@@ -64,138 +64,6 @@ fn collect_bytes_from_vertex_slice<T>(vertices: &[T]) -> Vec<u8>
     }
 
     bytes
-}
-
-pub trait IVertexBuffer
-{
-    fn capacity(&self) -> u64;
-    fn layout(&self) -> &wgpu::VertexBufferLayout<'static>;
-    fn slice(&self, first: wgpu::BufferAddress, last: wgpu::BufferAddress) -> wgpu::BufferSlice;
-    fn slice_all(&self) -> wgpu::BufferSlice;
-}
-
-pub struct VertexBuffer<T> where T : VertexData
-{
-    buffer: wgpu::Buffer,
-    capacity: u64,
-    layout: wgpu::VertexBufferLayout<'static>,
-    phantom: PhantomData<T>
-}
-
-impl<T> VertexBuffer<T> where T : VertexData
-{
-    pub fn capacity(&self) -> u64 { self.capacity }
-    pub fn layout(&self) -> &wgpu::VertexBufferLayout<'static> { &self.layout }
-
-    pub fn new(vertices: &[T], device: &wgpu::Device, label: Option<&str>) -> Self
-    {
-        let layout = T::desc();
-        let capacity = vertices.len() as u64;
-        let data = collect_bytes_from_vertex_slice(vertices);
-
-        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label,
-            contents: &data,
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST
-        });
-
-        Self { buffer, capacity, layout, phantom: PhantomData }
-    }
-
-    pub fn new_empty(device: &wgpu::Device, capacity: u64, label: Option<&str>) -> Self
-    {
-        let layout = T::desc();
-        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label,
-            contents: &vec![0 as u8; (layout.array_stride * capacity) as usize],
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST
-        });
-
-        Self { buffer, capacity, layout, phantom: PhantomData }
-    }
-
-    pub fn enqueue_set_data(&self, queue: &wgpu::Queue, vertices: &[T])
-    {
-        assert!(vertices.len() as u64 <= self.capacity, "Data is larger than the capacity of this buffer.");
-        assert!(T::desc() == self.layout, "Layout for the data is different than the layout of this buffer.");
-
-        let data = collect_bytes_from_vertex_slice(vertices);
-        queue.write_buffer(&self.buffer, 0, &data)
-    }
-
-    fn slice(&self, first: wgpu::BufferAddress, last: wgpu::BufferAddress) -> wgpu::BufferSlice
-    {
-        self.buffer.slice(first..last)
-    }
-
-    fn slice_all(&self) -> wgpu::BufferSlice
-    {
-        self.buffer.slice(..)
-    }
-}
-
-impl<T> IVertexBuffer for VertexBuffer<T> where T : VertexData
-{
-    fn capacity(&self) -> u64 { self.capacity() }
-    fn layout(&self) -> &wgpu::VertexBufferLayout<'static> { self.layout() }
-
-    fn slice(&self, first: wgpu::BufferAddress, last: wgpu::BufferAddress) -> wgpu::BufferSlice
-    {
-        self.slice(first, last)
-    }
-
-    fn slice_all(&self) -> wgpu::BufferSlice 
-    {
-        self.slice_all()
-    }
-}
-
-pub struct IndexBuffer 
-{
-    buffer: wgpu::Buffer,
-    capacity: u64
-}
-
-impl IndexBuffer
-{
-    pub fn capacity(&self) -> u64 { self.capacity }
-
-    pub fn new(indices: &[u32], device: &wgpu::Device, label: Option<&str>) -> Self
-    {
-        let capacity = indices.len() as u64;
-        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label,
-            contents: bytemuck::cast_slice(indices),
-            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST
-        });
-
-        Self { buffer, capacity }
-    }
-
-    pub fn new_empty(capacity: u64, device: &wgpu::Device, label: Option<&str>) -> Self
-    {
-        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label,
-            contents: &vec![0 as u8; capacity as usize * std::mem::size_of::<u32>()],
-            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST
-        });
-
-        Self { buffer, capacity }
-    }
-
-    pub fn enqueue_set_data<T>(&self, queue: &wgpu::Queue, indices: &[u32])
-        where T : VertexData
-    {
-        assert!(indices.len() as u64 <= self.capacity, "Data is larger than the capacity of this buffer.");
-
-        queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(indices));
-    }
-
-    pub fn slice<B>(&self, bounds: B) -> wgpu::BufferSlice
-        where B : RangeBounds<wgpu::BufferAddress>
-    {
-        self.buffer.slice(bounds)
-    }
 }
 
 pub struct RenderPipelineInfo<'l>
@@ -280,7 +148,7 @@ pub struct GameRenderer
     renderer: Renderer,
     debug_stage: DebugRenderStage,
     mesh_stage: MeshRenderStage,
-    voxel_stage: VoxelRenderStage,
+    voxel_stage: VoxelTerrainRenderStage,
 }
 
 impl GameRenderer
@@ -297,7 +165,7 @@ impl GameRenderer
         let terrain = terrain.lock().unwrap();
         let mesh = terrain.chunks()[0].storage().get_mesh(); 
 
-        let mut voxel_stage = VoxelRenderStage::new(camera.clone(), device.clone(), config);
+        let mut voxel_stage = VoxelTerrainRenderStage::new(camera.clone(), device.clone(), config);
         voxel_stage.add_mesh(&mesh, terrain.info().voxel_size, Vec3::from_value(0));
 
         Self 

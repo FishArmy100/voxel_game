@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, ops::RangeBounds};
 
 use wgpu::util::DeviceExt;
 
@@ -119,5 +119,109 @@ impl<T> GBuffer<T> where T : Byteable
     pub fn as_entire_binding(&self) -> wgpu::BindingResource
     {
         self.handle.as_entire_binding()
+    }
+}
+
+pub trait VertexData : Byteable
+{
+    fn desc() -> wgpu::VertexBufferLayout<'static>;
+}
+
+pub struct VertexBuffer<T> where T : VertexData
+{
+    buffer: GBuffer<T>
+}
+
+impl<T> VertexBuffer<T> where T : VertexData
+{
+    pub fn buffer(&self) -> &GBuffer<T> { &self.buffer }
+    pub fn mut_buffer(&mut self) -> &GBuffer<T> { &mut self.buffer }
+
+    pub fn length(&self) -> u64 { self.buffer.length() }
+    pub fn capacity(&self) -> u64 { self.buffer.capacity() }
+    pub fn size(&self) -> u64 { self.buffer.size() }
+
+    pub fn layout() -> wgpu::VertexBufferLayout<'static> { T::desc() }
+
+    pub fn usage() -> wgpu::BufferUsages
+    {
+        wgpu::BufferUsages::VERTEX      | 
+        wgpu::BufferUsages::COPY_DST    | 
+        wgpu::BufferUsages::COPY_SRC
+    }
+
+    pub fn new(data: &[T], device: &wgpu::Device, label: Option<&str>) -> Self
+    {
+        let buffer = GBuffer::new(data, Self::usage(), device, label);
+        Self 
+        { 
+            buffer 
+        }
+    }
+
+    pub fn with_capacity(capacity: u64, device: &wgpu::Device, label: Option<&str>) -> Self
+    {
+        let buffer = GBuffer::<T>::with_capacity(capacity, Self::usage(), device, label);
+        Self 
+        { 
+            buffer 
+        }
+    }
+
+    pub fn slice(&self, start: u64, end: u64) -> wgpu::BufferSlice { self.buffer.slice(start, end) }
+    pub fn slice_all(&self) -> wgpu::BufferSlice { self.buffer.slice_all() }
+    pub fn as_entire_binding(&self) -> wgpu::BindingResource { self.buffer.as_entire_binding() }
+
+    pub fn enqueue_write(&mut self, data: &[T], queue: &wgpu::Queue)
+    {
+        self.buffer.enqueue_write(data, queue);
+    }
+}
+
+pub struct IndexBuffer 
+{
+    buffer: wgpu::Buffer,
+    capacity: u64
+}
+
+impl IndexBuffer
+{
+    pub fn capacity(&self) -> u64 { self.capacity }
+
+    pub fn new(indices: &[u32], device: &wgpu::Device, label: Option<&str>) -> Self
+    {
+        let capacity = indices.len() as u64;
+        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label,
+            contents: bytemuck::cast_slice(indices),
+            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST
+        });
+
+        Self { buffer, capacity }
+    }
+
+    pub fn new_empty(capacity: u64, device: &wgpu::Device, label: Option<&str>) -> Self
+    {
+        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label,
+            contents: &vec![0 as u8; capacity as usize * std::mem::size_of::<u32>()],
+            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST
+        });
+
+        Self { buffer, capacity }
+    }
+
+    pub fn enqueue_set_data<T>(&self, queue: &wgpu::Queue, indices: &[u32])
+        where T : VertexData
+    {
+        assert!(indices.len() as u64 <= self.capacity, "Data is larger than the capacity of this buffer.");
+
+        queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(indices));
+    }
+
+    pub fn slice<B>(&self, bounds: B) -> wgpu::BufferSlice
+        where B : RangeBounds<wgpu::BufferAddress>
+    {
+        self.buffer.slice(bounds)
     }
 }
