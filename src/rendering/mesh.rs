@@ -3,10 +3,10 @@ use std::cell::RefCell;
 use crate::camera::{Camera, CameraUniform};
 use crate::math::*;
 use crate::colors::Color;
-use crate::rendering::{VertexData, RenderStage, DrawCall};
+use crate::rendering::{RenderStage, DrawCall};
 
-use crate::gpu_utils::bind_group::{BindGroup, Uniform};
-use super::{VertexBuffer, IndexBuffer, construct_render_pipeline, RenderPipelineInfo};
+use crate::gpu_utils::{BindGroup, Uniform, VertexBuffer, VertexData, IndexBuffer};
+use super::{construct_render_pipeline, RenderPipelineInfo};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -39,11 +39,6 @@ impl VertexData for Vertex
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &ATTRIBUTES,
         }
-    }
-
-    fn append_bytes(&self, bytes: &mut Vec<u8>) 
-    {
-        bytes.extend(bytemuck::cast_slice(&[*self]).iter());
     }
 }
 
@@ -150,10 +145,6 @@ impl VertexData for MeshInstance
             attributes: &ATTRIBUTES,
         }
     }
-
-    fn append_bytes(&self, bytes: &mut Vec<u8>) {
-        bytes.extend(bytemuck::cast_slice(&[*self]).iter());
-    }
 }
 
 pub struct MeshRenderStage
@@ -188,7 +179,7 @@ impl MeshRenderStage
             shader_name: Some("Mesh Shader"),
             vs_main: "vs_main",
             fs_main: "fs_main",
-            vertex_buffers: &[vertex_buffer.layout(), instance_buffer.layout()],
+            vertex_buffers: &[&Vertex::desc(), &MeshInstance::desc()],
             bind_groups: &[camera_bind_group.layout()], 
             label: Some("Mesh render pipeline")
         });
@@ -259,7 +250,7 @@ impl<'buffer> DrawCall for MeshDrawCall<'buffer>
         render_pass.set_vertex_buffer(1, self.instance_buffer.slice_all());
         render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
 
-        render_pass.draw_indexed(0..(self.index_buffer.capacity as u32), 0, 0..(self.instance_buffer.capacity() as u32));
+        render_pass.draw_indexed(0..(self.index_buffer.capacity() as u32), 0, 0..(self.instance_buffer.capacity() as u32));
     }
 }
 

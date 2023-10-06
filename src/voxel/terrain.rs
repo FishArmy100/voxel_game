@@ -1,22 +1,23 @@
 use std::collections::VecDeque;
-use std::ops::{RangeBounds, Range};
+use std::ops::RangeBounds;
 use std::sync::{Arc, Mutex, MutexGuard};
-use std::thread::{Thread, JoinHandle, self};
+use std::thread::{JoinHandle, self};
 use std::time::SystemTime;
 
 use cgmath::Array;
 
 use crate::gpu_utils::ShaderInfo;
-use crate::rendering::{VertexBuffer, IndexBuffer};
 use crate::voxel::world_gen::VoxelGenerator;
+use super::terrain_renderer::ChunkRenderData;
 use super::{Voxel, VoxelData, VoxelStorage, VoxelStorageExt};
-use crate::math::{Vec3, Point3D};
+use crate::math::Vec3;
 
 pub struct Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
 {
     data: TStorage,
     index: Vec3<isize>,
     voxels: Arc<Vec<VoxelData>>,
+    render_data: Option<ChunkRenderData>
 }
 
 impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
@@ -24,6 +25,14 @@ impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
     pub fn size(&self) -> usize { self.data.length() } 
     pub fn index(&self) -> Vec3<isize> { self.index }
     pub fn storage(&self) -> &TStorage { &self.data }
+    pub fn render_data(&self) -> Option<&ChunkRenderData> 
+    {  
+        match &self.render_data 
+        {
+            Some(render_data) => Some(render_data),
+            None => None,
+        }
+    }
 
     pub fn new(mut generator: MutexGuard<VoxelGenerator>, index: Vec3<isize>, voxels: Arc<Vec<VoxelData>>, chunk_depth: usize, device: &wgpu::Device) -> Self
     {
@@ -46,11 +55,21 @@ impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
         let elapsed = now.elapsed().unwrap().as_micros() as f32 / 1000.0;
         println!("took {}ms to create and populate voxel storage", elapsed);
 
+        let render_data = if data.is_empty()
+        {
+            None
+        } 
+        else 
+        {
+            Some(ChunkRenderData::new(&data.get_mesh(), device))
+        };
+
         Self 
         {
             data,
             index,
             voxels,
+            render_data
         }
     }
 }
@@ -121,6 +140,14 @@ pub struct TerrainInfo
     pub chunk_depth: usize,
     pub voxel_size: f32,
     pub voxel_types: Arc<Vec<VoxelData>>
+}
+
+impl TerrainInfo
+{
+    pub fn chunk_length(&self) -> usize 
+    {
+        (2 as usize).pow(self.chunk_depth as u32)
+    }
 }
 
 pub struct VoxelTerrain<TStorage> where TStorage : VoxelStorage<Voxel>

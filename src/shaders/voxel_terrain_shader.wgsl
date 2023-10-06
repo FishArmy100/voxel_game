@@ -5,7 +5,8 @@ struct VoxelVertex
 
 struct OutVertex
 {
-    @builtin(position) clip_position: vec4<f32>
+    @builtin(position) clip_position: vec4<f32>,
+    @location(0) color_index: u32
 }
 
 struct VoxelFace
@@ -35,14 +36,17 @@ struct IndexArrayWrapper
 @group(0) @binding(0)
 var<uniform> camera: CameraUniform;
 
-@group(1) @binding(0)
-var<storage> faces: array<VoxelFace>;
-
-@group(1) @binding(1)
+@group(0) @binding(1)
 var<uniform> voxel_size: f32;
 
-@group(1) @binding(2)
-var<uniform> position: vec3<u32>;
+@group(0) @binding(2)
+var<uniform> chunk_position: vec3<i32>;
+
+@group(0) @binding(3)
+var<storage> voxel_colors: array<vec4<f32>>;
+
+@group(1) @binding(0)
+var<storage> faces: array<VoxelFace>;
 
 const voxel_south_face_position_array = array<vec3<f32>, 4>(
     vec3<f32>(0.0, 1.0, 1.0),
@@ -116,16 +120,21 @@ fn vs_main(@builtin(vertex_index) index: u32, vertex: VoxelVertex) -> OutVertex
     let vertex_index = u32(index_array.arr[index % u32(6)]);
     let face = faces[vertex.face_index];
 
-    var vertex_pos = face_array.arr[face.direction][vertex_index] + vec3<f32>(f32(face.pos_x), f32(face.pos_y), f32(face.pos_z));
+    
+    var vertex_pos = face_array.arr[face.direction][vertex_index] + 
+                     vec3<f32>(f32(face.pos_x), f32(face.pos_y), f32(face.pos_z)) + 
+                     vec3<f32>(chunk_position);
+                     
     vertex_pos *= voxel_size;
 
     var out: OutVertex;
     out.clip_position = camera.view_proj * vec4<f32>(vertex_pos, 1.0);
+    out.color_index = face.voxel_id;
     return out;
 }
 
 @fragment
 fn fs_main(vertex: OutVertex) -> @location(0) vec4<f32>
 {
-    return vec4<f32>(0.0, 1.0, 0.0, 1.0);
+    return voxel_colors[vertex.color_index];
 }

@@ -2,6 +2,7 @@ pub mod bind_group;
 pub mod buffer;
 
 use std::borrow::Cow;
+use crate::colors::Color;
 use crate::{utils::Byteable, math::Vec3};
 
 pub use self::bind_group::*;
@@ -37,6 +38,47 @@ impl<T> From<Vec3<T>> for GPUVec3<T> where T : Byteable
     fn from(value: Vec3<T>) -> Self 
     {
         GPUVec3::new(value.x, value.y, value.z)
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct GPUColor
+{
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+    pub a: f32
+}
+
+unsafe impl bytemuck::Pod for GPUColor {}
+unsafe impl bytemuck::Zeroable for GPUColor {}
+
+impl GPUColor
+{
+    pub fn new(r: f32, g: f32, b: f32, a: f32) -> Self
+    {
+        Self 
+        { 
+            r, 
+            g, 
+            b, 
+            a 
+        }
+    }
+}
+
+impl From<Color> for GPUColor
+{
+    fn from(value: Color) -> Self
+    {
+        Self 
+        { 
+            r: value.r, 
+            g: value.g, 
+            b: value.b, 
+            a: value.a 
+        }
     }
 }
 

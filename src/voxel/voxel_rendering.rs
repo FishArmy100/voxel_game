@@ -1,7 +1,5 @@
 use crate::math::Vec3;
-use crate::rendering::{VertexData, VertexBuffer};
-use crate::gpu_utils::{Uniform, Storage, BindGroup, GPUVec3, Entry};
-
+use crate::gpu_utils::{Uniform, Storage, BindGroup, GPUVec3, Entry, VertexBuffer, VertexData};
 pub enum FaceDir
 {
     Up,
@@ -91,11 +89,6 @@ impl VertexData for VoxelVertex
             attributes: &ATTRIBUTES,
         }
     }
-
-    fn append_bytes(&self, bytes: &mut Vec<u8>) 
-    {
-        bytes.extend(bytemuck::cast_slice(&[*self]));
-    }
 }
 
 pub struct VoxelMesh
@@ -134,51 +127,10 @@ impl VoxelMesh
         self.faces.push(VoxelFace::new(location, direction, voxel_id))
     }
 
-    pub fn to_render_data(&self, voxel_size: f32, position: Vec3<u32>, device: &wgpu::Device) -> VoxelRenderData
+    pub fn create_buffers(&self, device: &wgpu::Device) -> (VertexBuffer<VoxelVertex>, Storage<VoxelFace>)
     {
         let vertex_buffer = VertexBuffer::new(&self.vertices, device, Some("Voxel Vertex Buffer"));
         let face_storage = Storage::new(&self.faces, wgpu::ShaderStages::VERTEX, device);
-        let voxel_size_uniform = Uniform::new(voxel_size, wgpu::ShaderStages::VERTEX, device);
-        let position_uniform = Uniform::new(position.into(), wgpu::ShaderStages::VERTEX, device);
-
-        VoxelRenderData::new(vertex_buffer, face_storage, voxel_size_uniform, position_uniform, device)
-    }
-}
-
-pub struct VoxelRenderData
-{
-    vertex_buffer: VertexBuffer<VoxelVertex>,
-    face_storage: Storage<VoxelFace>,
-    voxel_size_uniform: Uniform<f32>,
-    position_uniform: Uniform<GPUVec3<u32>>,
-    
-    bind_group: BindGroup
-}
-
-impl VoxelRenderData
-{
-    pub fn bind_group(&self) -> &BindGroup { &self.bind_group }
-    pub fn vertex_buffer(&self) -> &VertexBuffer<VoxelVertex> { &self.vertex_buffer }
-
-    pub fn new(vertex_buffer: VertexBuffer<VoxelVertex>, face_storage: Storage<VoxelFace>, voxel_size_uniform: Uniform<f32>, position_uniform: Uniform<GPUVec3<u32>>, device: &wgpu::Device) -> Self
-    {
-        let bind_group = BindGroup::new(&[&face_storage, &voxel_size_uniform, &position_uniform], device);
-
-        Self 
-        { 
-            vertex_buffer, 
-            face_storage,
-            voxel_size_uniform,
-            position_uniform,
-            bind_group
-        }
-    }
-
-    pub fn construct_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout
-    {
-        let face_storage_layout = Storage::<VoxelFace>::get_layout_static(wgpu::ShaderStages::VERTEX, 0);
-        let voxel_size_layout = Uniform::<f32>::get_layout_static(wgpu::ShaderStages::VERTEX, 1);
-        let position_layout = Uniform::<GPUVec3<u32>>::get_layout_static(wgpu::ShaderStages::VERTEX, 2);
-        BindGroup::construct_layout_from_entries(&[face_storage_layout, voxel_size_layout, position_layout], device)
+        (vertex_buffer, face_storage)
     }
 }
