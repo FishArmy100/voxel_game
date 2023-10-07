@@ -136,6 +136,9 @@ pub struct Storage<T> where T : Byteable
 
 impl<T> Storage<T> where T : Byteable
 {
+    pub fn length(&self) -> u64 { self.buffer.length() }
+    pub fn capacity(&self) -> u64 { self.buffer.capacity() }
+
     pub fn buffer_usage(is_vertex: bool) -> wgpu::BufferUsages 
     {
         if is_vertex 

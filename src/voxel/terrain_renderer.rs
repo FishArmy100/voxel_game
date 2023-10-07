@@ -20,6 +20,7 @@ pub struct ChunkRenderData
 impl ChunkRenderData
 {
     pub fn bind_group(&self) -> &BindGroup { &self.bind_group }
+    pub fn face_count(&self) -> u64 { self.face_storage.length() }
     pub fn vertex_buffer(&self) -> &VertexBuffer<VoxelVertex> { &self.vertex_buffer }
 
     pub fn new(mesh: &VoxelMesh, device: &wgpu::Device) -> Self
@@ -124,6 +125,10 @@ impl<TStorage> RenderStage for TerrainRenderStage<TStorage> where TStorage : Vox
     {
         let mut draw_calls: Vec<Box<(dyn DrawCall + 's)>> = vec![];
         let terrain = Arc::new(self.terrain.lock().unwrap());
+
+        let face_count: u64 = terrain.chunks().iter().map(|c| c.render_data().map_or(0, |c| c.face_count())).sum();
+        println!("Rendered {} faces.", face_count);
+
         for chunk_index in 0..terrain.chunks().len()
         {
             if terrain.chunks()[chunk_index].render_data().is_none()
