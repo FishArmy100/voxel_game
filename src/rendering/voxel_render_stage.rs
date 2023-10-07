@@ -286,6 +286,10 @@ impl<TStorage> RenderStage for VoxelRenderStage<TStorage> where TStorage : Voxel
     {
         let mut draw_calls: Vec<Box<dyn DrawCall>> = vec![];
         let terrain = Arc::new(self.terrain.lock().unwrap());
+
+        let voxel_faces: u64 = terrain.chunks().iter().map(|c| c.faces_buffer().as_ref().map_or(0, |b| b.capacity())).sum();
+        println!("Rendered {} faces.", voxel_faces);
+
         for chunk_index in 0..terrain.chunks().len()
         {
             if terrain.chunks()[chunk_index].storage().is_empty()
