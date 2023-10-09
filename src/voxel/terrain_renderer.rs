@@ -12,33 +12,19 @@ use super::{terrain::{VoxelTerrain, Chunk}, VoxelStorage, Voxel};
 
 pub struct ChunkRenderData
 {
-    vertex_buffer: VertexBuffer<VoxelVertex>,
-    face_storage: Storage<VoxelFace>,
-    bind_group: BindGroup
+    face_instance_buffer: VertexBuffer<VoxelFace>
 }
 
 impl ChunkRenderData
 {
-    pub fn bind_group(&self) -> &BindGroup { &self.bind_group }
-    pub fn face_count(&self) -> u64 { self.face_storage.length() }
-    pub fn vertex_buffer(&self) -> &VertexBuffer<VoxelVertex> { &self.vertex_buffer }
+    pub fn face_instance_buffer(&self) -> &VertexBuffer<VoxelVertex> { &self.face_instance_buffer }
 
     pub fn new(mesh: &VoxelMesh, device: &wgpu::Device) -> Self
     {
-        let (vertex_buffer, face_storage) = mesh.create_buffers(device);
-        let bind_group = BindGroup::new(&[&face_storage], device);
         Self 
-        { 
-            vertex_buffer, 
-            face_storage, 
-            bind_group 
+        {
+            face_instance_buffer: mesh.create_buffers(device)
         }
-    }
-
-    pub fn get_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout
-    {
-        let face_storage_layout = Storage::<VoxelFace>::get_layout_static(wgpu::ShaderStages::VERTEX, 0);
-        BindGroup::construct_layout_from_entries(&[face_storage_layout], device)
     }
 }
 
