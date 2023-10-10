@@ -33,8 +33,8 @@ impl FaceDir
 pub struct VoxelFace
 {
     position: Vec3<u32>,
-    direction: u32,
     voxel_id: u32,
+    direction: u32,
 }
 
 unsafe impl bytemuck::Pod for VoxelFace {}
@@ -47,8 +47,8 @@ impl VoxelFace
         Self 
         { 
             position,
+            voxel_id: voxel_id as u32,
             direction: direction.to_index(), 
-            voxel_id: voxel_id as u32 
         }
     }
 }
@@ -58,7 +58,7 @@ impl VertexData for VoxelFace
     fn desc() -> wgpu::VertexBufferLayout<'static> 
     {
         const ATTRIBUTES: [wgpu::VertexAttribute; 3] =
-            wgpu::vertex_attr_array![0 => Uint32x3, 1 => Uint32, 2 => Uint32];
+            wgpu::vertex_attr_array![2 => Uint32x3, 3 => Uint32, 4 => Uint32];
 
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
@@ -103,7 +103,7 @@ impl VertexData for VoxelVertex
 }
 
 pub const VOXEL_FACE_VERTICES: [VoxelVertex; 4] = [VoxelVertex::new(0, Color::WHITE), VoxelVertex::new(1, Color::RED), VoxelVertex::new(2, Color::GREEN), VoxelVertex::new(3, Color::BLUE)];
-pub const VOXEL_FACE_TRIANGLES: [u16; 6] = [2, 1, 0, 2, 3, 1];
+pub const VOXEL_FACE_TRIANGLES: [u32; 6] = [2, 1, 0, 2, 3, 1];
 
 pub struct VoxelMesh
 {
