@@ -10,6 +10,9 @@ pub struct Color
     pub a: f32,
 }
 
+unsafe impl bytemuck::Pod for Color {}
+unsafe impl bytemuck::Zeroable for Color {}
+
 impl Color
 {
     pub const RED: Color = Color   { r: 1.0, g: 0.0, b: 0.0, a: 1.0 };

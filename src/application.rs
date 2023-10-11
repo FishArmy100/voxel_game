@@ -6,7 +6,7 @@ use std::{time::SystemTime, sync::Arc};
 use winit::event::{WindowEvent, Event, KeyboardInput, VirtualKeyCode, ElementState, MouseButton, MouseScrollDelta, DeviceEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 
-use crate::gpu::ShaderInfo;
+use crate::gpu_utils::ShaderInfo;
 use crate::rendering::GameRenderer;
 use crate::voxel::brick_map::{BrickMap, SizedBrickMap};
 use crate::voxel::octree::Octree;

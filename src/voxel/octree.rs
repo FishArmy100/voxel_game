@@ -1,6 +1,6 @@
 use cgmath::{Array, Zero};
 
-use crate::{math::Vec3, utils::{self, Array3D}, rendering::voxel_render_stage::{VoxelFaceData, VoxelFace}};
+use crate::{math::Vec3, utils::{self, Array3D}};
 
 use super::{VoxelStorage, IVoxel};
 
@@ -321,32 +321,5 @@ fn fill_node_from_grid<T, A, S>(node: &mut Node<T>, grid: &Array3D<A>, sampler: 
         };
 
         node.data = new_data;
-    }
-}
-
-fn stupid_get_faces<T>(node: &Node<T>, faces: &mut Vec<VoxelFaceData>, octree_position: Vec3<isize>) where T : IVoxel + Copy
-{
-    match &node.data 
-    {
-        NodeType::Empty => {},
-        NodeType::Leaf(leaf) => 
-        {
-            let (node_pos, scale) = node.bounds.get_bounds_location();
-            let face_pos: Vec3<i32> = (node_pos.cast().unwrap() + octree_position).cast().unwrap();
-
-            faces.push(VoxelFaceData::new(face_pos, leaf.id() as u32, VoxelFace::Up.to_index() as u32, scale as u32));
-            faces.push(VoxelFaceData::new(face_pos, leaf.id() as u32, VoxelFace::Down.to_index() as u32, scale as u32));
-            faces.push(VoxelFaceData::new(face_pos, leaf.id() as u32, VoxelFace::East.to_index() as u32, scale as u32));
-            faces.push(VoxelFaceData::new(face_pos, leaf.id() as u32, VoxelFace::West.to_index() as u32, scale as u32));
-            faces.push(VoxelFaceData::new(face_pos, leaf.id() as u32, VoxelFace::North.to_index() as u32, scale as u32));
-            faces.push(VoxelFaceData::new(face_pos, leaf.id() as u32, VoxelFace::South.to_index() as u32, scale as u32));
-        },
-        NodeType::Branches(branches) => 
-        {
-            for sub_node in branches.iter()
-            {
-                stupid_get_faces(sub_node, faces, octree_position)
-            }
-        },
     }
 }
