@@ -35,7 +35,7 @@ pub struct TerrainRenderStage<TStorage> where TStorage : VoxelStorage<Voxel>
     camera: Camera,
     camera_uniform: RefCell<Uniform<CameraUniform>>,
     _voxel_size_uniform: Uniform<f32>,
-    _voxel_color_storage: Storage<Color>,
+    _voxel_color_storage: Uniform<[Color; 4]>,
     chunk_position_uniform: RefCell<Uniform<GPUVec3<i32>>>,
 
     vertex_buffer: VertexBuffer<VoxelVertex>,
@@ -61,13 +61,13 @@ impl<TStorage> TerrainRenderStage<TStorage> where TStorage : VoxelStorage<Voxel>
 
         let chunk_position_uniform = Uniform::new(GPUVec3::new(0, 0, 0), wgpu::ShaderStages::VERTEX, &device);
 
-        let voxel_colors: Vec<Color> = terrain_mutex
+        let voxel_colors: [Color; 4] = terrain_mutex
             .info().voxel_types
             .iter()
             .map(|v| v.color.into())
-            .collect();
+            .collect::<Vec<_>>().try_into().unwrap();
 
-        let voxel_color_storage = Storage::new(&voxel_colors, wgpu::ShaderStages::VERTEX, &device);
+        let voxel_color_storage = Uniform::new(voxel_colors, wgpu::ShaderStages::VERTEX, &device);
 
         let vertex_buffer = VertexBuffer::new(&VOXEL_FACE_VERTICES, &device, Some("Voxel Vertex Buffer"));
         let index_buffer = IndexBuffer::new(&VOXEL_FACE_TRIANGLES, &device, Some("Voxel Index Buffer"));
