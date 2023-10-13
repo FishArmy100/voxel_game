@@ -125,6 +125,8 @@ pub fn construct_render_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceCo
     render_pipeline
 }
 
+const TEST_SHADER: &[u8] = include_bytes!(env!("test_shader.spv"));
+
 pub struct TestRenderStage
 {
 
