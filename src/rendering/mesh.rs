@@ -2,7 +2,6 @@ use std::cell::RefCell;
 
 use crate::camera::{Camera, CameraUniform};
 use crate::math::*;
-use crate::colors::Color;
 use crate::rendering::{RenderStage, DrawCall};
 
 use crate::gpu_utils::{BindGroup, Uniform, VertexBuffer, VertexData, IndexBuffer};

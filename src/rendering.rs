@@ -2,13 +2,14 @@ pub mod renderer;
 pub mod debug_rendering;
 pub mod mesh;
 
-use std::{sync::{Arc, Mutex}, marker::PhantomData, ops::RangeBounds};
+use std::sync::{Arc, Mutex};
 
-use crate::{math::{Vec3, Mat4x4, Point3D}, voxel::{terrain::VoxelTerrain, VoxelStorage, Voxel, terrain_renderer::TerrainRenderStage, brick_map::{BrickMap, SizedBrickMap}}, camera::Camera, colors::Color, texture::Texture, utils::Byteable, gpu_utils::bind_group::BindGroup};
-use cgmath::Array;
-use wgpu::{util::DeviceExt, VertexBufferLayout, BindGroupLayout};
+use crate::{math::*, voxel::{VoxelStorage, Voxel, terrain_renderer::TerrainRenderStage, terrain::VoxelTerrain}, camera::Camera};
+use crate::gpu_utils::*;
 
-use self::{renderer::Renderer, debug_rendering::{DebugRenderStage, DebugLine, DebugObject}, mesh::{MeshRenderStage, Mesh, MeshInstance}};
+use wgpu::{VertexBufferLayout, BindGroupLayout};
+
+use self::{renderer::Renderer, debug_rendering::{DebugRenderStage, DebugObject}, mesh::{MeshRenderStage, Mesh, MeshInstance}};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -122,6 +123,16 @@ pub fn construct_render_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceCo
     });
 
     render_pipeline
+}
+
+pub struct TestRenderStage
+{
+
+}
+
+pub struct TestDrawCall
+{
+
 }
 
 pub struct GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Send + 'static

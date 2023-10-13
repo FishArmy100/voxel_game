@@ -1,4 +1,5 @@
 use std::ops::{IndexMut, Index};
+use std::time::SystemTime;
 
 use crate::math::Vec3; 
 
@@ -141,4 +142,14 @@ pub fn replace_option<T>(value: &mut Option<T>) -> T
 
 pub unsafe trait Byteable : bytemuck::Pod + bytemuck::Zeroable {}
 unsafe impl<T> Byteable for T where T : bytemuck::Pod + bytemuck::Zeroable {}
+
+pub fn time_call<F, R>(f: F, name: &str) -> R
+    where F : FnOnce() -> R
+{
+    let current_time = SystemTime::now();
+    let r = f();
+    let time = current_time.elapsed().unwrap().as_secs_f32() * 1000.0;
+    println!("test '{}' took {}ms", name, time);
+    r
+}
 

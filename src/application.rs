@@ -6,14 +6,13 @@ use std::{time::SystemTime, sync::Arc};
 use winit::event::{WindowEvent, Event, KeyboardInput, VirtualKeyCode, ElementState, MouseButton, MouseScrollDelta, DeviceEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 
-use crate::gpu_utils::ShaderInfo;
+use crate::gpu_utils::{ShaderInfo, ShaderSource};
 use crate::rendering::GameRenderer;
 use crate::voxel::brick_map::{BrickMap, SizedBrickMap};
 use crate::voxel::octree::Octree;
 use crate::voxel::{Voxel, VoxelData, VoxelStorage};
 
-use crate::colors::Color;
-use crate::math::{Vec3, Point3D, Vec2};
+use crate::math::{Vec3, Color};
 use crate::camera::{Camera, CameraEntity};
 use crate::voxel::terrain::{VoxelTerrain, TerrainInfo};
 
@@ -266,7 +265,7 @@ fn generate_terrain<TStorage>(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>
 
     let shader_info = ShaderInfo {
         entry_point: "main",
-        source: include_str!("shaders/test_compute.wgsl")
+        source: ShaderSource::WGSL(include_str!("shaders/test_compute.wgsl"))
     };
 
     let terrain = Arc::new(Mutex::new(VoxelTerrain::new(info, shader_info, device.clone(), queue))); 

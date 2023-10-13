@@ -26,10 +26,7 @@ impl VoxelGenerator
     pub fn new(chunk_size: Vec3<u32>, device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>, shader_info: ShaderInfo) -> Self 
     {
         // Loads the shader from WGSL
-        let cs_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: None,
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(shader_info.source)),
-        });
+        let cs_module = shader_info.generate_shader(&device, None);
 
         let length = (chunk_size.x * chunk_size.y * chunk_size.z) as u64;
 

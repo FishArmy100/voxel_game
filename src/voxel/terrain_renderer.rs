@@ -4,7 +4,7 @@ use std::sync::{Mutex, MutexGuard};
 
 use cgmath::Array;
 
-use crate::{math::Vec3, rendering::{construct_render_pipeline, RenderPipelineInfo, DrawCall, RenderStage}, camera::{Camera, CameraUniform}, colors::Color};
+use crate::{math::{Vec3, Color}, rendering::{construct_render_pipeline, RenderPipelineInfo, DrawCall, RenderStage}, camera::{Camera, CameraUniform}};
 use crate::gpu_utils::{Storage, BindGroup, Uniform, VertexBuffer, VertexData, GPUVec3, Entry, GBuffer, IndexBuffer};
 use crate::voxel::voxel_rendering::*;
 

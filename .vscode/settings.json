@@ -16,6 +16,7 @@
         "repr",
         "rustfmt",
         "Seedable",
+        "Spir",
         "srgb",
         "swapchain",
         "unclipped",

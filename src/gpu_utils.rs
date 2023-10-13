@@ -1,12 +1,13 @@
 pub mod bind_group;
 pub mod buffer;
+pub mod texture;
 
 use std::borrow::Cow;
-use crate::colors::Color;
 use crate::{utils::Byteable, math::Vec3};
 
 pub use self::bind_group::*;
 pub use self::buffer::*;
+pub use self::texture::*;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -41,19 +42,42 @@ impl<T> From<Vec3<T>> for GPUVec3<T> where T : Byteable
     }
 }
 
+pub enum ShaderSource<'a>
+{
+    WGSL(&'a str),
+    SpirV(&'a [u8])
+}
+
 pub struct ShaderInfo<'a>
 {
     pub entry_point: &'a str,
-    pub source: &'a str
+    pub source: ShaderSource<'a>
 }
 
 impl<'a> ShaderInfo<'a>
 {
     pub fn generate_shader(&self, device: &wgpu::Device, label: Option<&str>) -> wgpu::ShaderModule
     {
-        device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label,
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(self.source)),
-        })
+        match &self.source
+        {
+            ShaderSource::WGSL(src) => 
+            {
+                device.create_shader_module(wgpu::ShaderModuleDescriptor {
+                    label,
+                    source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(src)),
+                })
+            },
+            ShaderSource::SpirV(bytes) => 
+            {
+                let spirv = wgpu::util::make_spirv_raw(bytes);
+
+                device.create_shader_module(wgpu::ShaderModuleDescriptor {
+                    label,
+                    source: wgpu::ShaderSource::SpirV(spirv),
+                })
+            },
+        }
+
+        
     }
 }

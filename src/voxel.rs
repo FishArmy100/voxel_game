@@ -5,8 +5,7 @@ pub mod brick_map;
 pub mod terrain_renderer;
 pub mod voxel_rendering;
 
-use crate::colors::Color;
-use crate::math::Vec3;
+use crate::math::{Vec3, Color};
 use crate::utils::Array3D;
 
 use self::voxel_rendering::{VoxelMesh, FaceDir};

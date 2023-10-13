@@ -1,3 +1,6 @@
+[workspace]
+members = ["src/shaders/test_shader"]
+
 [package]
 name = "voxel_game"
 version = "0.1.0"
@@ -12,5 +15,17 @@ env_logger = "0.10.0"
 futures-intrusive = "0.5.0"
 noise = "0.8.2"
 pollster = "0.3.0"
-wgpu = "0.17.0"
+wgpu = {version = "0.17.0", features = ["spirv"]}
 winit = "0.28.6"
+
+[build-dependencies]
+spirv-builder = "0.9"
+
+# Compile build-dependencies in release mode with
+# the same settings as regular dependencies.
+[profile.release.build-override]
+opt-level = 3
+codegen-units = 16
+
+[profile.dev.build-override]
+opt-level = 3
