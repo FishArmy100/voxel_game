@@ -4,7 +4,7 @@ mod application;
 mod rendering;
 mod voxel;
 mod utils;
-pub mod gpu_utils;
+mod gpu_utils;
 
 
 fn main() 

@@ -48,27 +48,21 @@ pub trait DrawCall
     fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>);
 }
 
-pub struct RenderPipelineInfo<'l>
+pub struct RenderPipelineInfo<'a>
 {
-    pub shader_source: &'l str,
-    pub shader_name: Option<&'l str>,
+    pub shader: &'a wgpu::ShaderModule,
 
-    pub vs_main: &'l str,
-    pub fs_main: &'l str,
+    pub vs_main: &'a str,
+    pub fs_main: &'a str,
 
-    pub vertex_buffers: &'l [&'l VertexBufferLayout<'l>],
-    pub bind_groups: &'l [&'l BindGroupLayout],
+    pub vertex_buffers: &'a [&'a VertexBufferLayout<'a>],
+    pub bind_groups: &'a [&'a BindGroupLayout],
 
-    pub label: Option<&'l str>
+    pub label: Option<&'a str>
 }
 
 pub fn construct_render_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, info: &RenderPipelineInfo) -> wgpu::RenderPipeline
 {
-    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("Shader"),
-        source: wgpu::ShaderSource::Wgsl(info.shader_source.into()),
-    });
-
     let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: None,
         bind_group_layouts: &info.bind_groups,
@@ -79,7 +73,7 @@ pub fn construct_render_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceCo
         label: info.label,
         layout: Some(&render_pipeline_layout),
         vertex: wgpu::VertexState {
-            module: &shader,
+            module: &info.shader,
             entry_point: info.vs_main,
             buffers: &info.vertex_buffers.iter()
                 .map(|b| (*b).clone())
@@ -87,7 +81,7 @@ pub fn construct_render_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceCo
         },
         
         fragment: Some(wgpu::FragmentState {
-            module: &shader,
+            module: &info.shader,
             entry_point: info.fs_main,
             targets: &[Some(wgpu::ColorTargetState {
                 format: config.format,
@@ -127,22 +121,73 @@ pub fn construct_render_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceCo
 
 const TEST_SHADER: &[u8] = include_bytes!(env!("test_shader.spv"));
 
-pub struct TestRenderStage
+struct TestRenderStage
 {
-
+    pipeline: wgpu::RenderPipeline
 }
 
-pub struct TestDrawCall
+impl TestRenderStage
 {
+    fn new(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Self 
+    {
+        println!("Shader byte length: {}", TEST_SHADER.len());
 
+        let shader = &device.create_shader_module(wgpu::include_spirv!(env!("test_shader.spv")));
+        
+        let pipeline = construct_render_pipeline(device, config, &RenderPipelineInfo 
+        { 
+            shader, 
+            vs_main: "vs_main", 
+            fs_main: "fs_main", 
+            vertex_buffers: &[], 
+            bind_groups: &[], 
+            label: Some("Test Render Pipeline") 
+        });
+        
+        Self 
+        {
+            pipeline
+        }
+    }
 }
 
+impl RenderStage for TestRenderStage
+{
+    fn render_pipeline(&self) -> &wgpu::RenderPipeline 
+    {
+        &self.pipeline
+    }
+    
+    fn get_draw_calls<'s>(&'s self) -> Vec<Box<(dyn DrawCall + 's)>> 
+    {
+        vec![Box::new(TestDrawCall())]
+    }
+}
+
+struct TestDrawCall();
+
+impl DrawCall for TestDrawCall
+{
+    fn bind_groups(&self) -> Box<[&BindGroup]> 
+    {
+        Box::new([])
+    }
+    
+    fn on_pre_draw(&self, _queue: &wgpu::Queue) {}
+    
+    fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>) 
+    {
+        render_pass.draw(0..3, 0..1);
+    }
+}
 pub struct GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Send + 'static
 {
     renderer: Renderer,
     debug_stage: DebugRenderStage,
     mesh_stage: MeshRenderStage,
     terrain_stage: TerrainRenderStage<TStorage>,
+
+    test_stage: TestRenderStage
 }
 
 impl<TStorage> GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Send + 'static
@@ -163,6 +208,7 @@ impl<TStorage> GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Sen
             debug_stage, 
             mesh_stage, 
             terrain_stage,
+            test_stage: TestRenderStage::new(&device, config)
         }
     }
 
@@ -175,7 +221,7 @@ impl<TStorage> GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Sen
 
     pub fn render(&self) -> Result<(), wgpu::SurfaceError>
     {
-        self.renderer.render(&[&self.terrain_stage, &self.debug_stage])
+        self.renderer.render(&[&self.test_stage])
     }
 
     pub fn resize(&mut self, config: &wgpu::SurfaceConfiguration)

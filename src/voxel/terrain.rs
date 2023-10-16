@@ -6,7 +6,6 @@ use std::time::SystemTime;
 
 use cgmath::Array;
 
-use crate::gpu_utils::ShaderInfo;
 use crate::voxel::world_gen::VoxelGenerator;
 use super::terrain_renderer::ChunkRenderData;
 use super::{Voxel, VoxelData, VoxelStorage, VoxelStorageExt};
@@ -165,11 +164,11 @@ impl<TStorage> VoxelTerrain<TStorage> where TStorage : VoxelStorage<Voxel> + Sen
     pub fn chunks(&self) -> &[Chunk<TStorage>] { &self.chunks }
     pub fn info(&self) -> &TerrainInfo { &self.info }
 
-    pub fn new(info: TerrainInfo, shader_info: ShaderInfo, device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>) -> Self
+    pub fn new(info: TerrainInfo, device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>) -> Self
     {
         let chunk_size = Vec3::from_value((2 as u32).pow(info.chunk_depth as u32));
 
-        let generator = VoxelGenerator::new(chunk_size, device.clone(), queue, shader_info);
+        let generator = VoxelGenerator::new(chunk_size, device.clone(), queue);
         let voxel_types = info.voxel_types.clone();
         let chunk_depth = info.chunk_depth;
         Self 

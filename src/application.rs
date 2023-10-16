@@ -6,7 +6,6 @@ use std::{time::SystemTime, sync::Arc};
 use winit::event::{WindowEvent, Event, KeyboardInput, VirtualKeyCode, ElementState, MouseButton, MouseScrollDelta, DeviceEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 
-use crate::gpu_utils::{ShaderInfo, ShaderSource};
 use crate::rendering::GameRenderer;
 use crate::voxel::brick_map::{BrickMap, SizedBrickMap};
 use crate::voxel::octree::Octree;
@@ -85,10 +84,12 @@ impl AppState
 
         println!("Name: {:?}\nBackend: {:?}", adapter.get_info().name, adapter.get_info().backend);
 
+        let features = wgpu::Features::empty();
+
         let (device, queue) = adapter.request_device( 
             &wgpu::DeviceDescriptor
             {
-                features: wgpu::Features::empty(),
+                features,
                 limits: wgpu::Limits::default(),
                 label: None
             }, None).await.unwrap();
@@ -263,12 +264,7 @@ fn generate_terrain<TStorage>(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>
         voxel_types: Arc::new(voxel_types),
     };
 
-    let shader_info = ShaderInfo {
-        entry_point: "main",
-        source: ShaderSource::WGSL(include_str!("shaders/test_compute.wgsl"))
-    };
-
-    let terrain = Arc::new(Mutex::new(VoxelTerrain::new(info, shader_info, device.clone(), queue))); 
+    let terrain = Arc::new(Mutex::new(VoxelTerrain::new(info, device.clone(), queue))); 
     terrain.lock().unwrap().generate_chunks([-2..=2, 0..=1, -2..=2]);
 
     terrain

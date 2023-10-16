@@ -1,10 +1,9 @@
-use std::{borrow::Cow, sync::Arc};
-use wgpu::{PipelineLayoutDescriptor, BindGroupLayoutDescriptor, BindGroupLayoutEntry};
+use std::sync::Arc;
+use wgpu::PipelineLayoutDescriptor;
 use crate::math::Vec3;
-use crate::gpu_utils::{GPUVec3, ShaderInfo};
+use crate::gpu_utils::GPUVec3;
 use crate::gpu_utils::bind_group::{MappedBuffer, Storage, Uniform, BindGroup, Entry};
 use crate::utils::Array3D;
-use crate::gpu_utils::GBuffer;
 
 pub struct VoxelGenerator
 {
@@ -23,10 +22,9 @@ pub struct VoxelGenerator
 
 impl VoxelGenerator
 {
-    pub fn new(chunk_size: Vec3<u32>, device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>, shader_info: ShaderInfo) -> Self 
+    pub fn new(chunk_size: Vec3<u32>, device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>) -> Self 
     {
-        // Loads the shader from WGSL
-        let cs_module = shader_info.generate_shader(&device, None);
+        let cs_module = device.create_shader_module(wgpu::include_wgsl!("../shaders/test_compute.wgsl"));
 
         let length = (chunk_size.x * chunk_size.y * chunk_size.z) as u64;
 
@@ -53,7 +51,7 @@ impl VoxelGenerator
             label: None,
             layout: Some(&compute_pipeline_layout),
             module: &cs_module,
-            entry_point: shader_info.entry_point,
+            entry_point: "main",
         });
 
         Self 

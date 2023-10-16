@@ -2,13 +2,11 @@ use std::{sync::Arc, cell::RefCell};
 
 use std::sync::{Mutex, MutexGuard};
 
-use cgmath::Array;
-
 use crate::{math::{Vec3, Color}, rendering::{construct_render_pipeline, RenderPipelineInfo, DrawCall, RenderStage}, camera::{Camera, CameraUniform}};
-use crate::gpu_utils::{Storage, BindGroup, Uniform, VertexBuffer, VertexData, GPUVec3, Entry, GBuffer, IndexBuffer};
+use crate::gpu_utils::{BindGroup, Uniform, VertexBuffer, VertexData, GPUVec3, IndexBuffer};
 use crate::voxel::voxel_rendering::*;
 
-use super::{terrain::{VoxelTerrain, Chunk}, VoxelStorage, Voxel};
+use super::{terrain::VoxelTerrain, VoxelStorage, Voxel};
 
 pub struct ChunkRenderData
 {
@@ -74,9 +72,9 @@ impl<TStorage> TerrainRenderStage<TStorage> where TStorage : VoxelStorage<Voxel>
 
         let terrain_bind_group = BindGroup::new(&[&camera_uniform, &voxel_size_uniform, &chunk_position_uniform, &voxel_color_storage], &device);
 
+        let shader = &device.create_shader_module(wgpu::include_wgsl!("../shaders/voxel_terrain_shader.wgsl"));
         let render_pipeline = construct_render_pipeline(&device, config, &RenderPipelineInfo {
-            shader_source: include_str!("../shaders/voxel_terrain_shader.wgsl"),
-            shader_name: Some("Voxel Shader"),
+            shader,
             vs_main: "vs_main",
             fs_main: "fs_main",
             vertex_buffers: &[&VoxelFace::desc(), &VoxelVertex::desc()],
