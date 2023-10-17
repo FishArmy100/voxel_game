@@ -271,7 +271,7 @@ impl<TStorage> GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Sen
 
     pub fn render(&self) -> Result<(), wgpu::SurfaceError>
     {
-        self.renderer.render(&[&self.test_stage])
+        self.renderer.render(&[&self.terrain_stage])
     }
 
     pub fn resize(&mut self, config: &wgpu::SurfaceConfiguration)

@@ -70,6 +70,11 @@ pub struct Uniform<T> where T : Byteable
 
 impl<T> Uniform<T> where T : Byteable
 {
+    pub fn size(&self) -> u64
+    {
+        self.buffer.size()
+    }
+
     pub fn new(value: T, visibility: wgpu::ShaderStages, device: &wgpu::Device) -> Self 
     {
         let buffer_usage = wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST;
