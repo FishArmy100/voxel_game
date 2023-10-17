@@ -1,5 +1,8 @@
 [workspace]
-members = ["src/shaders/test_shader"]
+members = [
+    "src/shaders/test_shader",
+    "src/shaders/terrain_shader"
+]
 
 [package]
 name = "voxel_game"

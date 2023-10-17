@@ -21,6 +21,7 @@
         "swapchain",
         "unclipped",
         "unmap",
+        "uvec",
         "WASD",
         "webgl",
         "wgpu",

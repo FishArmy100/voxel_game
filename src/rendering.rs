@@ -121,8 +121,36 @@ pub fn construct_render_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceCo
 
 const TEST_SHADER: &[u8] = include_bytes!(env!("test_shader.spv"));
 
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+struct VertexInput
+{
+    color: Vec4<f32>,
+    intensity: f32
+}
+
+unsafe impl bytemuck::Zeroable for VertexInput {}
+unsafe impl bytemuck::Pod for VertexInput {}
+
+impl VertexData for VertexInput
+{
+    fn desc() -> wgpu::VertexBufferLayout<'static> 
+    {
+        const ATTRIBUTES: [wgpu::VertexAttribute; 2] =
+            wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32];
+
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &ATTRIBUTES,
+        }
+    }
+}
+
 struct TestRenderStage
 {
+    bind_group: BindGroup,
+    vertex_buffer: VertexBuffer<VertexInput>,
     pipeline: wgpu::RenderPipeline
 }
 
@@ -130,7 +158,16 @@ impl TestRenderStage
 {
     fn new(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Self 
     {
-        println!("Shader byte length: {}", TEST_SHADER.len());
+        let color_uniform = Uniform::new(Color::new(0.5, 0.2, 0.4, 1.0), wgpu::ShaderStages::FRAGMENT, device);
+        let bind_group = BindGroup::new(&[&color_uniform], device);
+        let vertices = 
+        [
+            VertexInput { color: Color::RED.rgba(), intensity: 1.0 },
+            VertexInput { color: Color::BLUE.rgba(), intensity: 1.0 },
+            VertexInput { color: Color::GREEN.rgba(), intensity: 1.0 },
+        ];
+
+        let vertex_buffer = VertexBuffer::new(&vertices, device, Some("Test Vertex Buffer"));
 
         let shader = &device.create_shader_module(wgpu::include_spirv!(env!("test_shader.spv")));
         
@@ -139,14 +176,16 @@ impl TestRenderStage
             shader, 
             vs_main: "vs_main", 
             fs_main: "fs_main", 
-            vertex_buffers: &[], 
-            bind_groups: &[], 
+            vertex_buffers: &[&VertexInput::desc()], 
+            bind_groups: &[bind_group.layout()], 
             label: Some("Test Render Pipeline") 
         });
         
         Self 
         {
-            pipeline
+            pipeline,
+            bind_group,
+            vertex_buffer
         }
     }
 }
@@ -160,23 +199,34 @@ impl RenderStage for TestRenderStage
     
     fn get_draw_calls<'s>(&'s self) -> Vec<Box<(dyn DrawCall + 's)>> 
     {
-        vec![Box::new(TestDrawCall())]
+        let draw_call = TestDrawCall
+        {
+            vertex_buffer: &self.vertex_buffer,
+            bind_group: &self.bind_group
+        };
+
+        vec![Box::new(draw_call)]
     }
 }
 
-struct TestDrawCall();
+struct TestDrawCall<'a>
+{
+    vertex_buffer: &'a VertexBuffer<VertexInput>,
+    bind_group: &'a BindGroup
+}
 
-impl DrawCall for TestDrawCall
+impl<'a> DrawCall for TestDrawCall<'a>
 {
     fn bind_groups(&self) -> Box<[&BindGroup]> 
     {
-        Box::new([])
+        Box::new([self.bind_group])
     }
     
     fn on_pre_draw(&self, _queue: &wgpu::Queue) {}
     
     fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>) 
     {
+        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice_all());
         render_pass.draw(0..3, 0..1);
     }
 }
