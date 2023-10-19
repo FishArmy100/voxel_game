@@ -1,5 +1,4 @@
-use crate::colors::Color;
-use crate::math::Vec3;
+use crate::math::{Vec3, Color};
 use crate::gpu_utils::{Uniform, Storage, BindGroup, GPUVec3, Entry, VertexBuffer, VertexData};
 
 pub enum FaceDir

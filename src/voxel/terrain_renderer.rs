@@ -2,13 +2,11 @@ use std::{sync::Arc, cell::RefCell};
 
 use std::sync::{Mutex, MutexGuard};
 
-use cgmath::Array;
-
-use crate::{math::Vec3, rendering::{construct_render_pipeline, RenderPipelineInfo, DrawCall, RenderStage}, camera::{Camera, CameraUniform}, colors::Color};
-use crate::gpu_utils::{Storage, BindGroup, Uniform, VertexBuffer, VertexData, GPUVec3, Entry, GBuffer, IndexBuffer};
+use crate::{math::{Vec3, Color}, rendering::{construct_render_pipeline, RenderPipelineInfo, DrawCall, RenderStage}, camera::{Camera, CameraUniform}};
+use crate::gpu_utils::{BindGroup, Uniform, VertexBuffer, VertexData, GPUVec3, IndexBuffer, GPUVec4};
 use crate::voxel::voxel_rendering::*;
 
-use super::{terrain::{VoxelTerrain, Chunk}, VoxelStorage, Voxel};
+use super::{terrain::VoxelTerrain, VoxelStorage, Voxel};
 
 pub struct ChunkRenderData
 {
@@ -36,7 +34,7 @@ pub struct TerrainRenderStage<TStorage> where TStorage : VoxelStorage<Voxel>
     camera_uniform: RefCell<Uniform<CameraUniform>>,
     _voxel_size_uniform: Uniform<f32>,
     _voxel_color_storage: Uniform<[Color; 4]>,
-    chunk_position_uniform: RefCell<Uniform<GPUVec3<i32>>>,
+    chunk_position_uniform: RefCell<Uniform<GPUVec4<i32>>>,
 
     vertex_buffer: VertexBuffer<VoxelVertex>,
     index_buffer: IndexBuffer,
@@ -59,7 +57,7 @@ impl<TStorage> TerrainRenderStage<TStorage> where TStorage : VoxelStorage<Voxel>
         let camera_uniform = Uniform::new(camera_uniform_data, wgpu::ShaderStages::VERTEX, &device);
         let voxel_size_uniform = Uniform::new(terrain_mutex.info().voxel_size, wgpu::ShaderStages::VERTEX, &device);
 
-        let chunk_position_uniform = Uniform::new(GPUVec3::new(0, 0, 0), wgpu::ShaderStages::VERTEX, &device);
+        let chunk_position_uniform = Uniform::new(GPUVec4::new(0, 0, 0, 0), wgpu::ShaderStages::VERTEX, &device);
 
         let voxel_colors: [Color; 4] = terrain_mutex
             .info().voxel_types
@@ -74,9 +72,14 @@ impl<TStorage> TerrainRenderStage<TStorage> where TStorage : VoxelStorage<Voxel>
 
         let terrain_bind_group = BindGroup::new(&[&camera_uniform, &voxel_size_uniform, &chunk_position_uniform, &voxel_color_storage], &device);
 
+        println!("Camera uniform size {}", camera_uniform.size());
+        println!("Voxel size uniform size {}", voxel_size_uniform.size());
+        println!("Chunk position uniform size {}", chunk_position_uniform.size());
+        println!("Voxel color uniform size {}", voxel_color_storage.size());
+
+        let shader = &device.create_shader_module(wgpu::include_spirv!(env!("terrain_shader.spv")));
         let render_pipeline = construct_render_pipeline(&device, config, &RenderPipelineInfo {
-            shader_source: include_str!("../shaders/voxel_terrain_shader.wgsl"),
-            shader_name: Some("Voxel Shader"),
+            shader,
             vs_main: "vs_main",
             fs_main: "fs_main",
             vertex_buffers: &[&VoxelFace::desc(), &VoxelVertex::desc()],
@@ -157,7 +160,7 @@ pub struct TerrainDrawCall<'a, TStorage> where TStorage : VoxelStorage<Voxel> + 
 
     camera: Camera,
     camera_uniform: &'a RefCell<Uniform<CameraUniform>>,
-    chunk_position_uniform: &'a RefCell<Uniform<GPUVec3<i32>>>,
+    chunk_position_uniform: &'a RefCell<Uniform<GPUVec4<i32>>>,
 
     terrain: Arc<MutexGuard<'a, VoxelTerrain<TStorage>>>,
     chunk_index: usize
@@ -178,7 +181,7 @@ impl<'a, TStorage> DrawCall for TerrainDrawCall<'a, TStorage>
         self.camera_uniform.borrow_mut().enqueue_write(data, queue);
 
         let chunk_index: Vec3<i32> = self.terrain.chunks()[self.chunk_index].index().cast().unwrap();
-        let chunk_position = chunk_index * self.terrain.info().chunk_length() as i32;
+        let chunk_position = (chunk_index * self.terrain.info().chunk_length() as i32).extend(0);
         self.chunk_position_uniform.borrow_mut().enqueue_write(chunk_position.into(), queue);
     }
 

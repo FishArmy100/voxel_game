@@ -32,7 +32,7 @@ var<uniform> chunk_position: vec3<i32>;
 @group(0) @binding(3)
 var<uniform> voxel_colors: array<vec4<f32>, 4>;
 
-const voxel_south_face_position_array = array<vec3<f32>, 4>(
+const voxel_south_face_position_array = array<vec3<f32>, 4>(    
     vec3<f32>(0.0, 1.0, 1.0),
     vec3<f32>(1.0, 1.0, 1.0),
     vec3<f32>(0.0, 0.0, 1.0),

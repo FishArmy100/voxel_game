@@ -7,9 +7,8 @@ use wgpu::util::DeviceExt;
 use crate::gpu_utils::bind_group::{Uniform, BindGroup};
 use super::{RenderStage, DrawCall};
 use crate::camera::{Camera, CameraUniform};
-use crate::math::Vec3;
-use crate::colors::Color;
-use crate::texture::Texture;
+use crate::math::{Vec3, Color};
+use crate::gpu_utils::texture::Texture;
 
 #[derive(Debug, Clone, Copy)]
 pub struct DebugLine

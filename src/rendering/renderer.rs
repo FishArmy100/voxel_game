@@ -1,8 +1,7 @@
 use std::sync::Arc;
-use crate::application::WindowSize;
-use crate::texture::Texture; 
-use crate::colors::Color;
+use crate::math::Color;
 use super::RenderStage;
+use crate::gpu_utils::texture::Texture;
 
 pub struct Renderer
 {

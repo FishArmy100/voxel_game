@@ -2,7 +2,6 @@ use std::cell::RefCell;
 
 use crate::camera::{Camera, CameraUniform};
 use crate::math::*;
-use crate::colors::Color;
 use crate::rendering::{RenderStage, DrawCall};
 
 use crate::gpu_utils::{BindGroup, Uniform, VertexBuffer, VertexData, IndexBuffer};
@@ -173,10 +172,10 @@ impl MeshRenderStage
 
         let camera_bind_group = BindGroup::new(&[&camera_uniform], device);
 
+        let shader = &device.create_shader_module(wgpu::include_wgsl!("../shaders/mesh_shader.wgsl"));
         let render_pipeline = construct_render_pipeline(device, config, &RenderPipelineInfo 
         { 
-            shader_source: include_str!("../shaders/mesh_shader.wgsl"), 
-            shader_name: Some("Mesh Shader"),
+            shader,
             vs_main: "vs_main",
             fs_main: "fs_main",
             vertex_buffers: &[&Vertex::desc(), &MeshInstance::desc()],

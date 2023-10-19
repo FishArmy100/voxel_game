@@ -1,12 +1,12 @@
 pub mod bind_group;
 pub mod buffer;
-
-use std::borrow::Cow;
-use crate::colors::Color;
+pub mod texture;
+use crate::math::Vec4;
 use crate::{utils::Byteable, math::Vec3};
 
 pub use self::bind_group::*;
 pub use self::buffer::*;
+pub use self::texture::*;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -41,19 +41,37 @@ impl<T> From<Vec3<T>> for GPUVec3<T> where T : Byteable
     }
 }
 
-pub struct ShaderInfo<'a>
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct GPUVec4<T> where T : Byteable
 {
-    pub entry_point: &'a str,
-    pub source: &'a str
+    pub x: T,
+    pub y: T,
+    pub z: T,
+    pub w: T
 }
 
-impl<'a> ShaderInfo<'a>
+unsafe impl<T> bytemuck::Pod for GPUVec4<T> where T : Byteable {}
+unsafe impl<T> bytemuck::Zeroable for GPUVec4<T> where T : Byteable {}
+
+impl<T> GPUVec4<T> where T : Byteable 
 {
-    pub fn generate_shader(&self, device: &wgpu::Device, label: Option<&str>) -> wgpu::ShaderModule
+    pub fn new(x: T, y: T, z: T, w: T) -> Self
     {
-        device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label,
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(self.source)),
-        })
+        Self 
+        { 
+            x, 
+            y, 
+            z,
+            w
+        }
+    }
+}
+
+impl<T> From<Vec4<T>> for GPUVec4<T> where T : Byteable
+{
+    fn from(value: Vec4<T>) -> Self 
+    {
+        GPUVec4::new(value.x, value.y, value.z, value.w)
     }
 }
