@@ -2,6 +2,7 @@
 
 use spirv_std::spirv;
 use spirv_std::glam::{Vec3, vec3, Vec4, vec4, Mat4, mat4, UVec3, uvec3, IVec3, IVec2, IVec4};
+use spirv_std::arch::IndexUnchecked;
 
 const SOUTH_FACE: [Vec3; 4] = [   
     vec3(0.0, 1.0, 1.0),
@@ -76,9 +77,12 @@ pub fn vs_main(
     color_out: &mut Vec4
 ) 
 {
-    *color_out = voxel_colors[voxel_id as usize];
+    *color_out = unsafe { *voxel_colors.index_unchecked(voxel_id as usize) };
     
-    let mut vert_pos = VOXEL_FACE_ARRAY[face_index as usize][index as usize];
+    let mut vert_pos = unsafe 
+    {
+        *VOXEL_FACE_ARRAY.index_unchecked(face_index as usize).index_unchecked(index as usize)
+    };
     vert_pos += voxel_position.as_vec3() + chunk_position.as_vec3();
     vert_pos *= *voxel_size;
 
