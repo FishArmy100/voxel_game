@@ -8,3 +8,6 @@
   - [Help](https://sotrh.github.io/learn-wgpu/)
 - [E-GUI](https://github.com/emilk/egui#integrations)
   - [Example with WGPU](https://github.com/hasenbanck/egui_example/tree/master)
+  - [Slightly updated example](https://github.com/LU15W1R7H/eww/blob/main/src/lib.rs)
+    - Probably should use
+    - Uses `egui-wgpu`, which is updated
