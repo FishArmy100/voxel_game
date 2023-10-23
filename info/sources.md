@@ -11,3 +11,5 @@
   - [Slightly updated example](https://github.com/LU15W1R7H/eww/blob/main/src/lib.rs)
     - Probably should use
     - Uses `egui-wgpu`, which is updated
+- [eframe](https://docs.rs/eframe/latest/eframe/)
+  - [eframe Example](https://github.com/HomelikeBrick42/TicTacToe)
