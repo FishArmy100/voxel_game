@@ -1,6 +1,7 @@
 pub mod renderer;
 pub mod debug_rendering;
 pub mod mesh;
+pub mod gui;
 
 use std::sync::{Arc, Mutex};
 

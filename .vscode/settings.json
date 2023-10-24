@@ -6,6 +6,7 @@
         "Byteable",
         "bytemuck",
         "cgmath",
+        "egui",
         "mipmap",
         "multisample",
         "multiview",

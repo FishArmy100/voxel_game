@@ -6,12 +6,13 @@ use std::{time::SystemTime, sync::Arc};
 use winit::event::{WindowEvent, Event, KeyboardInput, VirtualKeyCode, ElementState, MouseButton, MouseScrollDelta, DeviceEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 
+use crate::gpu_utils::WgpuState;
 use crate::rendering::GameRenderer;
 use crate::voxel::brick_map::{BrickMap, SizedBrickMap};
 use crate::voxel::octree::Octree;
 use crate::voxel::{Voxel, VoxelData, VoxelStorage};
 
-use crate::math::{Vec3, Color};
+use crate::math::{Vec3, Color, Vec2};
 use crate::camera::{Camera, CameraEntity};
 use crate::voxel::terrain::{VoxelTerrain, TerrainInfo};
 
@@ -28,13 +29,11 @@ struct AppState
     current_time: SystemTime,
     frame_builder: FrameStateBuilder,
 
-    surface: Arc<wgpu::Surface>,
-    device: Arc<wgpu::Device>,
-    queue: Arc<wgpu::Queue>,
-    config: wgpu::SurfaceConfiguration,
     size: WindowSize,
     window_handle: Arc<WinitWindow>,
     renderer: GameRenderer<Storage>,
+
+    wgpu_state: WgpuState,
 
     // TEMP
     camera_entity: CameraEntity,
@@ -64,74 +63,27 @@ impl AppState
     async fn new(name: &str, window: WinitWindow) -> Self
     {
         window.set_title(name);
-
-        let size = window.inner_size();
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::all(),
-            dx12_shader_compiler: Default::default()
-        });
-
-        let surface = unsafe {instance.create_surface(&window)}.unwrap();
-
-        let adapter = instance.request_adapter(
-            &wgpu::RequestAdapterOptions 
-            { 
-                power_preference: wgpu::PowerPreference::default(), 
-                compatible_surface: Some(&surface), 
-                force_fallback_adapter: false
-            }
-        ).await.unwrap();
-
-        println!("Name: {:?}\nBackend: {:?}", adapter.get_info().name, adapter.get_info().backend);
-
-        let features = wgpu::Features::empty();
-
-        let (device, queue) = adapter.request_device( 
-            &wgpu::DeviceDescriptor
-            {
-                features,
-                limits: wgpu::Limits::default(),
-                label: None
-            }, None).await.unwrap();
-
-        let surface_caps = surface.get_capabilities(&adapter);
-
-        let surface_format = surface_caps.formats.iter()
-            .copied()
-            .find(|f| f.is_srgb())
-            .unwrap_or(surface_caps.formats[0]);
-
-        let config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface_format,
-            width: size.width,
-            height: size.height,
-            present_mode: surface_caps.present_modes[0],
-            alpha_mode: surface_caps.alpha_modes[0],
-            view_formats: vec![]
-        };
-
-        surface.configure(&device, &config);
-
-        let surface = Arc::new(surface);
-        let device = Arc::new(device);
-        let queue = Arc::new(queue);
+        let wgpu_state = WgpuState::new(&window).await;
         let window_handle = Arc::new(window);
+        let size = window_handle.inner_size();
 
+        let aspect = wgpu_state.surface_config().width as f32 / wgpu_state.surface_config().height as f32;
+
+        
         let camera = Camera
         {
             eye: (0.0, 1.0, 2.0).into(),
             target: (0.0, 0.0, 0.0).into(),
             up: Vec3::unit_y(),
-            aspect: config.width as f32 / config.height as f32,
+            aspect,
             fov: 45.0,
             near: 0.1,
             far: 100000.0
         };
 
-        let terrain = generate_terrain(device.clone(), queue.clone());
+        let terrain = generate_terrain(wgpu_state.device().clone(), wgpu_state.queue().clone());
 
-        let renderer = GameRenderer::new(terrain.clone(), camera.clone(), device.clone(), surface.clone(), queue.clone(), &config);
+        let renderer = GameRenderer::new(terrain.clone(), camera.clone(), wgpu_state.device().clone(), wgpu_state.surface().clone(), wgpu_state.queue().clone(), &wgpu_state.surface_config());
         let frame_builder = FrameStateBuilder::new(window_handle.clone(), FrameState::new(&window_handle));
 
         Self
@@ -139,12 +91,9 @@ impl AppState
             app_name: name.into(),
             current_time: SystemTime::now(),
             frame_builder,
-            surface,
-            device,
-            queue,
-            config,
             size,
             window_handle,
+            wgpu_state,
             renderer,
             camera_entity: CameraEntity::new(camera, 20.0, 50.0, 80.0),
             terrain,
@@ -208,11 +157,8 @@ impl AppState
         if new_size.width > 0 && new_size.height > 0
         {
             self.size = new_size;
-            self.config.width = new_size.width;
-            self.config.height = new_size.height;
-            self.device.poll(wgpu::MaintainBase::Wait); // to fix crash on dx12 with wgpu 0.17
-            self.surface.configure(&self.device, &self.config);
-            self.renderer.resize(&self.config);
+            self.wgpu_state.resize(Vec2::new(new_size.width, new_size.height));
+            self.renderer.resize(&self.wgpu_state.surface_config());
 
             self.camera_entity.mut_camera().aspect = new_size.width as f32 / new_size.height as f32;
         }
