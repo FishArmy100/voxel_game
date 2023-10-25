@@ -148,97 +148,12 @@ impl VertexData for VertexInput
     }
 }
 
-struct TestRenderStage
-{
-    bind_group: BindGroup,
-    vertex_buffer: VertexBuffer<VertexInput>,
-    pipeline: wgpu::RenderPipeline
-}
-
-impl TestRenderStage
-{
-    fn new(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Self 
-    {
-        let color_uniform = Uniform::new(Color::new(0.5, 0.2, 0.4, 1.0), wgpu::ShaderStages::FRAGMENT, device);
-        let bind_group = BindGroup::new(&[&color_uniform], device);
-        let vertices = 
-        [
-            VertexInput { color: Color::RED.rgba(), intensity: 1.0 },
-            VertexInput { color: Color::BLUE.rgba(), intensity: 1.0 },
-            VertexInput { color: Color::GREEN.rgba(), intensity: 1.0 },
-        ];
-
-        let vertex_buffer = VertexBuffer::new(&vertices, device, Some("Test Vertex Buffer"));
-
-        let shader = &device.create_shader_module(wgpu::include_spirv!(env!("test_shader.spv")));
-        
-        let pipeline = construct_render_pipeline(device, config, &RenderPipelineInfo 
-        { 
-            shader, 
-            vs_main: "vs_main", 
-            fs_main: "fs_main", 
-            vertex_buffers: &[&VertexInput::desc()], 
-            bind_groups: &[bind_group.layout()], 
-            label: Some("Test Render Pipeline") 
-        });
-        
-        Self 
-        {
-            pipeline,
-            bind_group,
-            vertex_buffer
-        }
-    }
-}
-
-impl RenderStage for TestRenderStage
-{
-    fn render_pipeline(&self) -> &wgpu::RenderPipeline 
-    {
-        &self.pipeline
-    }
-    
-    fn get_draw_calls<'s>(&'s self) -> Vec<Box<(dyn DrawCall + 's)>> 
-    {
-        let draw_call = TestDrawCall
-        {
-            vertex_buffer: &self.vertex_buffer,
-            bind_group: &self.bind_group
-        };
-
-        vec![Box::new(draw_call)]
-    }
-}
-
-struct TestDrawCall<'a>
-{
-    vertex_buffer: &'a VertexBuffer<VertexInput>,
-    bind_group: &'a BindGroup
-}
-
-impl<'a> DrawCall for TestDrawCall<'a>
-{
-    fn bind_groups(&self) -> Box<[&BindGroup]> 
-    {
-        Box::new([self.bind_group])
-    }
-    
-    fn on_pre_draw(&self, _queue: &wgpu::Queue) {}
-    
-    fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>) 
-    {
-        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice_all());
-        render_pass.draw(0..3, 0..1);
-    }
-}
 pub struct GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Send + 'static
 {
     renderer: Renderer,
     debug_stage: DebugRenderStage,
     mesh_stage: MeshRenderStage,
     terrain_stage: TerrainRenderStage<TStorage>,
-
-    test_stage: TestRenderStage
 }
 
 impl<TStorage> GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Send + 'static
@@ -259,7 +174,6 @@ impl<TStorage> GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Sen
             debug_stage, 
             mesh_stage, 
             terrain_stage,
-            test_stage: TestRenderStage::new(&device, config)
         }
     }
 
