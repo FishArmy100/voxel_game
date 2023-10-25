@@ -12,6 +12,8 @@ use wgpu::{VertexBufferLayout, BindGroupLayout};
 
 use self::{renderer::Renderer, debug_rendering::{DebugRenderStage, DebugObject}, mesh::{MeshRenderStage, Mesh, MeshInstance}};
 
+pub use crate::rendering::renderer::*;
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct ModelUniform
@@ -35,19 +37,6 @@ impl ModelUniform
 
 unsafe impl bytemuck::Pod for ModelUniform {}
 unsafe impl bytemuck::Zeroable for ModelUniform {}
-
-pub trait RenderStage
-{
-    fn render_pipeline(&self) -> &wgpu::RenderPipeline;
-    fn get_draw_calls<'s>(&'s self) -> Vec<Box<(dyn DrawCall + 's)>>;
-}
-
-pub trait DrawCall
-{
-    fn bind_groups(&self) -> Box<[&BindGroup]>;
-    fn on_pre_draw(&self, queue: &wgpu::Queue);
-    fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>);
-}
 
 pub struct RenderPipelineInfo<'a>
 {
@@ -120,32 +109,80 @@ pub fn construct_render_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceCo
     render_pipeline
 }
 
-const TEST_SHADER: &[u8] = include_bytes!(env!("test_shader.spv"));
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-struct VertexInput
+pub fn get_command_encoder(device: &wgpu::Device) -> wgpu::CommandEncoder
 {
-    color: Vec4<f32>,
-    intensity: f32
+    device.create_command_encoder(&wgpu::CommandEncoderDescriptor 
+    { 
+        label: Some("Command Encoder") 
+    })
 }
 
-unsafe impl bytemuck::Zeroable for VertexInput {}
-unsafe impl bytemuck::Pod for VertexInput {}
-
-impl VertexData for VertexInput
+pub fn get_render_pass<'a>(encoder: &'a mut wgpu::CommandEncoder, view: &'a wgpu::TextureView, depth_texture: Option<&'a Texture>) -> wgpu::RenderPass<'a>
 {
-    fn desc() -> wgpu::VertexBufferLayout<'static> 
+    let depth_stencil_attachment = match depth_texture
     {
-        const ATTRIBUTES: [wgpu::VertexAttribute; 2] =
-            wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32];
+        Some(depth_texture) =>
+        {
+            Some(wgpu::RenderPassDepthStencilAttachment {
+                view: &depth_texture.view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: true,
+                }),
+                stencil_ops: None,
+            })
+        },
 
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &ATTRIBUTES,
-        }
+        None => None
+    };
+
+    encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        label: None,
+        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+            view: &view,
+            resolve_target: None,
+            ops: wgpu::Operations{
+                load: wgpu::LoadOp::Load,
+                store: true,
+            }
+        })],
+
+        depth_stencil_attachment
+    })
+}
+
+pub struct RenderPassInfo<'a> 
+{
+    pub command_encoder: &'a mut wgpu::CommandEncoder,
+    pub render_pipeline: &'a wgpu::RenderPipeline,
+    pub bind_groups: &'a [&'a wgpu::BindGroup],
+    pub view: &'a wgpu::TextureView,
+    pub depth_texture: Option<&'a Texture>,
+    pub vertex_buffers: &'a [wgpu::BufferSlice<'a>],
+    pub index_buffer: Option<wgpu::BufferSlice<'a>>,
+    pub index_format: wgpu::IndexFormat
+}
+
+pub fn build_render_pass<'a>(info: RenderPassInfo<'a>) -> wgpu::RenderPass<'a>
+{
+    let mut render_pass = get_render_pass(info.command_encoder, info.view, info.depth_texture);
+    render_pass.set_pipeline(info.render_pipeline);
+    for i in 0..info.bind_groups.len()
+    {
+        render_pass.set_bind_group(i as u32, info.bind_groups[i], &[]);
     }
+
+    for i in 0..info.vertex_buffers.len()
+    {
+        render_pass.set_vertex_buffer(i as u32, info.vertex_buffers[i]);
+    }
+
+    if let Some(index_buffer) = info.index_buffer
+    {
+        render_pass.set_index_buffer(index_buffer, info.index_format);
+    }
+
+    render_pass
 }
 
 pub struct GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Send + 'static
@@ -186,7 +223,7 @@ impl<TStorage> GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Sen
 
     pub fn render(&self) -> Result<(), wgpu::SurfaceError>
     {
-        self.renderer.render(&[&self.terrain_stage])
+        self.renderer.render(&[&self.mesh_stage, &self.terrain_stage])
     }
 
     pub fn resize(&mut self, config: &wgpu::SurfaceConfiguration)

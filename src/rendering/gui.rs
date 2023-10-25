@@ -1,14 +1,12 @@
 use winit::event_loop::EventLoop;
 
-use super::{RenderStage, DrawCall};
+use crate::rendering::RenderStage;
 
 pub struct GuiRenderer
 {
     context: egui_winit::egui::Context, 
     platform: egui_winit::State,
     renderer: egui_wgpu::renderer::Renderer,
-
-    render_stage: GuiRenderStage
 }
 
 impl GuiRenderer
@@ -29,42 +27,9 @@ impl GuiRenderer
     }
 }
 
-pub struct GuiRenderStage
+impl RenderStage for GuiRenderer
 {
-
-}
-
-impl RenderStage for GuiRenderStage
-{
-    fn render_pipeline(&self) -> &wgpu::RenderPipeline 
-    {
-        todo!()
-    }
-
-    fn get_draw_calls<'s>(&'s self) -> Vec<Box<(dyn DrawCall + 's)>> 
-    {
-        todo!()
-    }
-}
-
-pub struct GuiDrawCall
-{
-
-}
-
-impl DrawCall for GuiDrawCall
-{
-    fn bind_groups(&self) -> Box<[&crate::gpu_utils::BindGroup]> 
-    {
-        todo!()
-    }
-
-    fn on_pre_draw(&self, queue: &wgpu::Queue) 
-    {
-        todo!()
-    }
-
-    fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>) 
+    fn on_draw(&self, device: &wgpu::Device, queue: &wgpu::Queue, view: &wgpu::TextureView, _depth_texture: &crate::gpu_utils::Texture) 
     {
         todo!()
     }

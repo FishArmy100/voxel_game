@@ -2,7 +2,8 @@ use std::{sync::Arc, cell::RefCell};
 
 use std::sync::{Mutex, MutexGuard};
 
-use crate::{math::{Vec3, Color}, rendering::{construct_render_pipeline, RenderPipelineInfo, DrawCall, RenderStage}, camera::{Camera, CameraUniform}};
+use crate::rendering::{get_command_encoder, RenderPassInfo, build_render_pass};
+use crate::{math::{Vec3, Color}, rendering::{construct_render_pipeline, RenderPipelineInfo, RenderStage}, camera::{Camera, CameraUniform}};
 use crate::gpu_utils::{BindGroup, Uniform, VertexBuffer, VertexData, GPUVec3, IndexBuffer, GPUVec4};
 use crate::voxel::voxel_rendering::*;
 
@@ -111,86 +112,44 @@ impl<TStorage> TerrainRenderStage<TStorage> where TStorage : VoxelStorage<Voxel>
     }
 }
 
-impl<TStorage> RenderStage for TerrainRenderStage<TStorage> where TStorage : VoxelStorage<Voxel> + Send + 'static
-{
-    fn render_pipeline(&self) -> &wgpu::RenderPipeline 
-    {
-        &self.render_pipeline
-    }
-
-    fn get_draw_calls<'s>(&'s self) -> Vec<Box<(dyn DrawCall + 's)>> 
-    {
-        let mut draw_calls: Vec<Box<(dyn DrawCall + 's)>> = vec![];
-        let terrain = Arc::new(self.terrain.lock().unwrap());
-
-        let face_count: u64 = terrain.chunks().iter().map(|c| c.render_data().map_or(0, |c| c.face_instance_buffer().length())).sum();
-        println!("Rendered {} faces.", face_count);
-
-        for chunk_index in 0..terrain.chunks().len()
-        {
-            if terrain.chunks()[chunk_index].render_data().is_none()
-            {
-                continue;
-            }
-
-            let draw_call = TerrainDrawCall
-            {
-                vertex_buffer: &self.vertex_buffer,
-                index_buffer: &self.index_buffer,
-                terrain_bind_group: &self.terrain_bind_group,
-                camera: self.camera.clone(),
-                camera_uniform: &self.camera_uniform,
-                chunk_position_uniform: &self.chunk_position_uniform,
-                chunk_index,
-                terrain: terrain.clone()
-            };
-
-            draw_calls.push(Box::new(draw_call));
-        }
-
-        draw_calls
-    }
-}
-
-pub struct TerrainDrawCall<'a, TStorage> where TStorage : VoxelStorage<Voxel> + Send + 'static
-{
-    vertex_buffer: &'a VertexBuffer<VoxelVertex>,
-    index_buffer: &'a IndexBuffer,
-    terrain_bind_group: &'a BindGroup,
-
-    camera: Camera,
-    camera_uniform: &'a RefCell<Uniform<CameraUniform>>,
-    chunk_position_uniform: &'a RefCell<Uniform<GPUVec4<i32>>>,
-
-    terrain: Arc<MutexGuard<'a, VoxelTerrain<TStorage>>>,
-    chunk_index: usize
-}
-
-impl<'a, TStorage> DrawCall for TerrainDrawCall<'a, TStorage> 
+impl<TStorage> RenderStage for TerrainRenderStage<TStorage> 
     where TStorage : VoxelStorage<Voxel> + Send + 'static
 {
-    fn bind_groups(&self) -> Box<[&BindGroup]> 
+    fn on_draw(&self, device: &wgpu::Device, queue: &wgpu::Queue, view: &wgpu::TextureView, depth_texture: &crate::gpu_utils::Texture) 
     {
-        Box::new([&self.terrain_bind_group])
-    }
+        let terrain = self.terrain.lock().unwrap();
+        for chunk in terrain.chunks()
+        {
+            let Some(render_data) = chunk.render_data() else { continue; };
 
-    fn on_pre_draw(&self, queue: &wgpu::Queue) 
-    {
-        let mut data = CameraUniform::new();
-        data.update_view_proj(&self.camera);
-        self.camera_uniform.borrow_mut().enqueue_write(data, queue);
+            // update camera view
+            let mut data = CameraUniform::new();
+            data.update_view_proj(&self.camera);
+            self.camera_uniform.borrow_mut().enqueue_write(data, queue);
 
-        let chunk_index: Vec3<i32> = self.terrain.chunks()[self.chunk_index].index().cast().unwrap();
-        let chunk_position = (chunk_index * self.terrain.info().chunk_length() as i32).extend(0);
-        self.chunk_position_uniform.borrow_mut().enqueue_write(chunk_position.into(), queue);
-    }
+            // update chunk position
+            let chunk_index: Vec3<i32> = chunk.index().cast().unwrap();
+            let chunk_position = (chunk_index * terrain.info().chunk_length() as i32).extend(0);
+            self.chunk_position_uniform.borrow_mut().enqueue_write(chunk_position.into(), queue);
 
-    fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>) 
-    {
-        let chunk_render_data = self.terrain.chunks()[self.chunk_index].render_data();
-        render_pass.set_vertex_buffer(0, chunk_render_data.unwrap().face_instance_buffer().slice_all());
-        render_pass.set_vertex_buffer(1, self.vertex_buffer.slice_all());
-        render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-        render_pass.draw_indexed(0..6, 0, 0..(chunk_render_data.unwrap().face_instance_buffer().length() as u32));
+            let mut command_encoder = get_command_encoder(device);
+            let info = RenderPassInfo
+            {
+                command_encoder: &mut command_encoder,
+                render_pipeline: &self.render_pipeline,
+                bind_groups: &[self.terrain_bind_group.bind_group()],
+                view,
+                depth_texture: Some(depth_texture),
+                vertex_buffers: &[render_data.face_instance_buffer().slice_all(), self.vertex_buffer.slice_all()],
+                index_buffer: Some(self.index_buffer.slice(..)),
+                index_format: wgpu::IndexFormat::Uint32,
+            };
+
+            let mut render_pass = build_render_pass(info);
+            render_pass.draw_indexed(0..6, 0, 0..(render_data.face_instance_buffer().length() as u32));
+            drop(render_pass);
+
+            queue.submit(std::iter::once(command_encoder.finish()));
+        }
     }
 }
