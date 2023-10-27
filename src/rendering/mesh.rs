@@ -203,7 +203,7 @@ impl MeshRenderStage
 
 impl RenderStage for MeshRenderStage
 {
-    fn on_draw(&self, device: &wgpu::Device, queue: &wgpu::Queue, view: &wgpu::TextureView, depth_texture: &Texture) 
+    fn on_draw(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, view: &wgpu::TextureView, depth_texture: &Texture) 
     {
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&self.camera);

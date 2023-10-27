@@ -23,6 +23,7 @@
         "unclipped",
         "unmap",
         "uvec",
+        "vscroll",
         "WASD",
         "webgl",
         "wgpu",

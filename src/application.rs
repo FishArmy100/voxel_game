@@ -44,7 +44,7 @@ pub async fn run()
 {
     let name = "Voxel Game";
     let (event_loop, window) = get_window();
-    let mut app_state = AppState::new(name, window).await;
+    let mut app_state = AppState::new(name, &event_loop, window).await;
 
     event_loop.run(move |event, _, control_flow| {
         app_state.on_event(event, control_flow)
@@ -60,7 +60,8 @@ fn get_window() -> (EventLoop<()>, WinitWindow)
 
 impl AppState
 {
-    async fn new(name: &str, window: WinitWindow) -> Self
+    async fn new<T>(name: &str, event_loop: &EventLoop<T>, window: WinitWindow) -> Self
+        where T : 'static
     {
         window.set_title(name);
         let wgpu_state = WgpuState::new(&window).await;
@@ -83,7 +84,7 @@ impl AppState
 
         let terrain = generate_terrain(wgpu_state.device().clone(), wgpu_state.queue().clone());
 
-        let renderer = GameRenderer::new(terrain.clone(), camera.clone(), wgpu_state.device().clone(), wgpu_state.surface().clone(), wgpu_state.queue().clone(), &wgpu_state.surface_config());
+        let renderer = GameRenderer::new(terrain.clone(), camera.clone(), wgpu_state.device().clone(), wgpu_state.surface().clone(), wgpu_state.queue().clone(), &wgpu_state.surface_config(), event_loop, window_handle.clone());
         let frame_builder = FrameStateBuilder::new(window_handle.clone(), FrameState::new(&window_handle));
 
         Self
@@ -102,6 +103,11 @@ impl AppState
 
     fn on_event<'a, T>(&mut self, event: Event<'a, T>, control_flow: &mut ControlFlow)
     {
+        if self.renderer.handle_event(&event)
+        {
+            return;
+        }
+
         self.frame_builder.on_event(&event);
         match event 
         {
@@ -148,6 +154,10 @@ impl AppState
             Event::MainEventsCleared => {
                 self.window_handle.request_redraw();
             },
+
+            Event::LoopDestroyed => {
+                self.renderer.on_close();
+            }
             _ => {}
         }
     }
@@ -166,9 +176,6 @@ impl AppState
 
     fn on_render(&mut self) -> Result<(), wgpu::SurfaceError>
     {        
-        let debug_objs = vec![];
-        self.renderer.update(self.camera_entity.camera(), &debug_objs);
-
         self.renderer.render()?;
         Ok(())
     }
@@ -179,7 +186,7 @@ impl AppState
         let frame_state = self.frame_builder.build(delta_time);
 
         self.camera_entity.update(&frame_state);
-        println!("{}ms", delta_time * 1000.0);
+        self.renderer.update(self.camera_entity.camera(), &vec![], delta_time);
         self.current_time = SystemTime::now();
         self.terrain.lock().unwrap().tick();
 

@@ -324,7 +324,7 @@ impl DebugRenderStage
 
 impl RenderStage for DebugRenderStage
 {
-    fn on_draw(&self, device: &wgpu::Device, queue: &wgpu::Queue, view: &wgpu::TextureView, depth_texture: &Texture) 
+    fn on_draw(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, view: &wgpu::TextureView, depth_texture: &Texture) 
     {
         todo!()
     }

@@ -7,10 +7,9 @@ use std::sync::{Arc, Mutex};
 
 use crate::{math::*, voxel::{VoxelStorage, Voxel, terrain_renderer::TerrainRenderStage, terrain::VoxelTerrain}, camera::Camera};
 use crate::gpu_utils::*;
-
 use wgpu::{VertexBufferLayout, BindGroupLayout};
 
-use self::{renderer::Renderer, debug_rendering::{DebugRenderStage, DebugObject}, mesh::{MeshRenderStage, Mesh, MeshInstance}};
+use self::{renderer::Renderer, debug_rendering::{DebugRenderStage, DebugObject}, mesh::{MeshRenderStage, Mesh, MeshInstance}, gui::{GuiRenderer, GuiRendererDescriptor}};
 
 pub use crate::rendering::renderer::*;
 
@@ -191,11 +190,14 @@ pub struct GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Send + 
     debug_stage: DebugRenderStage,
     mesh_stage: MeshRenderStage,
     terrain_stage: TerrainRenderStage<TStorage>,
+    gui_stage: GuiRenderer,
+    delta_time: f32
 }
 
 impl<TStorage> GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Send + 'static
 {
-    pub fn new(terrain: Arc<Mutex<VoxelTerrain<TStorage>>>, camera: Camera, device: Arc<wgpu::Device>, surface: Arc<wgpu::Surface>, queue: Arc<wgpu::Queue>, config: &wgpu::SurfaceConfiguration) -> Self
+    pub fn new<T>(terrain: Arc<Mutex<VoxelTerrain<TStorage>>>, camera: Camera, device: Arc<wgpu::Device>, surface: Arc<wgpu::Surface>, queue: Arc<wgpu::Queue>, config: &wgpu::SurfaceConfiguration, event_loop: &winit::event_loop::EventLoop<T>, window: Arc<winit::window::Window>) -> Self
+        where T : 'static
     {
         let clear_color = Color::new(0.1, 0.2, 0.3, 1.0);
         let renderer = Renderer::new(device.clone(), surface, queue, config, clear_color);
@@ -205,29 +207,68 @@ impl<TStorage> GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Sen
 
         let terrain_stage = TerrainRenderStage::new(terrain, camera.clone(), device.clone(), config);
 
+        let mut gui_stage = GuiRenderer::new(GuiRendererDescriptor {
+            event_loop: &event_loop,
+            device: &device,
+            rt_format: config.format,
+            window,
+        });
+
+        gui_stage.load(gui::DEFAULT_SAVE_PATH);
+
         Self 
         { 
             renderer, 
             debug_stage, 
             mesh_stage, 
             terrain_stage,
+            gui_stage,
+            delta_time: 0.0
         }
     }
 
-    pub fn update(&mut self, camera: &Camera, debug_objects: &[DebugObject])
+    pub fn update(&mut self, camera: &Camera, debug_objects: &[DebugObject], delta_time: f32)
     {
         self.debug_stage.update(debug_objects, camera.clone());
         self.mesh_stage.update(camera.clone());
         self.terrain_stage.update(camera.clone());
+        self.delta_time = delta_time;
     }
 
-    pub fn render(&self) -> Result<(), wgpu::SurfaceError>
+    pub fn handle_event<T>(&mut self, event: &winit::event::Event<T>) -> bool 
     {
-        self.renderer.render(&[&self.mesh_stage, &self.terrain_stage])
+        self.gui_stage.handle_event(event)
+    }
+
+    pub fn render(&mut self) -> Result<(), wgpu::SurfaceError>
+    {
+        self.gui_stage.begin_frame();
+        self.gui_stage.draw_ui(|ctx| Self::basic_ui(ctx, self.delta_time));
+        self.gui_stage.end_frame();
+
+        self.renderer.render(&mut [&mut self.mesh_stage, &mut self.gui_stage])
     }
 
     pub fn resize(&mut self, config: &wgpu::SurfaceConfiguration)
     {
         self.renderer.resize(config);
+    }
+
+    pub fn on_close(&mut self)
+    {
+        self.gui_stage.save(gui::DEFAULT_SAVE_PATH);
+    }
+
+    fn basic_ui(context: &egui::Context, delta_time: f32)
+    {
+        egui::Window::new("Info")
+            .vscroll(true)
+            .resizable(true)
+            .default_size([250.0, 150.0])
+            .anchor(egui::Align2::RIGHT_TOP, egui::Vec2::default())
+            .show(context, |ui| 
+            {
+                ui.label(format!("Frame time: {:.2}ms", delta_time * 1000.0));
+            });
     }
 }

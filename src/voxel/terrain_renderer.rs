@@ -115,7 +115,7 @@ impl<TStorage> TerrainRenderStage<TStorage> where TStorage : VoxelStorage<Voxel>
 impl<TStorage> RenderStage for TerrainRenderStage<TStorage> 
     where TStorage : VoxelStorage<Voxel> + Send + 'static
 {
-    fn on_draw(&self, device: &wgpu::Device, queue: &wgpu::Queue, view: &wgpu::TextureView, depth_texture: &crate::gpu_utils::Texture) 
+    fn on_draw(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, view: &wgpu::TextureView, depth_texture: &crate::gpu_utils::Texture) 
     {
         let terrain = self.terrain.lock().unwrap();
         for chunk in terrain.chunks()

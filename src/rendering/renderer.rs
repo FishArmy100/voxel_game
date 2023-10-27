@@ -4,7 +4,7 @@ use crate::gpu_utils::texture::Texture;
 
 pub trait RenderStage
 {
-    fn on_draw(&self, device: &wgpu::Device, queue: &wgpu::Queue, view: &wgpu::TextureView, depth_texture: &Texture);
+    fn on_draw(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, view: &wgpu::TextureView, depth_texture: &Texture);
 }
 
 pub struct Renderer
@@ -31,14 +31,14 @@ impl Renderer
         }
     }
 
-    pub fn render(&self, stages: &[&dyn RenderStage]) -> Result<(), wgpu::SurfaceError>
+    pub fn render(&self, stages: &mut [&mut dyn RenderStage]) -> Result<(), wgpu::SurfaceError>
     {
         let output = self.surface.get_current_texture()?;
         let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         self.clear_color(self.clear_color, &view);
 
-        for stage in stages
+        for stage in stages.iter_mut()
         {
             stage.on_draw(&self.device, &self.queue, &view, &self.depth_texture);
         }
