@@ -5,7 +5,7 @@ use cgmath::{Zero, ElementWise};
 use wgpu::util::DeviceExt;
 
 use crate::gpu_utils::bind_group::{Uniform, BindGroup};
-use super::{RenderStage, DrawCall};
+use super::RenderStage;
 use crate::camera::{Camera, CameraUniform};
 use crate::math::{Vec3, Color};
 use crate::gpu_utils::texture::Texture;
@@ -324,59 +324,55 @@ impl DebugRenderStage
 
 impl RenderStage for DebugRenderStage
 {
-    fn render_pipeline(&self) -> &wgpu::RenderPipeline {
-        &self.render_pipeline
-    }
-
-    fn get_draw_calls<'s>(&'s self) -> Vec<Box<(dyn DrawCall + 's)>> 
+    fn on_draw(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, view: &wgpu::TextureView, depth_texture: &Texture) 
     {
-        vec![Box::new(DebugDrawCall::new(self.camera.clone(), &self.camera_uniform, &self.bind_group, &self.vertex_buffer, self.vertex_count))]
+        todo!()
     }
 }
 
-pub struct DebugDrawCall<'b>
-{
-    camera: Camera,
+// pub struct DebugDrawCall<'b>
+// {
+//     camera: Camera,
 
-    camera_uniform: &'b RefCell<Uniform<CameraUniform>>,
-    bind_group: &'b BindGroup,
+//     camera_uniform: &'b RefCell<Uniform<CameraUniform>>,
+//     bind_group: &'b BindGroup,
 
-    vertex_buffer: &'b wgpu::Buffer,
-    vertex_count: u32
-}
+//     vertex_buffer: &'b wgpu::Buffer,
+//     vertex_count: u32
+// }
 
-impl<'b> DebugDrawCall<'b>
-{
-    pub fn new(camera: Camera, camera_uniform: &'b RefCell<Uniform<CameraUniform>>, bind_group: &'b BindGroup, vertex_buffer: &'b wgpu::Buffer, vertex_count: u32) -> Self
-    {
-        Self 
-        { 
-            camera, 
-            camera_uniform,
-            bind_group, 
-            vertex_buffer, 
-            vertex_count 
-        }
-    }
-}
+// impl<'b> DebugDrawCall<'b>
+// {
+//     pub fn new(camera: Camera, camera_uniform: &'b RefCell<Uniform<CameraUniform>>, bind_group: &'b BindGroup, vertex_buffer: &'b wgpu::Buffer, vertex_count: u32) -> Self
+//     {
+//         Self 
+//         { 
+//             camera, 
+//             camera_uniform,
+//             bind_group, 
+//             vertex_buffer, 
+//             vertex_count 
+//         }
+//     }
+// }
 
-impl<'b> DrawCall for DebugDrawCall<'b>
-{
-    fn bind_groups(&self) -> Box<[&BindGroup]> 
-    {
-        Box::new([&self.bind_group])
-    }
+// impl<'b> DrawCall for DebugDrawCall<'b>
+// {
+//     fn bind_groups(&self) -> Box<[&BindGroup]> 
+//     {
+//         Box::new([&self.bind_group])
+//     }
 
-    fn on_pre_draw(&self, queue: &wgpu::Queue) 
-    {
-        let mut camera_uniform = CameraUniform::new();
-        camera_uniform.update_view_proj(&self.camera);
-        self.camera_uniform.borrow_mut().enqueue_write(camera_uniform, queue);
-    }
+//     fn on_pre_draw(&self, queue: &wgpu::Queue) 
+//     {
+//         let mut camera_uniform = CameraUniform::new();
+//         camera_uniform.update_view_proj(&self.camera);
+//         self.camera_uniform.borrow_mut().enqueue_write(camera_uniform, queue);
+//     }
 
-    fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>) 
-    {
-        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.draw(0..self.vertex_count, 0..1);
-    }
-}
+//     fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>) 
+//     {
+//         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+//         render_pass.draw(0..self.vertex_count, 0..1);
+//     }
+// }

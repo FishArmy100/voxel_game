@@ -2,10 +2,10 @@ use std::cell::RefCell;
 
 use crate::camera::{Camera, CameraUniform};
 use crate::math::*;
-use crate::rendering::{RenderStage, DrawCall};
+use crate::rendering::RenderStage;
 
-use crate::gpu_utils::{BindGroup, Uniform, VertexBuffer, VertexData, IndexBuffer};
-use super::{construct_render_pipeline, RenderPipelineInfo};
+use crate::gpu_utils::{BindGroup, Uniform, VertexBuffer, VertexData, IndexBuffer, Texture};
+use super::{construct_render_pipeline, RenderPipelineInfo, get_command_encoder, RenderPassInfo, build_render_pass};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -203,53 +203,30 @@ impl MeshRenderStage
 
 impl RenderStage for MeshRenderStage
 {
-    fn render_pipeline(&self) -> &wgpu::RenderPipeline {
-        &self.render_pipeline
-    }
-
-    fn get_draw_calls<'s>(&'s self) -> Vec<Box<(dyn DrawCall + 's)>> {
-        vec![Box::new(MeshDrawCall {
-            vertex_buffer: &self.vertex_buffer,
-            index_buffer: &self.index_buffer,
-            instance_buffer: &self.instance_buffer,
-            camera_uniform: &self.camera_uniform,
-            camera_bind_group: &self.camera_bind_group,
-            camera: self.camera.clone()
-        })]
-    }
-}
-
-pub struct MeshDrawCall<'b>
-{
-    vertex_buffer: &'b VertexBuffer<Vertex>,
-    index_buffer: &'b IndexBuffer,
-    instance_buffer: &'b VertexBuffer<MeshInstance>,
-    camera_uniform: &'b RefCell<Uniform<CameraUniform>>,
-    camera_bind_group: &'b BindGroup,
-    camera: Camera
-}
-
-impl<'buffer> DrawCall for MeshDrawCall<'buffer>
-{
-    fn bind_groups(&self) -> Box<[&BindGroup]> 
-    {
-        Box::new([&self.camera_bind_group])
-    }
-
-    fn on_pre_draw(&self, queue: &wgpu::Queue) 
+    fn on_draw(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, view: &wgpu::TextureView, depth_texture: &Texture) 
     {
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&self.camera);
         self.camera_uniform.borrow_mut().enqueue_write(camera_uniform, queue);
-    }
 
-    fn on_draw<'pass, 's: 'pass>(&'s self, render_pass: &mut wgpu::RenderPass<'pass>) 
-    {
-        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice_all());
-        render_pass.set_vertex_buffer(1, self.instance_buffer.slice_all());
-        render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+        let mut command_encoder = get_command_encoder(device);
+        let info = RenderPassInfo
+        {
+            command_encoder: &mut command_encoder,
+            render_pipeline: &self.render_pipeline,
+            bind_groups: &[self.camera_bind_group.bind_group()],
+            view,
+            depth_texture: Some(depth_texture),
+            vertex_buffers: &[self.vertex_buffer.slice_all(), self.instance_buffer.slice_all()],
+            index_buffer: Some(self.index_buffer.slice(..)),
+            index_format: wgpu::IndexFormat::Uint32,
+        };
 
+        let mut render_pass = build_render_pass(info);
         render_pass.draw_indexed(0..(self.index_buffer.capacity() as u32), 0, 0..(self.instance_buffer.capacity() as u32));
+        drop(render_pass);
+
+        queue.submit(std::iter::once(command_encoder.finish()));
     }
 }
 
