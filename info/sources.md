@@ -11,3 +11,4 @@
   - [Slightly updated example](https://github.com/LU15W1R7H/eww/blob/main/src/lib.rs)
     - Probably should use
     - Uses `egui-wgpu`, which is updated
+- [Voxel Mesh Optimization](https://docs.rs/block-mesh/latest/block_mesh/)
