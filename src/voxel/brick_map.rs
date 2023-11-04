@@ -368,7 +368,7 @@ impl<const D: usize> VoxelStorage for SizedBrickMap<D>
             where TFunc : FnMut(&TArg) -> Option<VoxelIndex> 
     {
         let length = (2 as usize).pow(depth as u32);
-        debug_assert!(grid.width() == length && grid.height() == length && grid.depth() == length, "Grid initalization array is not of the right size");
+        debug_assert!(grid.width() == length && grid.height() == length && grid.depth() == length, "Grid initialization array is not of the right size");
         let brick_map = gen_brick_map_from_grid(depth, D, grid, sampler);
 
         Self
@@ -378,7 +378,7 @@ impl<const D: usize> VoxelStorage for SizedBrickMap<D>
     }
 }
 
-fn gen_brick_map_from_grid<A, S>(depth: usize, sub_grid_depth: usize, grid: &Array3D<A>, mut sampler: S) -> BrickMap<Voxel>
+fn gen_brick_map_from_grid<A, S>(depth: usize, sub_grid_depth: usize, grid: &Array3D<A>, mut sampler: S) -> BrickMap<VoxelIndex>
     where S : FnMut(&A) -> Option<VoxelIndex>
 {
     let sub_length = (2 as usize).pow(sub_grid_depth as u32);

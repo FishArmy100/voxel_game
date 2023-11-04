@@ -37,8 +37,8 @@ pub const GAME_VOXELS: &[Voxel] =
     Voxel
     {
         color: Color::WHITE,
-        visibility: Visibility::Opaque,
-        name: "Invalid Voxel",
+        visibility: Visibility::Empty,
+        name: "Empty",
         index: VoxelIndex(0)
     },
     Voxel
@@ -64,17 +64,17 @@ pub const GAME_VOXELS: &[Voxel] =
     }
 ];
 
-pub trait VoxelStorage
+pub trait VoxelStorage : Sized
 {
     fn new(depth: usize) -> Self;
     fn depth(&self) -> usize;
-    fn get(&self, index: Vec3<usize>) -> Option<VoxelIndex>;
-    fn insert(&mut self, index: Vec3<usize>, value: Option<VoxelIndex>);
+    fn get(&self, index: Vec3<usize>) -> VoxelIndex;
+    fn insert(&mut self, index: Vec3<usize>, value: VoxelIndex);
     fn simplify(&mut self);
     fn is_empty(&self) -> bool;
 
     fn new_from_grid<TArg, TFunc>(depth: usize, grid: &Array3D<TArg>, mut sampler: TFunc) -> Self
-        where TFunc : FnMut(&TArg) -> Option<VoxelIndex>
+        where TFunc : FnMut(&TArg) -> VoxelIndex
     {
         let mut storage = Self::new(depth);
         let length = storage.length();
@@ -86,10 +86,8 @@ pub trait VoxelStorage
             {
                 for z in 0..length
                 {
-                    if let Some(voxel) = sampler(&grid[Vec3::new(x, y, z)])
-                    {
-                        storage.insert([x, y, z].into(), Some(voxel));
-                    }
+                    let voxel = sampler(&grid[Vec3::new(x, y, z)]);
+                    storage.insert([x, y, z].into(), voxel);
                 }
             }
         }
@@ -108,7 +106,7 @@ pub trait VoxelStorageExt
 {
     fn length(&self) -> usize;
     fn voxel_count(&self) -> usize;
-    fn insert_and_simplify(&mut self, index: Vec3<usize>, value: Option<VoxelIndex>);
+    fn insert_and_simplify(&mut self, index: Vec3<usize>, value: VoxelIndex);
 }
 
 impl<TStorage> VoxelStorageExt for TStorage 
@@ -124,7 +122,7 @@ impl<TStorage> VoxelStorageExt for TStorage
         self.length().pow(3)
     }
 
-    fn insert_and_simplify(&mut self, index: Vec3<usize>, value: Option<VoxelIndex>) 
+    fn insert_and_simplify(&mut self, index: Vec3<usize>, value: VoxelIndex) 
     {
         self.insert(index, value);
         self.simplify();
@@ -169,7 +167,8 @@ fn has_face<TStorage>(data: &TStorage, index: Vec3<usize>, face_dir: FaceDir) ->
             }
             else 
             {
-                data.get([index.x, index.y, index.z + 1].into()).is_none()
+                let voxel_index = data.get([index.x, index.y, index.z + 1].into());
+                Voxel::from_index(voxel_index).visibility != Visibility::Opaque
             }
         },
         FaceDir::North => 
@@ -180,7 +179,7 @@ fn has_face<TStorage>(data: &TStorage, index: Vec3<usize>, face_dir: FaceDir) ->
             }
             else 
             {
-                data.get([index.x, index.y, index.z - 1].into()).is_none()
+                data.get([index.x, index.y, index.z - 1].into()).0
             }
         },
         FaceDir::West => 
