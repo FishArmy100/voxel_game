@@ -10,7 +10,7 @@ use crate::gpu_utils::WgpuState;
 use crate::rendering::GameRenderer;
 use crate::voxel::brick_map::{BrickMap, SizedBrickMap};
 use crate::voxel::octree::Octree;
-use crate::voxel::{Voxel, VoxelData, VoxelStorage};
+use crate::voxel::{Voxel, VoxelStorage, self};
 
 use crate::math::{Vec3, Color, Vec2};
 use crate::camera::{Camera, CameraEntity};
@@ -196,24 +196,13 @@ impl AppState
 
 fn generate_terrain<TStorage>(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>) -> Arc<Mutex<VoxelTerrain<TStorage>>> 
     where TStorage : VoxelStorage<Voxel> + Send + 'static
-{        
-    let sand_color = Color::new(0.76, 0.698, 0.502, 1.0);
-
-    let voxel_types = vec!
-    [
-        VoxelData::new(Color::WHITE), 
-        VoxelData::new(Color::BLUE),
-        VoxelData::new(sand_color),
-        VoxelData::new(Color::GREEN)
-    ];
-        
+{ 
     const CHUNK_DEPTH: usize = 8;
-    const VOXEL_SIZE: f32 = 1.0 / 16.0;
 
     let info = TerrainInfo
     {
         chunk_depth: CHUNK_DEPTH,
-        voxel_size: VOXEL_SIZE,
+        voxel_size: voxel::VOXEL_SIZE,
         voxel_types: Arc::new(voxel_types),
     };
 

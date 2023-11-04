@@ -184,7 +184,7 @@ pub fn build_render_pass<'a>(info: RenderPassInfo<'a>) -> wgpu::RenderPass<'a>
     render_pass
 }
 
-pub struct GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Send + 'static
+pub struct GameRenderer<TStorage> where TStorage : VoxelStorage + Send + 'static
 {
     renderer: Renderer,
     debug_stage: DebugRenderStage,
@@ -194,7 +194,7 @@ pub struct GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Send + 
     delta_time: f32
 }
 
-impl<TStorage> GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Send + 'static
+impl<TStorage> GameRenderer<TStorage> where TStorage : VoxelStorage + Send + 'static
 {
     pub fn new<T>(terrain: Arc<Mutex<VoxelTerrain<TStorage>>>, camera: Camera, device: Arc<wgpu::Device>, surface: Arc<wgpu::Surface>, queue: Arc<wgpu::Queue>, config: &wgpu::SurfaceConfiguration, event_loop: &winit::event_loop::EventLoop<T>, window: Arc<winit::window::Window>) -> Self
         where T : 'static

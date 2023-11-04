@@ -2,7 +2,7 @@ use cgmath::{Array, Zero};
 
 use crate::{math::Vec3, utils::{self, Array3D}};
 
-use super::{VoxelStorage, IVoxel};
+use super::{Voxel, VoxelIndex, VoxelStorage};
 
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,7 +43,7 @@ pub struct Octree<T> where T : Copy + Clone + Eq
     root: Node<T>
 }
 
-impl<T> VoxelStorage<T> for Octree<T> where T : IVoxel + Copy + PartialEq
+impl VoxelStorage for Octree<VoxelIndex>
 {
     fn new(depth: usize) -> Self 
     {
@@ -58,12 +58,12 @@ impl<T> VoxelStorage<T> for Octree<T> where T : IVoxel + Copy + PartialEq
         self.depth
     }
 
-    fn get(&self, index: Vec3<usize>) -> Option<T> 
+    fn get(&self, index: Vec3<usize>) -> Option<VoxelIndex> 
     {
         self.root.get(index)
     }
 
-    fn insert(&mut self, index: Vec3<usize>, value: Option<T>) 
+    fn insert(&mut self, index: Vec3<usize>, value: Option<VoxelIndex>) 
     {
         self.root.insert(index, value);
     }
@@ -84,7 +84,7 @@ impl<T> VoxelStorage<T> for Octree<T> where T : IVoxel + Copy + PartialEq
     }
 
     fn new_from_grid<TArg, TFunc>(depth: usize, grid: &Array3D<TArg>, mut sampler: TFunc) -> Self
-        where TFunc : FnMut(&TArg) -> Option<T> 
+        where TFunc : FnMut(&TArg) -> Option<VoxelIndex> 
     {
         let bounds = NodeBounds::new_from_max(depth);
         let mut node = Node::new(bounds);
@@ -97,13 +97,6 @@ impl<T> VoxelStorage<T> for Octree<T> where T : IVoxel + Copy + PartialEq
             root: node 
         }
     }
-
-    // fn get_faces(&self, position: Vec3<isize>) -> Vec<VoxelFaceData> 
-    // {
-    //     let mut faces = vec![];
-    //     stupid_get_faces(&self.root, &mut faces, position);
-    //     faces
-    // }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

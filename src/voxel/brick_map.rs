@@ -1,6 +1,6 @@
 use crate::{utils::Array3D, math::Vec3};
 
-use super::{VoxelStorage, IVoxel};
+use super::{VoxelStorage, Voxel, VoxelIndex};
 
 #[derive(Debug, Clone, PartialEq)]
 enum SubGridData<T> where T : Clone + PartialEq
@@ -319,12 +319,12 @@ impl<T> BrickMap<T> where T : Clone + PartialEq
     }
 }
 
-pub struct SizedBrickMap<T, const D: usize> where T : IVoxel
+pub struct SizedBrickMap<const D: usize>
 {
-    map: BrickMap<T>
+    map: BrickMap<VoxelIndex>
 }
 
-impl<T, const D: usize> VoxelStorage<T> for SizedBrickMap<T, D> where T : IVoxel
+impl<const D: usize> VoxelStorage for SizedBrickMap<D>
 {
     fn new(depth: usize) -> Self 
     {
@@ -339,12 +339,12 @@ impl<T, const D: usize> VoxelStorage<T> for SizedBrickMap<T, D> where T : IVoxel
         self.map.depth
     }
 
-    fn get(&self, index: Vec3<usize>) -> Option<T> 
+    fn get(&self, index: Vec3<usize>) -> Option<VoxelIndex> 
     {
         self.map.get(index)
     }
 
-    fn insert(&mut self, index: Vec3<usize>, value: Option<T>) 
+    fn insert(&mut self, index: Vec3<usize>, value: Option<VoxelIndex>) 
     {
         self.map.insert(index, value);
     }
@@ -365,7 +365,7 @@ impl<T, const D: usize> VoxelStorage<T> for SizedBrickMap<T, D> where T : IVoxel
     }
 
     fn new_from_grid<TArg, TFunc>(depth: usize, grid: &Array3D<TArg>, mut sampler: TFunc) -> Self
-            where TFunc : FnMut(&TArg) -> Option<T> 
+            where TFunc : FnMut(&TArg) -> Option<VoxelIndex> 
     {
         let length = (2 as usize).pow(depth as u32);
         debug_assert!(grid.width() == length && grid.height() == length && grid.depth() == length, "Grid initalization array is not of the right size");
@@ -378,9 +378,8 @@ impl<T, const D: usize> VoxelStorage<T> for SizedBrickMap<T, D> where T : IVoxel
     }
 }
 
-fn gen_brick_map_from_grid<T, A, S>(depth: usize, sub_grid_depth: usize, grid: &Array3D<A>, mut sampler: S) -> BrickMap<T>
-    where T : IVoxel,
-          S : FnMut(&A) -> Option<T>
+fn gen_brick_map_from_grid<A, S>(depth: usize, sub_grid_depth: usize, grid: &Array3D<A>, mut sampler: S) -> BrickMap<Voxel>
+    where S : FnMut(&A) -> Option<VoxelIndex>
 {
     let sub_length = (2 as usize).pow(sub_grid_depth as u32);
     println!("depth: {}; sub_grid_depth: {}", depth, sub_grid_depth);
@@ -402,9 +401,8 @@ fn gen_brick_map_from_grid<T, A, S>(depth: usize, sub_grid_depth: usize, grid: &
     brick_map
 }
 
-fn gen_sub_grid<T, S, A>(current_index: Vec3<usize>, sub_depth: usize, grid: &Array3D<A>, sampler: &mut S) -> SubGrid<T>
-    where T : IVoxel,
-          S : FnMut(&A) -> Option<T>
+fn gen_sub_grid<S, A>(current_index: Vec3<usize>, sub_depth: usize, grid: &Array3D<A>, sampler: &mut S) -> SubGrid<VoxelIndex>
+    where S : FnMut(&A) -> Option<VoxelIndex>
 {
     let sub_length = (2 as usize).pow(sub_depth as u32);
     let sub_grid_array = Array3D::new(sub_length, sub_length, sub_length, |x, y, z| {

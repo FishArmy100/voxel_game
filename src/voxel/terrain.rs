@@ -8,18 +8,17 @@ use cgmath::Array;
 
 use crate::voxel::world_gen::VoxelGenerator;
 use super::terrain_renderer::ChunkRenderData;
-use super::{Voxel, VoxelData, VoxelStorage, VoxelStorageExt};
+use super::{Voxel, VoxelStorage, VoxelStorageExt};
 use crate::math::Vec3;
 
-pub struct Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
+pub struct Chunk<TStorage> where TStorage : VoxelStorage
 {
     data: TStorage,
     index: Vec3<isize>,
-    voxels: Arc<Vec<VoxelData>>,
     render_data: Option<ChunkRenderData>
 }
 
-impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
+impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage
 {
     pub fn size(&self) -> usize { self.data.length() } 
     pub fn index(&self) -> Vec3<isize> { self.index }
@@ -33,7 +32,7 @@ impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
         }
     }
 
-    pub fn new(mut generator: MutexGuard<VoxelGenerator>, index: Vec3<isize>, voxels: Arc<Vec<VoxelData>>, chunk_depth: usize, device: &wgpu::Device) -> Self
+    pub fn new(mut generator: MutexGuard<VoxelGenerator>, index: Vec3<isize>, chunk_depth: usize, device: &wgpu::Device) -> Self
     {
         let length = (2 as isize).pow(chunk_depth as u32);
         let chunk_position = index * length;
@@ -67,13 +66,12 @@ impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage<Voxel>
         {
             data,
             index,
-            voxels,
             render_data
         }
     }
 }
 
-struct ChunkGenerator<TStorage> where TStorage : VoxelStorage<Voxel>
+struct ChunkGenerator<TStorage> where TStorage : VoxelStorage
 {
     generator: Arc<Mutex<VoxelGenerator>>,
     queue: VecDeque<Vec3<isize>>,
@@ -81,12 +79,11 @@ struct ChunkGenerator<TStorage> where TStorage : VoxelStorage<Voxel>
 
     device: Arc<wgpu::Device>,
     chunk_depth: usize,
-    voxels: Arc<Vec<VoxelData>>
 }
 
-impl<TStorage> ChunkGenerator<TStorage> where TStorage : VoxelStorage<Voxel> + Send + 'static
+impl<TStorage> ChunkGenerator<TStorage> where TStorage : VoxelStorage + Send + 'static
 {
-    fn new(generator: VoxelGenerator, chunk_depth: usize, voxels: Arc<Vec<VoxelData>>, device: Arc<wgpu::Device>) -> Self
+    fn new(generator: VoxelGenerator, chunk_depth: usize, device: Arc<wgpu::Device>) -> Self
     {
         Self 
         { 
@@ -95,7 +92,6 @@ impl<TStorage> ChunkGenerator<TStorage> where TStorage : VoxelStorage<Voxel> + S
             thread: None,
             device,
             chunk_depth,
-            voxels
         }
     }
 
@@ -118,14 +114,13 @@ impl<TStorage> ChunkGenerator<TStorage> where TStorage : VoxelStorage<Voxel> + S
         if let Some(front) = self.queue.pop_front()
         {
             let device = self.device.clone();
-            let voxels = self.voxels.clone();
             let generator = self.generator.clone();
             let chunk_index = front;
             let chunk_depth = self.chunk_depth;
 
             self.thread = Some(thread::spawn(move || {
                 let mutex = generator.lock().unwrap();
-                let chunk = Chunk::new(mutex, chunk_index, voxels, chunk_depth, &device);
+                let chunk = Chunk::new(mutex, chunk_index, chunk_depth, &device);
                 chunk
             }))
         }
@@ -134,49 +129,30 @@ impl<TStorage> ChunkGenerator<TStorage> where TStorage : VoxelStorage<Voxel> + S
     }
 }
 
-pub struct TerrainInfo
+pub struct VoxelTerrain<TStorage> where TStorage : VoxelStorage
 {
-    pub chunk_depth: usize,
-    pub voxel_size: f32,
-    pub voxel_types: Arc<Vec<VoxelData>>
-}
-
-impl TerrainInfo
-{
-    pub fn chunk_length(&self) -> usize 
-    {
-        (2 as usize).pow(self.chunk_depth as u32)
-    }
-}
-
-pub struct VoxelTerrain<TStorage> where TStorage : VoxelStorage<Voxel>
-{
-    info: TerrainInfo,
+    chunk_depth: usize,
     chunks: Vec<Chunk<TStorage>>,
     device: Arc<wgpu::Device>,
     generator: ChunkGenerator<TStorage>
 }
 
-impl<TStorage> VoxelTerrain<TStorage> where TStorage : VoxelStorage<Voxel> + Send + 'static
+impl<TStorage> VoxelTerrain<TStorage> where TStorage : VoxelStorage + Send + 'static
 {
-    pub const fn chunk_size(&self) -> usize { (2 as usize).pow(self.info.chunk_depth as u32) }
-    pub fn voxel_types(&self) -> &[VoxelData] { &self.info.voxel_types }
+    pub fn chunk_depth(&self) -> usize { &self.chunk_depth }
+    pub const fn chunk_length(&self) -> usize { (2 as usize).pow(self.chunk_depth as u32) }
     pub fn chunks(&self) -> &[Chunk<TStorage>] { &self.chunks }
-    pub fn info(&self) -> &TerrainInfo { &self.info }
 
-    pub fn new(info: TerrainInfo, device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>) -> Self
+    pub fn new(chunk_depth: usize, device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>) -> Self
     {
-        let chunk_size = Vec3::from_value((2 as u32).pow(info.chunk_depth as u32));
-
+        let chunk_size = Vec3::from_value((2 as u32).pow(chunk_depth as u32));
         let generator = VoxelGenerator::new(chunk_size, device.clone(), queue);
-        let voxel_types = info.voxel_types.clone();
-        let chunk_depth = info.chunk_depth;
         Self 
         { 
-            info, 
+            chunk_depth, 
             chunks: vec![], 
             device: device.clone(), 
-            generator: ChunkGenerator::new(generator, chunk_depth, voxel_types, device)
+            generator: ChunkGenerator::new(generator, chunk_depth, device)
         }
     }
 
@@ -201,7 +177,7 @@ impl<TStorage> VoxelTerrain<TStorage> where TStorage : VoxelStorage<Voxel> + Sen
         }
         else 
         {
-            let chunk: Chunk<TStorage> = Chunk::new(self.generator.generator.lock().unwrap(), chunk_index, self.info.voxel_types.clone(), self.info.chunk_depth, &self.device);
+            let chunk: Chunk<TStorage> = Chunk::new(self.generator.generator.lock().unwrap(), chunk_index, self.chunk_depth, &self.device);
             self.chunks.push(chunk);
             true
         }
