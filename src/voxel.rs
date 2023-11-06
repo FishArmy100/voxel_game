@@ -59,9 +59,9 @@ impl Voxel
         },
         Voxel
         {
-            color: Color::GREEN,
+            color: Color::BLUE,
             visibility: Visibility::Opaque,
-            name: "Grass",
+            name: "Water",
             index: VoxelIndex(1)
         },
         Voxel 
@@ -73,9 +73,9 @@ impl Voxel
         },
         Voxel
         {
-            color: Color::BLUE,
+            color: Color::GREEN,
             visibility: Visibility::Opaque,
-            name: "Water",
+            name: "Grass",
             index: VoxelIndex(3)
         }
 ];
@@ -270,6 +270,8 @@ fn add_faces<TStorage>(data: &TStorage, index: Vec3<usize>, mesh: &mut VoxelMesh
     }
 
     let voxel = data.get([index.x, index.y, index.z].into());
+    if Voxel::from_index(voxel).visibility == Visibility::Empty { return; }
+
     let pos = index.cast().unwrap();
 
     if has_face(data, index, FaceDir::South)
