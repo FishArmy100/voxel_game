@@ -6,6 +6,7 @@ use std::time::SystemTime;
 
 use cgmath::Array;
 
+use crate::voxel::VoxelIndex;
 use crate::voxel::world_gen::VoxelGenerator;
 use super::terrain_renderer::ChunkRenderData;
 use super::{Voxel, VoxelStorage, VoxelStorageExt};
@@ -34,19 +35,17 @@ impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage
 
     pub fn new(mut generator: MutexGuard<VoxelGenerator>, index: Vec3<isize>, chunk_depth: usize, device: &wgpu::Device) -> Self
     {
-        let length = (2 as isize).pow(chunk_depth as u32);
-        let chunk_position = index * length;
         let voxel_grid = generator.run(index.cast().unwrap());
         
         let now = SystemTime::now();
         let data = TStorage::new_from_grid(chunk_depth, &voxel_grid, |i| {
             if *i > 0 
             {
-                Some(Voxel::new(*i as u16))
+                VoxelIndex(*i as u16)
             }
             else 
             {
-                None
+                VoxelIndex::default()
             }
         });
         
@@ -59,7 +58,9 @@ impl<TStorage> Chunk<TStorage> where TStorage : VoxelStorage
         } 
         else 
         {
-            Some(ChunkRenderData::new(&data.get_mesh(), device))
+            let mesh = data.get_mesh();
+            println!("Generated faces: {}", mesh.faces().len());
+            Some(ChunkRenderData::new(&mesh, device))
         };
 
         Self 
@@ -121,6 +122,7 @@ impl<TStorage> ChunkGenerator<TStorage> where TStorage : VoxelStorage + Send + '
             self.thread = Some(thread::spawn(move || {
                 let mutex = generator.lock().unwrap();
                 let chunk = Chunk::new(mutex, chunk_index, chunk_depth, &device);
+                println!("Generated chunk {:?}", chunk_index);
                 chunk
             }))
         }
@@ -139,7 +141,7 @@ pub struct VoxelTerrain<TStorage> where TStorage : VoxelStorage
 
 impl<TStorage> VoxelTerrain<TStorage> where TStorage : VoxelStorage + Send + 'static
 {
-    pub fn chunk_depth(&self) -> usize { &self.chunk_depth }
+    pub fn chunk_depth(&self) -> usize { self.chunk_depth }
     pub const fn chunk_length(&self) -> usize { (2 as usize).pow(self.chunk_depth as u32) }
     pub fn chunks(&self) -> &[Chunk<TStorage>] { &self.chunks }
 

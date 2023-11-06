@@ -246,7 +246,7 @@ impl<TStorage> GameRenderer<TStorage> where TStorage : VoxelStorage + Send + 'st
         self.gui_stage.draw_ui(|ctx| Self::basic_ui(ctx, self.delta_time));
         self.gui_stage.end_frame();
 
-        self.renderer.render(&mut [&mut self.mesh_stage, &mut self.gui_stage])
+        self.renderer.render(&mut [&mut self.mesh_stage, &mut self.terrain_stage, &mut self.gui_stage])
     }
 
     pub fn resize(&mut self, config: &wgpu::SurfaceConfiguration)

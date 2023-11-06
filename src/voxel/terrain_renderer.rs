@@ -27,7 +27,7 @@ impl ChunkRenderData
     }
 }
 
-pub struct TerrainRenderStage<TStorage> where TStorage : VoxelStorage<Voxel>
+pub struct TerrainRenderStage<TStorage> where TStorage : VoxelStorage
 {
     device: Arc<wgpu::Device>,
     
@@ -46,7 +46,7 @@ pub struct TerrainRenderStage<TStorage> where TStorage : VoxelStorage<Voxel>
     render_pipeline: wgpu::RenderPipeline,
 }
 
-impl<TStorage> TerrainRenderStage<TStorage> where TStorage : VoxelStorage<Voxel> + Send + 'static
+impl<TStorage> TerrainRenderStage<TStorage> where TStorage : VoxelStorage + Send + 'static
 {
     pub fn new(terrain: Arc<Mutex<VoxelTerrain<TStorage>>>, camera: Camera, device: Arc<wgpu::Device>, config: &wgpu::SurfaceConfiguration) -> Self 
     {
@@ -56,12 +56,11 @@ impl<TStorage> TerrainRenderStage<TStorage> where TStorage : VoxelStorage<Voxel>
         camera_uniform_data.update_view_proj(&camera);
 
         let camera_uniform = Uniform::new(camera_uniform_data, wgpu::ShaderStages::VERTEX, &device);
-        let voxel_size_uniform = Uniform::new(terrain_mutex.info().voxel_size, wgpu::ShaderStages::VERTEX, &device);
+        let voxel_size_uniform = Uniform::new(Voxel::VOXEL_SIZE, wgpu::ShaderStages::VERTEX, &device);
 
         let chunk_position_uniform = Uniform::new(GPUVec4::new(0, 0, 0, 0), wgpu::ShaderStages::VERTEX, &device);
 
-        let voxel_colors: [Color; 4] = terrain_mutex
-            .info().voxel_types
+        let voxel_colors: [Color; 4] = Voxel::GAME_VOXELS
             .iter()
             .map(|v| v.color.into())
             .collect::<Vec<_>>().try_into().unwrap();
@@ -113,7 +112,7 @@ impl<TStorage> TerrainRenderStage<TStorage> where TStorage : VoxelStorage<Voxel>
 }
 
 impl<TStorage> RenderStage for TerrainRenderStage<TStorage> 
-    where TStorage : VoxelStorage<Voxel> + Send + 'static
+    where TStorage : VoxelStorage + Send + 'static
 {
     fn on_draw(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, view: &wgpu::TextureView, depth_texture: &crate::gpu_utils::Texture) 
     {
@@ -129,7 +128,7 @@ impl<TStorage> RenderStage for TerrainRenderStage<TStorage>
 
             // update chunk position
             let chunk_index: Vec3<i32> = chunk.index().cast().unwrap();
-            let chunk_position = (chunk_index * terrain.info().chunk_length() as i32).extend(0);
+            let chunk_position = (chunk_index * terrain.chunk_length() as i32).extend(0);
             self.chunk_position_uniform.borrow_mut().enqueue_write(chunk_position.into(), queue);
 
             let mut command_encoder = get_command_encoder(device);

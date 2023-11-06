@@ -14,14 +14,14 @@ use crate::voxel::{Voxel, VoxelStorage, self};
 
 use crate::math::{Vec3, Color, Vec2};
 use crate::camera::{Camera, CameraEntity};
-use crate::voxel::terrain::{VoxelTerrain, TerrainInfo};
+use crate::voxel::terrain::VoxelTerrain;
 
 pub type WinitWindow = winit::window::Window;
 pub type WindowSize = winit::dpi::PhysicalSize<u32>;
 pub type WindowPosition = winit::dpi::PhysicalPosition<u32>;
 use self::input::*;
 
-type Storage = SizedBrickMap<Voxel, 4>;
+type Storage = SizedBrickMap<4>;
 
 struct AppState
 {
@@ -195,19 +195,12 @@ impl AppState
 }
 
 fn generate_terrain<TStorage>(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>) -> Arc<Mutex<VoxelTerrain<TStorage>>> 
-    where TStorage : VoxelStorage<Voxel> + Send + 'static
+    where TStorage : VoxelStorage + Send + 'static
 { 
     const CHUNK_DEPTH: usize = 8;
 
-    let info = TerrainInfo
-    {
-        chunk_depth: CHUNK_DEPTH,
-        voxel_size: voxel::VOXEL_SIZE,
-        voxel_types: Arc::new(voxel_types),
-    };
-
-    let terrain = Arc::new(Mutex::new(VoxelTerrain::new(info, device.clone(), queue))); 
-    terrain.lock().unwrap().generate_chunks([-2..=2, 0..=1, -2..=2]);
+    let terrain = Arc::new(Mutex::new(VoxelTerrain::new(CHUNK_DEPTH, device.clone(), queue))); 
+    terrain.lock().unwrap().generate_chunk([0, 0, 0].into());
 
     terrain
 }

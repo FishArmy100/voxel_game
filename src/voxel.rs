@@ -11,8 +11,24 @@ use crate::utils::Array3D;
 use self::voxel_rendering::{VoxelMesh, FaceDir};
 pub use block_mesh::VoxelVisibility as Visibility;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct VoxelIndex(u16);
+
+impl From<u16> for VoxelIndex
+{
+    fn from(value: u16) -> Self 
+    {
+        VoxelIndex(value)
+    }
+}
+
+impl From<VoxelIndex> for u16
+{
+    fn from(value: VoxelIndex) -> Self 
+    {
+        value.0
+    }
+}
 
 #[derive(Debug)]
 pub struct Voxel 
@@ -27,54 +43,55 @@ impl Voxel
 {
     pub fn from_index(VoxelIndex(index): VoxelIndex) -> &'static Voxel
     {
-        &GAME_VOXELS[index as usize]
+        &Self::GAME_VOXELS[index as usize]
     }
+
+    /// Voxel size in meters
+    pub const VOXEL_SIZE: f32 = 1.0 / 16.0;
+    pub const GAME_VOXELS: &[Voxel] =
+    &[
+        Voxel
+        {
+            color: Color::WHITE,
+            visibility: Visibility::Empty,
+            name: "Empty",
+            index: VoxelIndex(0)
+        },
+        Voxel
+        {
+            color: Color::BLUE,
+            visibility: Visibility::Opaque,
+            name: "Water",
+            index: VoxelIndex(1)
+        },
+        Voxel 
+        {
+            color: Color::new(0.76, 0.698, 0.502, 1.0),
+            visibility: Visibility::Opaque,
+            name: "Sand",
+            index: VoxelIndex(2)
+        },
+        Voxel
+        {
+            color: Color::GREEN,
+            visibility: Visibility::Opaque,
+            name: "Grass",
+            index: VoxelIndex(3)
+        }
+];
 }
 
-pub const VOXEL_SIZE: f32 = 1.0 / 16.0; // In meters
-pub const GAME_VOXELS: &[Voxel] =
-&[
-    Voxel
-    {
-        color: Color::WHITE,
-        visibility: Visibility::Opaque,
-        name: "Invalid Voxel",
-        index: VoxelIndex(0)
-    },
-    Voxel
-    {
-        color: Color::GREEN,
-        visibility: Visibility::Opaque,
-        name: "Grass",
-        index: VoxelIndex(1)
-    },
-    Voxel 
-    {
-        color: Color::new(0.76, 0.698, 0.502, 1.0),
-        visibility: Visibility::Opaque,
-        name: "Sand",
-        index: VoxelIndex(2)
-    },
-    Voxel
-    {
-        color: Color::BLUE,
-        visibility: Visibility::Opaque,
-        name: "Water",
-        index: VoxelIndex(3)
-    }
-];
-
-pub trait VoxelStorage
+pub trait VoxelStorage : Sized
 {
     fn new(depth: usize) -> Self;
     fn depth(&self) -> usize;
-    fn get(&self, index: Vec3<usize>) -> Option<VoxelIndex>;
-    fn insert(&mut self, index: Vec3<usize>, value: Option<VoxelIndex>);
+    fn get(&self, index: Vec3<usize>) -> VoxelIndex;
+    fn insert(&mut self, index: Vec3<usize>, value: VoxelIndex);
     fn simplify(&mut self);
     fn is_empty(&self) -> bool;
 
     fn new_from_grid<TArg, TFunc>(depth: usize, grid: &Array3D<TArg>, mut sampler: TFunc) -> Self
-        where TFunc : FnMut(&TArg) -> Option<VoxelIndex>
+        where TFunc : FnMut(&TArg) -> VoxelIndex
     {
         let mut storage = Self::new(depth);
         let length = storage.length();
@@ -86,10 +103,8 @@ pub trait VoxelStorage
             {
                 for z in 0..length
                 {
-                    if let Some(voxel) = sampler(&grid[Vec3::new(x, y, z)])
-                    {
-                        storage.insert([x, y, z].into(), Some(voxel));
-                    }
+                    let voxel = sampler(&grid[Vec3::new(x, y, z)]);
+                    storage.insert([x, y, z].into(), voxel);
                 }
             }
         }
@@ -108,7 +123,7 @@ pub trait VoxelStorageExt
 {
     fn length(&self) -> usize;
     fn voxel_count(&self) -> usize;
-    fn insert_and_simplify(&mut self, index: Vec3<usize>, value: Option<VoxelIndex>);
+    fn insert_and_simplify(&mut self, index: Vec3<usize>, value: VoxelIndex);
 }
 
 impl<TStorage> VoxelStorageExt for TStorage 
@@ -124,7 +139,7 @@ impl<TStorage> VoxelStorageExt for TStorage
         self.length().pow(3)
     }
 
-    fn insert_and_simplify(&mut self, index: Vec3<usize>, value: Option<VoxelIndex>) 
+    fn insert_and_simplify(&mut self, index: Vec3<usize>, value: VoxelIndex) 
     {
         self.insert(index, value);
         self.simplify();
@@ -169,7 +184,8 @@ fn has_face<TStorage>(data: &TStorage, index: Vec3<usize>, face_dir: FaceDir) ->
             }
             else 
             {
-                data.get([index.x, index.y, index.z + 1].into()).is_none()
+                let voxel_index = data.get([index.x, index.y, index.z + 1].into());
+                Voxel::from_index(voxel_index).visibility != Visibility::Opaque
             }
         },
         FaceDir::North => 
@@ -180,7 +196,8 @@ fn has_face<TStorage>(data: &TStorage, index: Vec3<usize>, face_dir: FaceDir) ->
             }
             else 
             {
-                data.get([index.x, index.y, index.z - 1].into()).is_none()
+                let voxel_index = data.get([index.x, index.y, index.z - 1].into());
+                Voxel::from_index(voxel_index).visibility != Visibility::Opaque
             }
         },
         FaceDir::West => 
@@ -191,7 +208,8 @@ fn has_face<TStorage>(data: &TStorage, index: Vec3<usize>, face_dir: FaceDir) ->
             }
             else 
             {
-                data.get([index.x - 1, index.y, index.z].into()).is_none()
+                let voxel_index = data.get([index.x - 1, index.y, index.z].into());
+                Voxel::from_index(voxel_index).visibility != Visibility::Opaque
             }
         },
         FaceDir::East => 
@@ -206,7 +224,8 @@ fn has_face<TStorage>(data: &TStorage, index: Vec3<usize>, face_dir: FaceDir) ->
             }
             else 
             {
-                data.get([index.x + 1, index.y, index.z].into()).is_none()
+                let voxel_index = data.get([index.x + 1, index.y, index.z].into());
+                Voxel::from_index(voxel_index).visibility != Visibility::Opaque
             }
         },
         FaceDir::Up => 
@@ -221,7 +240,8 @@ fn has_face<TStorage>(data: &TStorage, index: Vec3<usize>, face_dir: FaceDir) ->
             }
             else 
             {
-                data.get([index.x, index.y + 1, index.z].into()).is_none()
+                let voxel_index = data.get([index.x, index.y + 1, index.z].into());
+                Voxel::from_index(voxel_index).visibility != Visibility::Opaque
             }
         },
         FaceDir::Down => 
@@ -232,10 +252,10 @@ fn has_face<TStorage>(data: &TStorage, index: Vec3<usize>, face_dir: FaceDir) ->
             }
             else 
             {
-                data.get([index.x, index.y - 1, index.z].into()).is_none()
+                let voxel_index = data.get([index.x, index.y - 1, index.z].into());
+                Voxel::from_index(voxel_index).visibility != Visibility::Opaque
             }
         },
-        _ => panic!("This should not be reached")
     }
 }
 
@@ -249,36 +269,38 @@ fn add_faces<TStorage>(data: &TStorage, index: Vec3<usize>, mesh: &mut VoxelMesh
         panic!("Index (x: {}, y: {}, z: {}) is not inside the chunk", index.x, index.y, index.z);
     }
 
-    let Some(voxel) = data.get([index.x, index.y, index.z].into()) else { return; };
+    let voxel = data.get([index.x, index.y, index.z].into());
+    if Voxel::from_index(voxel).visibility == Visibility::Empty { return; }
+
     let pos = index.cast().unwrap();
 
     if has_face(data, index, FaceDir::South)
     {
-        mesh.add_face(pos, FaceDir::South, voxel.id());
+        mesh.add_face(pos, FaceDir::South, voxel.into());
     }
 
     if has_face(data, index, FaceDir::North)
     {
-        mesh.add_face(pos, FaceDir::North, voxel.id());
+        mesh.add_face(pos, FaceDir::North, voxel.into());
     }
 
     if has_face(data, index, FaceDir::East)
     {
-        mesh.add_face(pos, FaceDir::East, voxel.id());
+        mesh.add_face(pos, FaceDir::East, voxel.into());
     }
 
     if has_face(data, index, FaceDir::West)
     {
-        mesh.add_face(pos, FaceDir::West, voxel.id());
+        mesh.add_face(pos, FaceDir::West, voxel.into());
     }
 
     if has_face(data, index, FaceDir::Up)
     {
-        mesh.add_face(pos, FaceDir::Up, voxel.id());
+        mesh.add_face(pos, FaceDir::Up, voxel.into());
     }
 
     if has_face(data, index, FaceDir::Down)
     {
-        mesh.add_face(pos, FaceDir::Down, voxel.id());
+        mesh.add_face(pos, FaceDir::Down, voxel.into());
     }
 }
