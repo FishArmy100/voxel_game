@@ -2,7 +2,7 @@ use cgmath::{Array, Zero};
 
 use crate::{math::Vec3, utils::{self, Array3D}};
 
-use super::{Voxel, VoxelIndex, VoxelStorage};
+use super::{Voxel, VoxelIndex, VoxelStorage, Visibility};
 
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -58,12 +58,12 @@ impl VoxelStorage for Octree<VoxelIndex>
         self.depth
     }
 
-    fn get(&self, index: Vec3<usize>) -> Option<VoxelIndex> 
+    fn get(&self, index: Vec3<usize>) -> VoxelIndex
     {
         self.root.get(index)
     }
 
-    fn insert(&mut self, index: Vec3<usize>, value: Option<VoxelIndex>) 
+    fn insert(&mut self, index: Vec3<usize>, value: VoxelIndex) 
     {
         self.root.insert(index, value);
     }
@@ -77,14 +77,13 @@ impl VoxelStorage for Octree<VoxelIndex>
     {
         match self.root.data 
         {
-            NodeType::Empty => true,
-            NodeType::Leaf(_) => false,
+            NodeType::Leaf(v) => Voxel::from_index(v).visibility == Visibility::Empty,
             NodeType::Branches(_) => false,
         }
     }
 
     fn new_from_grid<TArg, TFunc>(depth: usize, grid: &Array3D<TArg>, mut sampler: TFunc) -> Self
-        where TFunc : FnMut(&TArg) -> Option<VoxelIndex> 
+        where TFunc : FnMut(&TArg) -> VoxelIndex
     {
         let bounds = NodeBounds::new_from_max(depth);
         let mut node = Node::new(bounds);
@@ -157,7 +156,6 @@ impl NodeBounds
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum NodeType<T> where T : Copy + Clone + Eq
 {
-    Empty,
     Leaf(T),
     Branches(Box<[Node<T>; 8]>)
 }
@@ -169,41 +167,29 @@ struct Node<T> where T : Copy + Clone + Eq
     bounds: NodeBounds, 
 }
 
-impl<T> Node<T> where T : Copy + Clone + Eq
+impl<T> Node<T> where T : Copy + Clone + Eq + Default
 {
     fn new(bounds: NodeBounds) -> Self
     {
-        Self { data: NodeType::Empty, bounds }
+        Self { data: NodeType::Leaf(T::default()), bounds }
     }
 
-    fn insert(&mut self, index: Vec3<usize>, value: Option<T>)
+    fn insert(&mut self, index: Vec3<usize>, value: T)
     {
         if self.bounds.is_max_depth()
         {
             assert!(index == self.bounds.position_relative, "thought {:?} was {:?}", index, self.bounds.position_relative);
-            match value 
-            {
-                Some(value) => self.data = NodeType::Leaf(value),
-                None => self.data = NodeType::Empty,
-            }
+            self.data = NodeType::Leaf(value)
         }
         else
         {
             let child_index = self.get_child_index(index);
             match &mut self.data
             {
-                NodeType::Empty =>
-                {
-                    let mut branches = Box::new(self.get_empty_children(None));
-
-                    branches[child_index].insert(index, value);
-
-                    self.data = NodeType::Branches(branches);
-                },
                 NodeType::Leaf(leaf) => 
                 {
                     let leaf = *leaf;
-                    let mut branches = Box::new(self.get_empty_children(Some(leaf)));
+                    let mut branches = Box::new(self.get_empty_children(leaf));
                     
                     branches[child_index].insert(index, value);
 
@@ -217,13 +203,12 @@ impl<T> Node<T> where T : Copy + Clone + Eq
         }
     }
 
-    fn get(&self, index: Vec3<usize>) -> Option<T>
+    fn get(&self, index: Vec3<usize>) -> T
     {
         assert!(self.bounds.contains_point(index));
         match &self.data 
         {
-            NodeType::Empty => None,
-            NodeType::Leaf(leaf) => Some(*leaf),
+            NodeType::Leaf(leaf) => *leaf,
             NodeType::Branches(branches) => 
             {
                 branches.iter().find(|b| b.bounds.contains_point(index)).unwrap().get(index)
@@ -231,15 +216,11 @@ impl<T> Node<T> where T : Copy + Clone + Eq
         }
     }
 
-    fn get_empty_children(&self, value: Option<T>) -> [Node<T>; 8]
+    fn get_empty_children(&self, value: T) -> [Node<T>; 8]
     {
         let child_bounds = self.bounds.get_child_bounds();
         let children: [Node<T>; 8] = std::array::from_fn(|i| {
-            let data = match value 
-            {
-                Some(leaf) => NodeType::Leaf(leaf),
-                None => NodeType::Empty,
-            };
+            let data = NodeType::Leaf(value);
             Self { data, bounds: child_bounds[i] }
         });
 
@@ -291,8 +272,8 @@ impl<T> Node<T> where T : Copy + Clone + Eq
 }
 
 fn fill_node_from_grid<T, A, S>(node: &mut Node<T>, grid: &Array3D<A>, sampler: &mut S) 
-    where T : Copy + Clone + Eq,
-          S : FnMut(&A) -> Option<T>
+    where T : Copy + Clone + Eq + Default,
+          S : FnMut(&A) -> T
 {
     if !node.bounds.is_max_depth()
     {
@@ -307,12 +288,6 @@ fn fill_node_from_grid<T, A, S>(node: &mut Node<T>, grid: &Array3D<A>, sampler: 
     else 
     {
         let voxel = sampler(&grid[node.bounds.position_relative]);
-
-        let new_data = match voxel {
-            Some(value) => NodeType::Leaf(value),
-            None => NodeType::Empty,
-        };
-
-        node.data = new_data;
+        node.data = NodeType::Leaf(voxel);
     }
 }

@@ -197,10 +197,10 @@ impl AppState
 fn generate_terrain<TStorage>(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>) -> Arc<Mutex<VoxelTerrain<TStorage>>> 
     where TStorage : VoxelStorage + Send + 'static
 { 
-    const CHUNK_DEPTH: usize = 8;
+    const CHUNK_DEPTH: usize = 7;
 
     let terrain = Arc::new(Mutex::new(VoxelTerrain::new(CHUNK_DEPTH, device.clone(), queue))); 
-    terrain.lock().unwrap().generate_chunks([-2..=2, 0..=1, -2..=2]);
+    terrain.lock().unwrap().generate_chunk([0, 0, 0].into());
 
     terrain
 }
