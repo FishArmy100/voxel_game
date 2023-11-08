@@ -8,20 +8,14 @@ use winit::event_loop::{ControlFlow, EventLoop};
 
 use crate::gpu_utils::WgpuState;
 use crate::rendering::GameRenderer;
-use crate::voxel::brick_map::{BrickMap, SizedBrickMap};
-use crate::voxel::octree::Octree;
-use crate::voxel::{Voxel, VoxelData, VoxelStorage};
 
 use crate::math::{Vec3, Color, Vec2};
 use crate::camera::{Camera, CameraEntity};
-use crate::voxel::terrain::{VoxelTerrain, TerrainInfo};
 
 pub type WinitWindow = winit::window::Window;
 pub type WindowSize = winit::dpi::PhysicalSize<u32>;
 pub type WindowPosition = winit::dpi::PhysicalPosition<u32>;
 use self::input::*;
-
-type Storage = SizedBrickMap<Voxel, 4>;
 
 struct AppState
 {
@@ -31,13 +25,12 @@ struct AppState
 
     size: WindowSize,
     window_handle: Arc<WinitWindow>,
-    renderer: GameRenderer<Storage>,
+    renderer: GameRenderer,
 
     wgpu_state: WgpuState,
 
     // TEMP
     camera_entity: CameraEntity,
-    terrain: Arc<Mutex<VoxelTerrain<Storage>>>,
 }
 
 pub async fn run()
@@ -82,9 +75,7 @@ impl AppState
             far: 100000.0
         };
 
-        let terrain = generate_terrain(wgpu_state.device().clone(), wgpu_state.queue().clone());
-
-        let renderer = GameRenderer::new(terrain.clone(), camera.clone(), wgpu_state.device().clone(), wgpu_state.surface().clone(), wgpu_state.queue().clone(), &wgpu_state.surface_config(), event_loop, window_handle.clone());
+        let renderer = GameRenderer::new(camera.clone(), wgpu_state.device().clone(), wgpu_state.surface().clone(), wgpu_state.queue().clone(), &wgpu_state.surface_config(), event_loop, window_handle.clone());
         let frame_builder = FrameStateBuilder::new(window_handle.clone(), FrameState::new(&window_handle));
 
         Self
@@ -97,7 +88,6 @@ impl AppState
             wgpu_state,
             renderer,
             camera_entity: CameraEntity::new(camera, 20.0, 50.0, 80.0),
-            terrain,
         }
     }
 
@@ -188,38 +178,8 @@ impl AppState
         self.camera_entity.update(&frame_state);
         self.renderer.update(self.camera_entity.camera(), &vec![], delta_time);
         self.current_time = SystemTime::now();
-        self.terrain.lock().unwrap().tick();
 
         self.frame_builder = FrameStateBuilder::new(self.window_handle.clone(), frame_state);
     }
-}
-
-fn generate_terrain<TStorage>(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>) -> Arc<Mutex<VoxelTerrain<TStorage>>> 
-    where TStorage : VoxelStorage<Voxel> + Send + 'static
-{        
-    let sand_color = Color::new(0.76, 0.698, 0.502, 1.0);
-
-    let voxel_types = vec!
-    [
-        VoxelData::new(Color::WHITE), 
-        VoxelData::new(Color::BLUE),
-        VoxelData::new(sand_color),
-        VoxelData::new(Color::GREEN)
-    ];
-        
-    const CHUNK_DEPTH: usize = 8;
-    const VOXEL_SIZE: f32 = 1.0 / 16.0;
-
-    let info = TerrainInfo
-    {
-        chunk_depth: CHUNK_DEPTH,
-        voxel_size: VOXEL_SIZE,
-        voxel_types: Arc::new(voxel_types),
-    };
-
-    let terrain = Arc::new(Mutex::new(VoxelTerrain::new(info, device.clone(), queue))); 
-    terrain.lock().unwrap().generate_chunks([-2..=2, 0..=1, -2..=2]);
-
-    terrain
 }
 

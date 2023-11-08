@@ -1,7 +1,6 @@
 [workspace]
 members = [
-    "src/shaders/test_shader",
-    "src/shaders/terrain_shader"
+    "src/shaders/test_shader"
 ]
 
 [package]

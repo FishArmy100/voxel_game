@@ -2054,13 +2054,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "terrain_shader"
-version = "0.1.0"
-dependencies = [
- "spirv-std",
-]
-
-[[package]]
 name = "test_shader"
 version = "0.1.0"
 dependencies = [

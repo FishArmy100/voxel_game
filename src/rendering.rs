@@ -3,9 +3,9 @@ pub mod debug_rendering;
 pub mod mesh;
 pub mod gui;
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
-use crate::{math::*, voxel::{VoxelStorage, Voxel, terrain_renderer::TerrainRenderStage, terrain::VoxelTerrain}, camera::Camera};
+use crate::{math::*, camera::Camera};
 use crate::gpu_utils::*;
 use wgpu::{VertexBufferLayout, BindGroupLayout};
 
@@ -184,19 +184,18 @@ pub fn build_render_pass<'a>(info: RenderPassInfo<'a>) -> wgpu::RenderPass<'a>
     render_pass
 }
 
-pub struct GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Send + 'static
+pub struct GameRenderer
 {
     renderer: Renderer,
     debug_stage: DebugRenderStage,
     mesh_stage: MeshRenderStage,
-    terrain_stage: TerrainRenderStage<TStorage>,
     gui_stage: GuiRenderer,
     delta_time: f32
 }
 
-impl<TStorage> GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Send + 'static
+impl GameRenderer
 {
-    pub fn new<T>(terrain: Arc<Mutex<VoxelTerrain<TStorage>>>, camera: Camera, device: Arc<wgpu::Device>, surface: Arc<wgpu::Surface>, queue: Arc<wgpu::Queue>, config: &wgpu::SurfaceConfiguration, event_loop: &winit::event_loop::EventLoop<T>, window: Arc<winit::window::Window>) -> Self
+    pub fn new<T>(camera: Camera, device: Arc<wgpu::Device>, surface: Arc<wgpu::Surface>, queue: Arc<wgpu::Queue>, config: &wgpu::SurfaceConfiguration, event_loop: &winit::event_loop::EventLoop<T>, window: Arc<winit::window::Window>) -> Self
         where T : 'static
     {
         let clear_color = Color::new(0.1, 0.2, 0.3, 1.0);
@@ -204,8 +203,6 @@ impl<TStorage> GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Sen
 
         let debug_stage = DebugRenderStage::new(device.clone(), config, camera.clone(), &[]);
         let mesh_stage = MeshRenderStage::new(Mesh::cube(Color::RED), &[MeshInstance::from_position([0.0, 2.0, 0.0].into())], camera.clone(), &device, config);
-
-        let terrain_stage = TerrainRenderStage::new(terrain, camera.clone(), device.clone(), config);
 
         let mut gui_stage = GuiRenderer::new(GuiRendererDescriptor {
             event_loop: &event_loop,
@@ -220,8 +217,7 @@ impl<TStorage> GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Sen
         { 
             renderer, 
             debug_stage, 
-            mesh_stage, 
-            terrain_stage,
+            mesh_stage,
             gui_stage,
             delta_time: 0.0
         }
@@ -231,7 +227,6 @@ impl<TStorage> GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Sen
     {
         self.debug_stage.update(debug_objects, camera.clone());
         self.mesh_stage.update(camera.clone());
-        self.terrain_stage.update(camera.clone());
         self.delta_time = delta_time;
     }
 
@@ -246,7 +241,7 @@ impl<TStorage> GameRenderer<TStorage> where TStorage : VoxelStorage<Voxel> + Sen
         self.gui_stage.draw_ui(|ctx| Self::basic_ui(ctx, self.delta_time));
         self.gui_stage.end_frame();
 
-        self.renderer.render(&mut [&mut self.mesh_stage, &mut self.terrain_stage, &mut self.gui_stage])
+        self.renderer.render(&mut [&mut self.mesh_stage, &mut self.gui_stage])
     }
 
     pub fn resize(&mut self, config: &wgpu::SurfaceConfiguration)
