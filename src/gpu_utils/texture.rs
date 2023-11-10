@@ -46,4 +46,24 @@ impl Texture {
 
         Self { texture, view, sampler }
     }
+
+    pub fn new(device: &wgpu::Device, texture_format: wgpu::TextureFormat, size: [u32; 2], usage: wgpu::TextureUsages, label: Option<&str>) -> Self 
+    {
+        let extent = wgpu::Extent3d {
+            width: size[0],
+            height: size[1],
+            depth_or_array_layers: 1
+        };
+
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label,
+            size: extent,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: texture_format,
+            usage,
+            view_formats: &[]
+        });
+    }
 }
