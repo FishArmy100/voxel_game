@@ -1,6 +1,7 @@
 [workspace]
 members = [
-    "src/shaders/test_shader"
+    "src/shaders/test_shader",
+    "src/shaders/voxel_shader"
 ]
 
 [package]
