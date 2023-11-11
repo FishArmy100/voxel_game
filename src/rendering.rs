@@ -5,6 +5,7 @@ pub mod gui;
 
 use std::sync::Arc;
 
+use crate::voxel::VoxelRenderer;
 use crate::{math::*, camera::Camera};
 use crate::gpu_utils::*;
 use wgpu::{VertexBufferLayout, BindGroupLayout};
@@ -190,6 +191,7 @@ pub struct GameRenderer
     debug_stage: DebugRenderStage,
     mesh_stage: MeshRenderStage,
     gui_stage: GuiRenderer,
+    voxel_stage: VoxelRenderer,
     delta_time: f32
 }
 
@@ -213,13 +215,16 @@ impl GameRenderer
 
         gui_stage.load(gui::DEFAULT_SAVE_PATH);
 
+        let voxel_stage = VoxelRenderer::new(&device, config);
+
         Self 
         { 
             renderer, 
             debug_stage, 
             mesh_stage,
             gui_stage,
-            delta_time: 0.0
+            voxel_stage,
+            delta_time: 0.0,
         }
     }
 
@@ -241,7 +246,7 @@ impl GameRenderer
         self.gui_stage.draw_ui(|ctx| Self::basic_ui(ctx, self.delta_time));
         self.gui_stage.end_frame();
 
-        self.renderer.render(&mut [&mut self.mesh_stage, &mut self.gui_stage])
+        self.renderer.render(&mut [&mut self.mesh_stage, &mut self.voxel_stage, &mut self.gui_stage])
     }
 
     pub fn resize(&mut self, config: &wgpu::SurfaceConfiguration)

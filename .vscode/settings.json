@@ -1,5 +1,6 @@
 {
     "cSpell.words": [
+        "Bgra",
         "Brickmap",
         "Bufferable",
         "Buildable",
@@ -24,6 +25,7 @@
         "swapchain",
         "unclipped",
         "unmap",
+        "Unorm",
         "uvec",
         "vscroll",
         "WASD",

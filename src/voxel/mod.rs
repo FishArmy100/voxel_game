@@ -14,13 +14,8 @@ pub struct Voxel
 pub struct VoxelRenderer
 {
     pipeline: wgpu::ComputePipeline,
-
     screen_size: Vec2<u32>,
-
-    texture: wgpu::Texture,
-    texture_view: wgpu::TextureView,
-
-    bind_group: wgpu::BindGroup,
+    bind_group_layout: wgpu::BindGroupLayout,
 }
 
 impl VoxelRenderer
@@ -28,21 +23,20 @@ impl VoxelRenderer
     pub fn new(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Self 
     {
         let cs_module = device.create_shader_module(wgpu::include_spirv!(env!("voxel_shader.spv")));
-
-        let (texture, texture_view) = Self::make_texture(device, config);
+        let screen_size = Vec2::new(config.width, config.height);
 
         let texture_entry = wgpu::BindGroupLayoutEntry {
             binding: 0,
             visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Texture { 
-                sample_type: wgpu::TextureSampleType::Float { filterable: true /* ??? */ }, 
-                view_dimension: wgpu::TextureViewDimension::D2, 
-                multisampled: false
+            ty: wgpu::BindingType::StorageTexture { 
+                access: wgpu::StorageTextureAccess::ReadWrite, 
+                format: wgpu::TextureFormat::Rgba32Float, 
+                view_dimension: wgpu::TextureViewDimension::D2 
             },
             count: None
         };
 
-        let bind_group_layout = BindGroup::construct_layout_from_entries(&[texture_size_x_uniform.get_layout(0), texture_size_y_uniform.get_layout(1), texture_entry], device);
+        let bind_group_layout = BindGroup::construct_layout_from_entries(&[texture_entry], device);
 
         let compute_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor{
             label: None,
@@ -57,55 +51,30 @@ impl VoxelRenderer
             entry_point: "main"
         });
 
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Voxel Bind Group"),
-            layout: &bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&texture_view)
-                }
-            ]
-        });
-
         Self 
         {
             pipeline,
-            screen_size: Vec2::new(config.width, config.height),
-            texture,
-            texture_view,
-            bind_group
+            screen_size,
+            bind_group_layout,
         }
-    }
-
-    fn make_texture(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> (wgpu::Texture, wgpu::TextureView)
-    {
-        let texture_size = wgpu::Extent3d { 
-            width: config.width, 
-            height: config.height, 
-            depth_or_array_layers: 1
-        };
-
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Voxel Indirection Buffer"),
-            size: texture_size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: config.format,
-            usage: wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::TEXTURE_BINDING,
-            view_formats: &[],
-        });
-
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        (texture, view)
     }
 }
 
 impl RenderStage for VoxelRenderer
 {
-    fn on_draw(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, view: &wgpu::TextureView, depth_texture: &crate::gpu_utils::Texture) 
+    fn on_draw(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, view: &wgpu::TextureView, _depth_texture: &crate::gpu_utils::Texture) 
     {
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Voxel Bind Group"),
+            layout: &self.bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&view)
+                }
+            ]
+        });
+
         let mut encoder = get_command_encoder(device);
         {
             let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -113,11 +82,11 @@ impl RenderStage for VoxelRenderer
             });
 
             compute_pass.set_pipeline(&self.pipeline);
-            compute_pass.set_bind_group(0, &self.bind_group, &[]);
+            compute_pass.set_bind_group(0, &bind_group, &[]);
             compute_pass.insert_debug_marker("trying to raytrace voxels");
             compute_pass.dispatch_workgroups(self.screen_size.x, self.screen_size.y, 1); 
         }
 
-        encoder.copy_texture_to_texture(self.texture.as_image_copy(), vi, copy_size)
+        queue.submit(std::iter::once(encoder.finish()));
     }
 }

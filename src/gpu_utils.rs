@@ -46,7 +46,7 @@ impl WgpuState
 
         println!("Name: {:?}\nBackend: {:?}", adapter.get_info().name, adapter.get_info().backend);
 
-        let features = wgpu::Features::empty();
+        let features = wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
 
         let (device, queue) = adapter.request_device( 
             &wgpu::DeviceDescriptor

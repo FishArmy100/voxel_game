@@ -4,6 +4,7 @@
 - [Rust GPU](https://github.com/EmbarkStudios/rust-gpu)
   - [Docs](https://embarkstudios.github.io/rust-gpu/book/)
   - [spirv_std](https://docs.rs/spirv-std/latest/spirv_std/)
+  - [All builtins](https://github.com/EmbarkStudios/rust-gpu/blob/main/tests/ui/spirv-attr/all-builtins.rs)
 - [WGPU](https://github.com/gfx-rs/wgpu)
   - [Help](https://sotrh.github.io/learn-wgpu/)
 - [E-GUI](https://github.com/emilk/egui#integrations)
