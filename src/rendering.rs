@@ -192,6 +192,8 @@ pub struct GameRenderer
     mesh_stage: MeshRenderStage,
     gui_stage: GuiRenderer,
     voxel_stage: VoxelRenderer,
+    device: Arc<wgpu::Device>,
+    queue: Arc<wgpu::Queue>,
     delta_time: f32
 }
 
@@ -201,7 +203,7 @@ impl GameRenderer
         where T : 'static
     {
         let clear_color = Color::new(0.1, 0.2, 0.3, 1.0);
-        let renderer = Renderer::new(device.clone(), surface, queue, config, clear_color);
+        let renderer = Renderer::new(device.clone(), surface, queue.clone(), config, clear_color);
 
         let debug_stage = DebugRenderStage::new(device.clone(), config, camera.clone(), &[]);
         let mesh_stage = MeshRenderStage::new(Mesh::cube(Color::RED), &[MeshInstance::from_position([0.0, 2.0, 0.0].into())], camera.clone(), &device, config);
@@ -224,6 +226,8 @@ impl GameRenderer
             mesh_stage,
             gui_stage,
             voxel_stage,
+            device,
+            queue,
             delta_time: 0.0,
         }
     }
@@ -252,6 +256,7 @@ impl GameRenderer
     pub fn resize(&mut self, config: &wgpu::SurfaceConfiguration)
     {
         self.renderer.resize(config);
+        self.voxel_stage.resize(&self.queue, &self.device, config)
     }
 
     pub fn on_close(&mut self)

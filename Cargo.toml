@@ -1,7 +1,8 @@
 [workspace]
 members = [
     "src/shaders/test_shader",
-    "src/shaders/voxel_shader"
+    "src/shaders/screen_shader",
+    "src/shaders/raytracing_shader",
 ]
 
 [package]

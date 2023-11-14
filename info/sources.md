@@ -16,6 +16,9 @@
 ### Ray Tracing
 - Voxel Ray Tracing
   - [Brickmap](https://github.com/stijnherfst/BrickMap)
+- Ray Tracing:
+  - [C++](https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-generating-camera-rays/generating-camera-rays.html#:~:text=If%20we%20know%200%20%28the,computed%20as%20P%27%2DO)
+  - [Rust](https://bheisler.github.io/post/writing-raytracer-in-rust-part-1/)
 
 ### Meshing:
 - [Voxel Mesh Optimization](https://docs.rs/block-mesh/latest/block_mesh/)

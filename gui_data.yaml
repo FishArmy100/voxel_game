@@ -20,7 +20,7 @@ data:
     generation: 1
 - - 15346898488671958590
   - type_id: 14704390094414195229
-    ron: (desired_size:(x:117.0,y:124.318),last_content_size:(x:69.84747,y:34.0),requested_size:None)
+    ron: (desired_size:(x:96.0,y:34.0),last_content_size:(x:69.84741,y:34.0),requested_size:None)
     generation: 1
 - - 4461406857819528621
   - type_id: 6204203427923467514
@@ -30,7 +30,7 @@ areas:
   areas:
     3971365303757704216:
       pivot_pos:
-        x: 706.0
+        x: 1826.0
         y: 0.0
       pivot:
       - Min
@@ -47,8 +47,8 @@ areas:
       - Min
       - Min
       size:
-        x: 800.0
-        y: 600.0
+        x: 1920.0
+        y: 1017.0
       interactable: true
   order:
   - order: Background
@@ -56,9 +56,9 @@ areas:
   - order: Middle
     id: 3971365303757704216
   visible_last_frame:
-  - order: Middle
-    id: 3971365303757704216
   - order: Background
     id: 1
+  - order: Middle
+    id: 3971365303757704216
   visible_current_frame: []
   wants_to_be_on_top: []
