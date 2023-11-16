@@ -1,5 +1,8 @@
 use spirv_std::glam::Vec3A;
 
+const PI: f32 = 3.14159265358979323846;
+
+#[derive(Clone, Copy)]
 pub struct Ray 
 {
     pub origin: Vec3A,
@@ -16,4 +19,9 @@ impl Ray
             dir
         }
     }
+}
+
+pub trait Intersectable 
+{
+    fn intersect(&self, ray: &Ray) -> bool;
 }

@@ -217,7 +217,7 @@ impl GameRenderer
 
         gui_stage.load(gui::DEFAULT_SAVE_PATH);
 
-        let voxel_stage = VoxelRenderer::new(&device, config);
+        let voxel_stage = VoxelRenderer::new(&device, &camera, config);
 
         Self 
         { 
@@ -236,6 +236,7 @@ impl GameRenderer
     {
         self.debug_stage.update(debug_objects, camera.clone());
         self.mesh_stage.update(camera.clone());
+        self.voxel_stage.update(camera, &self.queue);
         self.delta_time = delta_time;
     }
 

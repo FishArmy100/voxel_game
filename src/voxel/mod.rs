@@ -1,6 +1,7 @@
+use cgmath::EuclideanSpace;
 use wgpu::*;
 
-use crate::{math::{Color, Vec2}, rendering::{RenderStage, get_command_encoder, construct_render_pipeline, RenderPipelineInfo, get_render_pass}, gpu_utils::{Uniform, Entry}};
+use crate::{math::{Color, Vec2, Vec4, Mat4x4}, rendering::{RenderStage, get_command_encoder, construct_render_pipeline, RenderPipelineInfo, get_render_pass}, gpu_utils::{Uniform, Entry, GPUVec4}, camera::{Camera, CameraUniform}};
 
 pub enum Visibility { Opaque, Empty }
 
@@ -17,6 +18,12 @@ struct VoxelRendererData
 {
     width_uniform: Uniform<u32>,
     height_uniform: Uniform<u32>,
+
+    camera_eye: Uniform<GPUVec4<f32>>,
+    camera_lower_left: Uniform<GPUVec4<f32>>,
+    camera_horizontal: Uniform<GPUVec4<f32>>,
+    camera_vertical: Uniform<GPUVec4<f32>>,
+    camera_fov: Uniform<f32>
 }
 
 pub struct VoxelRenderer
@@ -39,7 +46,7 @@ pub struct VoxelRenderer
 
 impl VoxelRenderer
 {
-    pub fn new(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Self 
+    pub fn new(device: &wgpu::Device, camera: &Camera, config: &wgpu::SurfaceConfiguration) -> Self 
     {
         let texture = get_texture(device, config);
         let view = get_texture_view(&texture);
@@ -61,12 +68,26 @@ impl VoxelRenderer
         let width_uniform = Uniform::new(config.width, ShaderStages::COMPUTE, device);
         let height_uniform = Uniform::new(config.height, ShaderStages::COMPUTE, device);
 
+        let rt_camera_info = camera.get_rt_camera().build_info();
+
+        let camera_eye = Uniform::new(GPUVec4::from_point3(&rt_camera_info.eye), ShaderStages::COMPUTE, device);
+        let camera_lower_left = Uniform::new(GPUVec4::from_point3(&rt_camera_info.lower_left_corner), ShaderStages::COMPUTE, device);
+        let camera_horizontal = Uniform::new(GPUVec4::from_vec3(&rt_camera_info.horizontal), ShaderStages::COMPUTE, device);
+        let camera_vertical = Uniform::new(GPUVec4::from_vec3(&rt_camera_info.vertical), ShaderStages::COMPUTE, device);
+        let camera_fov = Uniform::new(rt_camera_info.fov, ShaderStages::COMPUTE, device);
+
+
         let data = VoxelRendererData { 
-            width_uniform, 
-            height_uniform 
+            width_uniform,
+            height_uniform,
+            camera_eye,
+            camera_lower_left,
+            camera_horizontal,
+            camera_vertical,
+            camera_fov
         };
         
-        let compute_bind_group_layout = create_compute_bind_group_layout(device, &data.width_uniform, &data.height_uniform);
+        let compute_bind_group_layout = create_compute_bind_group_layout(device, &data);
         let compute_bind_group = create_compute_bind_group(device, &compute_bind_group_layout, &view, &data);
 
         let compute_shader = &device.create_shader_module(include_spirv!(env!("raytracing_shader.spv")));
@@ -83,8 +104,6 @@ impl VoxelRenderer
             module: &compute_shader, 
             entry_point: "cs_main"
         });
-
-
 
         Self 
         { 
@@ -112,6 +131,16 @@ impl VoxelRenderer
         self.render_bind_group = create_render_bind_group(device, &self.render_bind_group_layout, &self.indirect_texture_view, &self.indirect_texture_sampler);
         self.compute_bind_group = create_compute_bind_group(device, &self.compute_bind_group_layout, &self.indirect_texture_view, &self.data);
         self.screen_size = Vec2::new(config.width, config.height);
+    }
+
+    pub fn update(&mut self, camera: &Camera, queue: &Queue)
+    {
+        let rt_camera_info = camera.get_rt_camera().build_info();
+        self.data.camera_eye.enqueue_write(GPUVec4::from_point3(&rt_camera_info.eye), queue);
+        self.data.camera_lower_left.enqueue_write(GPUVec4::from_point3(&rt_camera_info.lower_left_corner), queue);
+        self.data.camera_horizontal.enqueue_write(GPUVec4::from_vec3(&rt_camera_info.horizontal), queue);
+        self.data.camera_vertical.enqueue_write(GPUVec4::from_vec3(&rt_camera_info.vertical), queue);
+        self.data.camera_fov.enqueue_write(rt_camera_info.fov, queue);
     }
 }
 
@@ -157,13 +186,33 @@ fn create_compute_bind_group(device: &Device, layout: &BindGroupLayout, view: &T
                 binding: 2,
                 resource: data.height_uniform.get_resource()
             },
+            BindGroupEntry {
+                binding: 3,
+                resource: data.camera_eye.get_resource()
+            },
+            BindGroupEntry {
+                binding: 4,
+                resource: data.camera_lower_left.get_resource()
+            },
+            BindGroupEntry {
+                binding: 5,
+                resource: data.camera_horizontal.get_resource()
+            },
+            BindGroupEntry {
+                binding: 6,
+                resource: data.camera_vertical.get_resource()
+            },
+            BindGroupEntry {
+                binding: 7,
+                resource: data.camera_fov.get_resource()
+            },
         ] 
     });
 
     bind_group
 }
 
-fn create_compute_bind_group_layout(device: &Device, width_uniform: &Uniform<u32>, height_uniform: &Uniform<u32>) -> BindGroupLayout
+fn create_compute_bind_group_layout(device: &Device, data: &VoxelRendererData) -> BindGroupLayout
 {
     let layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor { 
         label: None, 
@@ -178,8 +227,13 @@ fn create_compute_bind_group_layout(device: &Device, width_uniform: &Uniform<u32
                 },
                 count: None
             },
-            width_uniform.get_layout(1),
-            height_uniform.get_layout(2),
+            data.width_uniform      .get_layout(1),
+            data.height_uniform     .get_layout(2),
+            data.camera_eye         .get_layout(3),
+            data.camera_lower_left  .get_layout(4),
+            data.camera_horizontal  .get_layout(5),
+            data.camera_vertical    .get_layout(6),
+            data.camera_fov         .get_layout(7),
         ] 
     });
 

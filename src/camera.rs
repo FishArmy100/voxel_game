@@ -1,4 +1,4 @@
-use cgmath::{Quaternion, Rotation, Rotation3, EuclideanSpace, Array, InnerSpace, Deg};
+use cgmath::{Quaternion, Rotation, Rotation3, EuclideanSpace, Array, InnerSpace, Deg, Transform, SquareMatrix};
 use winit::event::{VirtualKeyCode};
 
 use crate::{math::*, application::input::FrameState};
@@ -23,6 +23,70 @@ impl Camera
         let proj = cgmath::perspective(cgmath::Deg(self.fov), self.aspect, self.near, self.far);
         OPENGL_TO_WGPU_MATRIX * proj * view
     }
+
+    pub fn get_rt_camera(&self) -> RTCamera
+    {
+        RTCamera 
+        { 
+            eye: self.eye, 
+            target: self.target, 
+            fov: self.fov, 
+            aspect: self.aspect, 
+            up: self.up 
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct RTCamera 
+{
+    pub eye: Point3D<f32>,
+    pub target: Point3D<f32>,
+    pub fov: f32,
+    pub aspect: f32,
+    pub up: Vec3<f32>
+}
+
+impl RTCamera
+{
+    pub fn build_info(&self) -> RTCameraInfo
+    {
+        let theta = self.fov.to_radians();
+        let half_height = (theta / 2.0).tan();
+        let half_width = self.aspect * half_height;
+
+        let w = (self.eye - self.target).normalize();
+        let u = self.up.cross(w).normalize();
+        let v = w.cross(u);
+
+        let lower_left_corner = self.eye - (u * half_width) - (v * half_height) - w;
+        let horizontal = u * 2.0 * half_width;
+        let vertical = v * 2.0 * half_height;
+
+        RTCameraInfo 
+        {
+            eye: self.eye,
+            target: self.target,
+            fov: self.fov,
+            aspect: self.aspect,
+            up: self.up,
+            lower_left_corner,
+            horizontal,
+            vertical,
+        }
+    }
+}
+
+pub struct RTCameraInfo 
+{
+    pub eye: Point3D<f32>,
+    pub target: Point3D<f32>,
+    pub fov: f32,
+    pub aspect: f32,
+    pub up: Vec3<f32>,
+    pub lower_left_corner: Point3D<f32>,
+    pub horizontal: Vec3<f32>,
+    pub vertical: Vec3<f32>
 }
 
 #[repr(C)]
@@ -34,13 +98,14 @@ pub struct CameraUniform
 
 impl CameraUniform {
     pub fn new() -> Self {
-        use cgmath::SquareMatrix;
-        Self {
+        Self 
+        {
             view_proj: cgmath::Matrix4::identity().into(),
         }
     }
 
-    pub fn update_view_proj(&mut self, camera: &Camera) {
+    pub fn update_view_proj(&mut self, camera: &Camera) 
+    {
         self.view_proj = camera.build_view_projection_matrix().into();
     }
 }

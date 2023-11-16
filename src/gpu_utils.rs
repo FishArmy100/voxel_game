@@ -3,7 +3,7 @@ pub mod buffer;
 pub mod texture;
 use std::sync::Arc;
 
-use crate::math::{Vec4, Vec2};
+use crate::math::{Vec4, Vec2, Point3D};
 use crate::{utils::Byteable, math::Vec3};
 
 pub use self::bind_group::*;
@@ -157,6 +157,18 @@ impl<T> GPUVec4<T> where T : Byteable
             z,
             w
         }
+    }
+
+    pub fn from_vec3(v: &Vec3<T>) -> Self 
+        where T : Default
+    {
+        Self::new(v.x, v.y, v.z, T::default())
+    }
+
+    pub fn from_point3(p: &Point3D<T>) -> Self 
+        where T : Default
+    {
+        Self::new(p.x, p.y, p.z, T::default())
     }
 }
 

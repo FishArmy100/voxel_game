@@ -66,8 +66,8 @@ impl AppState
         
         let camera = Camera
         {
-            eye: (0.0, 1.0, 2.0).into(),
-            target: (0.0, 0.0, 0.0).into(),
+            eye: (0.0, 0.0, 0.0).into(),
+            target: (0.0, 0.0, -1.0).into(),
             up: Vec3::unit_y(),
             aspect,
             fov: 45.0,
