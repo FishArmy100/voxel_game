@@ -23,7 +23,6 @@ struct Camera
     lower_left: Vec3A,
     horizontal: Vec3A,
     vertical: Vec3A,
-    fov: f32,
 }
 
 struct Sphere
@@ -72,7 +71,6 @@ pub fn cs_main(
     #[spirv(uniform, descriptor_set = 0, binding = 4)] camera_lower_left: &Vec3A,
     #[spirv(uniform, descriptor_set = 0, binding = 5)] camera_horizontal: &Vec3A,
     #[spirv(uniform, descriptor_set = 0, binding = 6)] camera_vertical: &Vec3A,
-    #[spirv(uniform, descriptor_set = 0, binding = 7)] camera_fov: &f32,
 ) 
 {
     let camera = Camera {
@@ -80,7 +78,6 @@ pub fn cs_main(
         lower_left: *camera_lower_left,
         horizontal: *camera_horizontal,
         vertical: *camera_vertical,
-        fov: *camera_fov
     };
 
     let ray = create_ray(id.x, id.y, *width_buffer, *height_buffer, camera);

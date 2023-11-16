@@ -23,7 +23,6 @@ struct VoxelRendererData
     camera_lower_left: Uniform<GPUVec4<f32>>,
     camera_horizontal: Uniform<GPUVec4<f32>>,
     camera_vertical: Uniform<GPUVec4<f32>>,
-    camera_fov: Uniform<f32>
 }
 
 pub struct VoxelRenderer
@@ -74,8 +73,6 @@ impl VoxelRenderer
         let camera_lower_left = Uniform::new(GPUVec4::from_point3(&rt_camera_info.lower_left_corner), ShaderStages::COMPUTE, device);
         let camera_horizontal = Uniform::new(GPUVec4::from_vec3(&rt_camera_info.horizontal), ShaderStages::COMPUTE, device);
         let camera_vertical = Uniform::new(GPUVec4::from_vec3(&rt_camera_info.vertical), ShaderStages::COMPUTE, device);
-        let camera_fov = Uniform::new(rt_camera_info.fov, ShaderStages::COMPUTE, device);
-
 
         let data = VoxelRendererData { 
             width_uniform,
@@ -84,7 +81,6 @@ impl VoxelRenderer
             camera_lower_left,
             camera_horizontal,
             camera_vertical,
-            camera_fov
         };
         
         let compute_bind_group_layout = create_compute_bind_group_layout(device, &data);
@@ -140,7 +136,6 @@ impl VoxelRenderer
         self.data.camera_lower_left.enqueue_write(GPUVec4::from_point3(&rt_camera_info.lower_left_corner), queue);
         self.data.camera_horizontal.enqueue_write(GPUVec4::from_vec3(&rt_camera_info.horizontal), queue);
         self.data.camera_vertical.enqueue_write(GPUVec4::from_vec3(&rt_camera_info.vertical), queue);
-        self.data.camera_fov.enqueue_write(rt_camera_info.fov, queue);
     }
 }
 
@@ -202,10 +197,6 @@ fn create_compute_bind_group(device: &Device, layout: &BindGroupLayout, view: &T
                 binding: 6,
                 resource: data.camera_vertical.get_resource()
             },
-            BindGroupEntry {
-                binding: 7,
-                resource: data.camera_fov.get_resource()
-            },
         ] 
     });
 
@@ -233,7 +224,6 @@ fn create_compute_bind_group_layout(device: &Device, data: &VoxelRendererData) -
             data.camera_lower_left  .get_layout(4),
             data.camera_horizontal  .get_layout(5),
             data.camera_vertical    .get_layout(6),
-            data.camera_fov         .get_layout(7),
         ] 
     });
 

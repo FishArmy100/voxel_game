@@ -97,7 +97,8 @@ pub struct CameraUniform
 }
 
 impl CameraUniform {
-    pub fn new() -> Self {
+    pub fn new() -> Self 
+    {
         Self 
         {
             view_proj: cgmath::Matrix4::identity().into(),
@@ -185,5 +186,36 @@ impl CameraEntity
 
         let target_vec = target_relative + self.camera.eye.to_vec();
         self.camera.target = Point3D::new(target_vec.x, target_vec.y, target_vec.z);
+    }
+}
+
+#[cfg(test)]
+mod tests 
+{
+    #[cfg(test)]
+    use assert_approx_eq::assert_approx_eq;
+    use crate::math::{Point3D, Vec3};
+    use super::RTCamera;
+
+    #[test]
+    fn test_camera()
+    {
+        let camera = RTCamera {
+            eye: Point3D::new(0.0, 0.0, 0.0),
+            target: Point3D::new(0.0, 0.0, -1.0),
+            up: Vec3::new(0.0, 1.0, 0.0),
+            fov: 90.0,
+            aspect: (800.0 / 600.0),
+        };
+
+        let rt_info = camera.build_info();
+
+        assert_eq!(rt_info.eye.x, 0.0);
+        assert_eq!(rt_info.eye.y, 0.0);
+        assert_eq!(rt_info.eye.z, 0.0);
+
+        assert_approx_eq!(rt_info.lower_left_corner.x, -(1.0 + (1.0 / 3.0)));
+        assert_approx_eq!(rt_info.lower_left_corner.y, -1.0);
+        assert_approx_eq!(rt_info.lower_left_corner.z, -1.0);
     }
 }
