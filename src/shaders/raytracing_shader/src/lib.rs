@@ -43,7 +43,9 @@ impl Intersectable for Sphere
     }
 }
 
-const SPHERE: Sphere = Sphere { radius: 1.0, center: Vec3::new(0.0, 0.0, -5.0), color: Vec4::new(0.4, 1.0, 0.4, 1.0) };
+const SPHERE: Sphere = Sphere { radius: 1.0, center: Vec3::new(0.0, 0.0, -5.0), color: Vec4::new(1.0, 0.0, 0.0, 1.0) };
+const SPHERE_2: Sphere = Sphere { radius: 1.0, center: Vec3::new(0.0, 0.0, 5.0), color: Vec4::new(0.0, 1.0, 0.0, 1.0) };
+
 const BACKGROUND_COLOR: Vec4 = Vec4::new(0.5, 0.5, 0.5, 1.0);
 const FOV: f32 = 60.0;
 
@@ -58,21 +60,6 @@ fn create_ray(x: u32, y: u32, width: u32, height: u32, camera: Camera) -> Ray
     Ray 
     { 
         origin, 
-        dir
-    }
-}
-
-fn create_working_ray(x: u32, y: u32, width: u32, height: u32, camera: Camera) -> Ray
-{
-    let fov_adjustment = (FOV.to_radians() / 2.0).tan();
-    let aspect_ratio = (width as f32) / (height as f32);
-    let sensor_x = ((((x as f32 + 0.5) / width as f32) * 2.0 - 1.0) * aspect_ratio) * fov_adjustment;
-    let sensor_y = (1.0 - ((y as f32 + 0.5) / height as f32) * 2.0) * fov_adjustment;
-
-    let dir = Vec3::new(sensor_x, sensor_y, -1.0).normalize();
-    Ray 
-    {
-        origin: Vec3::ZERO,
         dir
     }
 }
@@ -100,6 +87,10 @@ pub fn cs_main(
     let color = if SPHERE.intersect(&ray)
     { 
         SPHERE.color
+    }
+    else if SPHERE_2.intersect(&ray)
+    {
+        SPHERE_2.color
     }
     else 
     {
