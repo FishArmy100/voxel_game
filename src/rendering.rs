@@ -194,7 +194,8 @@ pub struct GameRenderer
     voxel_stage: VoxelRenderer,
     device: Arc<wgpu::Device>,
     queue: Arc<wgpu::Queue>,
-    delta_time: f32
+    delta_time: f32,
+    camera: Camera
 }
 
 impl GameRenderer
@@ -229,6 +230,7 @@ impl GameRenderer
             device,
             queue,
             delta_time: 0.0,
+            camera
         }
     }
 
@@ -238,6 +240,7 @@ impl GameRenderer
         self.mesh_stage.update(camera.clone());
         self.voxel_stage.update(camera, &self.queue);
         self.delta_time = delta_time;
+        self.camera = camera.clone();
     }
 
     pub fn handle_event<T>(&mut self, event: &winit::event::Event<T>) -> bool 
@@ -248,7 +251,7 @@ impl GameRenderer
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError>
     {
         self.gui_stage.begin_frame();
-        self.gui_stage.draw_ui(|ctx| Self::basic_ui(ctx, self.delta_time));
+        self.gui_stage.draw_ui(|ctx| Self::basic_ui(ctx, &self.camera, self.delta_time));
         self.gui_stage.end_frame();
 
         self.renderer.render(&mut [&mut self.mesh_stage, &mut self.voxel_stage, &mut self.gui_stage])
@@ -265,7 +268,7 @@ impl GameRenderer
         self.gui_stage.save(gui::DEFAULT_SAVE_PATH);
     }
 
-    fn basic_ui(context: &egui::Context, delta_time: f32)
+    fn basic_ui(context: &egui::Context, camera: &Camera, delta_time: f32)
     {
         egui::Window::new("Info")
             .vscroll(true)
@@ -275,6 +278,7 @@ impl GameRenderer
             .show(context, |ui| 
             {
                 ui.label(format!("Frame time: {:.2}ms", delta_time * 1000.0));
+                ui.label(format!("Position ({:.2}, {:.2}, {:.2})", camera.eye.x, camera.eye.y, camera.eye.z));
             });
     }
 }

@@ -55,6 +55,8 @@ impl RTCamera
         let half_height = (theta / 2.0).tan();
         let half_width = self.aspect * half_height;
 
+        println!("half width = {}; half height = {}", half_width, half_height);
+
         let w = (self.eye - self.target).normalize();
         let u = self.up.cross(w).normalize();
         let v = w.cross(u);
@@ -204,7 +206,7 @@ mod tests
             eye: Point3D::new(0.0, 0.0, 0.0),
             target: Point3D::new(0.0, 0.0, -1.0),
             up: Vec3::new(0.0, 1.0, 0.0),
-            fov: 90.0,
+            fov: 20.0,
             aspect: (800.0 / 600.0),
         };
 
