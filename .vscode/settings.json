@@ -17,6 +17,7 @@
         "oneshot",
         "OPENGL",
         "perlin",
+        "powi",
         "repr",
         "rustfmt",
         "Seedable",

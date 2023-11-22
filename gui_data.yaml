@@ -20,24 +20,24 @@ data:
     generation: 1
 - - 15346898488671958590
   - type_id: 14704390094414195229
-    ron: (desired_size:(x:161.0,y:139.318),last_content_size:(x:138.87152,y:37.0),requested_size:None)
+    ron: (desired_size:(x:161.0,y:139.318),last_content_size:(x:146.87152,y:54.0),requested_size:None)
     generation: 1
 - - 4461406857819528621
   - type_id: 6204203427923467514
-    ron: (open:true,open_height:Some(37.0))
+    ron: (open:true,open_height:Some(54.0))
     generation: 1
 areas:
   areas:
     3971365303757704216:
       pivot_pos:
-        x: 649.0
+        x: 641.0
         y: 0.0
       pivot:
       - Min
       - Min
       size:
-        x: 150.87152
-        y: 72.682
+        x: 158.87152
+        y: 89.682
       interactable: true
     1:
       pivot_pos:

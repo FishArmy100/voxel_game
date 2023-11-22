@@ -23,72 +23,6 @@ impl Camera
         let proj = cgmath::perspective(cgmath::Deg(self.fov), self.aspect, self.near, self.far);
         OPENGL_TO_WGPU_MATRIX * proj * view
     }
-
-    pub fn get_rt_camera(&self) -> RTCamera
-    {
-        RTCamera 
-        { 
-            eye: self.eye, 
-            target: self.target, 
-            fov: self.fov, 
-            aspect: self.aspect, 
-            up: self.up 
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct RTCamera 
-{
-    pub eye: Point3D<f32>,
-    pub target: Point3D<f32>,
-    pub fov: f32,
-    pub aspect: f32,
-    pub up: Vec3<f32>
-}
-
-impl RTCamera
-{
-    pub fn build_info(&self) -> RTCameraInfo
-    {
-        let theta = self.fov.to_radians();
-        let half_height = (theta / 2.0).tan();
-        let half_width = self.aspect * half_height;
-
-        println!("half width = {}; half height = {}", half_width, half_height);
-
-        let w = (self.eye - self.target).normalize();
-        let u = self.up.cross(w).normalize();
-        let v = w.cross(u);
-
-        let lower_left_corner = self.eye - (u * half_width) - (v * half_height) - w;
-        let horizontal = u * 2.0 * half_width;
-        let vertical = v * 2.0 * half_height;
-
-        RTCameraInfo 
-        {
-            eye: self.eye,
-            target: self.target,
-            fov: self.fov,
-            aspect: self.aspect,
-            up: self.up,
-            lower_left_corner,
-            horizontal,
-            vertical,
-        }
-    }
-}
-
-pub struct RTCameraInfo 
-{
-    pub eye: Point3D<f32>,
-    pub target: Point3D<f32>,
-    pub fov: f32,
-    pub aspect: f32,
-    pub up: Vec3<f32>,
-    pub lower_left_corner: Point3D<f32>,
-    pub horizontal: Vec3<f32>,
-    pub vertical: Vec3<f32>
 }
 
 #[repr(C)]
@@ -157,8 +91,8 @@ impl CameraEntity
 
         if frame_state.is_key_down(VirtualKeyCode::W) { move_dir += forward; }
         if frame_state.is_key_down(VirtualKeyCode::S) { move_dir += -forward; }
-        if frame_state.is_key_down(VirtualKeyCode::A) { move_dir += right; }
-        if frame_state.is_key_down(VirtualKeyCode::D) { move_dir += -right; }
+        if frame_state.is_key_down(VirtualKeyCode::A) { move_dir += -right; }
+        if frame_state.is_key_down(VirtualKeyCode::D) { move_dir += right; }
 
         if frame_state.is_key_down(VirtualKeyCode::Space) { move_dir.y += 1.0; }
         if frame_state.is_key_down(VirtualKeyCode::LShift) { move_dir.y += -1.0; }
@@ -188,36 +122,5 @@ impl CameraEntity
 
         let target_vec = target_relative + self.camera.eye.to_vec();
         self.camera.target = Point3D::new(target_vec.x, target_vec.y, target_vec.z);
-    }
-}
-
-#[cfg(test)]
-mod tests 
-{
-    #[cfg(test)]
-    use assert_approx_eq::assert_approx_eq;
-    use crate::math::{Point3D, Vec3};
-    use super::RTCamera;
-
-    #[test]
-    fn test_camera()
-    {
-        let camera = RTCamera {
-            eye: Point3D::new(0.0, 0.0, 0.0),
-            target: Point3D::new(0.0, 0.0, -1.0),
-            up: Vec3::new(0.0, 1.0, 0.0),
-            fov: 20.0,
-            aspect: (800.0 / 600.0),
-        };
-
-        let rt_info = camera.build_info();
-
-        assert_eq!(rt_info.eye.x, 0.0);
-        assert_eq!(rt_info.eye.y, 0.0);
-        assert_eq!(rt_info.eye.z, 0.0);
-
-        assert_approx_eq!(rt_info.lower_left_corner.x, -(1.0 + (1.0 / 3.0)));
-        assert_approx_eq!(rt_info.lower_left_corner.y, -1.0);
-        assert_approx_eq!(rt_info.lower_left_corner.z, -1.0);
     }
 }

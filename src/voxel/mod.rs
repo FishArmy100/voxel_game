@@ -20,9 +20,8 @@ struct VoxelRendererData
     height_uniform: Uniform<u32>,
 
     camera_eye: Uniform<GPUVec4<f32>>,
-    camera_lower_left: Uniform<GPUVec4<f32>>,
-    camera_horizontal: Uniform<GPUVec4<f32>>,
-    camera_vertical: Uniform<GPUVec4<f32>>,
+    camera_target: Uniform<GPUVec4<f32>>,
+    camera_fov: Uniform<f32>
 }
 
 pub struct VoxelRenderer
@@ -67,20 +66,17 @@ impl VoxelRenderer
         let width_uniform = Uniform::new(config.width, ShaderStages::COMPUTE, device);
         let height_uniform = Uniform::new(config.height, ShaderStages::COMPUTE, device);
 
-        let rt_camera_info = camera.get_rt_camera().build_info();
-
-        let camera_eye = Uniform::new(GPUVec4::from_point3(&rt_camera_info.eye), ShaderStages::COMPUTE, device);
-        let camera_lower_left = Uniform::new(GPUVec4::from_point3(&rt_camera_info.lower_left_corner), ShaderStages::COMPUTE, device);
-        let camera_horizontal = Uniform::new(GPUVec4::from_vec3(&rt_camera_info.horizontal), ShaderStages::COMPUTE, device);
-        let camera_vertical = Uniform::new(GPUVec4::from_vec3(&rt_camera_info.vertical), ShaderStages::COMPUTE, device);
+        let camera_eye = Uniform::new(GPUVec4::from_point3(&camera.eye), ShaderStages::COMPUTE, device);
+        let camera_target = Uniform::new(GPUVec4::from_point3(&camera.target), ShaderStages::COMPUTE, device);
+        let camera_fov = Uniform::new(camera.fov, ShaderStages::COMPUTE, device);
+    
 
         let data = VoxelRendererData { 
             width_uniform,
             height_uniform,
             camera_eye,
-            camera_lower_left,
-            camera_horizontal,
-            camera_vertical,
+            camera_target,
+            camera_fov
         };
         
         let compute_bind_group_layout = create_compute_bind_group_layout(device, &data);
@@ -131,11 +127,9 @@ impl VoxelRenderer
 
     pub fn update(&mut self, camera: &Camera, queue: &Queue)
     {
-        let rt_camera_info = camera.get_rt_camera().build_info();
-        self.data.camera_eye.enqueue_write(GPUVec4::from_point3(&rt_camera_info.eye), queue);
-        self.data.camera_lower_left.enqueue_write(GPUVec4::from_point3(&rt_camera_info.lower_left_corner), queue);
-        self.data.camera_horizontal.enqueue_write(GPUVec4::from_vec3(&rt_camera_info.horizontal), queue);
-        self.data.camera_vertical.enqueue_write(GPUVec4::from_vec3(&rt_camera_info.vertical), queue);
+        self.data.camera_eye.enqueue_write(GPUVec4::from_point3(&camera.eye), queue);
+        self.data.camera_target.enqueue_write(GPUVec4::from_point3(&camera.target), queue);
+        self.data.camera_fov.enqueue_write(camera.fov, queue);
     }
 }
 
@@ -187,15 +181,11 @@ fn create_compute_bind_group(device: &Device, layout: &BindGroupLayout, view: &T
             },
             BindGroupEntry {
                 binding: 4,
-                resource: data.camera_lower_left.get_resource()
+                resource: data.camera_target.get_resource()
             },
             BindGroupEntry {
                 binding: 5,
-                resource: data.camera_horizontal.get_resource()
-            },
-            BindGroupEntry {
-                binding: 6,
-                resource: data.camera_vertical.get_resource()
+                resource: data.camera_fov.get_resource()
             },
         ] 
     });
@@ -218,12 +208,11 @@ fn create_compute_bind_group_layout(device: &Device, data: &VoxelRendererData) -
                 },
                 count: None
             },
-            data.width_uniform      .get_layout(1),
-            data.height_uniform     .get_layout(2),
-            data.camera_eye         .get_layout(3),
-            data.camera_lower_left  .get_layout(4),
-            data.camera_horizontal  .get_layout(5),
-            data.camera_vertical    .get_layout(6),
+            data.width_uniform  .get_layout(1),
+            data.height_uniform .get_layout(2),
+            data.camera_eye     .get_layout(3),
+            data.camera_target  .get_layout(4),
+            data.camera_fov     .get_layout(5),
         ] 
     });
 

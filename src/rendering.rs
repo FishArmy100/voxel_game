@@ -279,6 +279,7 @@ impl GameRenderer
             {
                 ui.label(format!("Frame time: {:.2}ms", delta_time * 1000.0));
                 ui.label(format!("Position ({:.2}, {:.2}, {:.2})", camera.eye.x, camera.eye.y, camera.eye.z));
+                ui.label(format!("Target ({:.2}, {:.2}, {:.2})", camera.target.x, camera.target.y, camera.target.z));
             });
     }
 }
