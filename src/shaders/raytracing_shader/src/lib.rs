@@ -65,13 +65,14 @@ fn create_ray(x: u32, y: u32, width: u32, height: u32, camera: Camera) -> Ray
     let y = y as f32 / height as f32;
     let aspect_ratio = x / y;
 
-    let inverse_projection = Mat4::perspective_infinite_reverse_lh(camera.fov.to_radians(), aspect_ratio, 1.0);
-    let coord = Vec2::new(x as f32 / width as f32, y as f32 / height as f32) * 2.0 - 1.0;
+    let inverse_projection = Mat4::perspective_infinite_rh(camera.fov.to_radians(), aspect_ratio, 1.0).inverse();
+    let inverse_view = Mat4::look_at_rh(camera.eye, camera.target, Vec3::Y).inverse();
     
-    let inverse_view = Mat4::look_at_lh(camera.eye, camera.target, Vec3::Y);
+    let coord = Vec2::new(x as f32 / width as f32, y as f32 / height as f32);
 
     let target = inverse_projection * Vec4::new(coord.x, coord.y, 1.0, 1.0);
-    let dir = (inverse_view * (target.truncate() / target.w).extend(0.0)).truncate().normalize();
+    let normalized_target = (target.truncate() / target.w).normalize();
+    let dir = (inverse_view * normalized_target.extend(0.0)).truncate().normalize();
 
     Ray 
     { 
