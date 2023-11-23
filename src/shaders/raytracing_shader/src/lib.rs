@@ -61,18 +61,23 @@ const BACKGROUND_COLOR: Vec4 = Vec4::new(0.5, 0.5, 0.5, 1.0);
 
 fn create_ray(x: u32, y: u32, width: u32, height: u32, camera: Camera) -> Ray 
 {
+    let aspect = width as f32 / height as f32;
+    let theta = camera.fov.to_radians();
+    let half_height = (theta / 2.0).tan();
+    let half_width = aspect * half_height;
+
+    let w = (camera.eye - camera.target).normalize();
+    let u = Vec3::Y.cross(w).normalize();
+    let v = w.cross(u);
+
+    let origin = camera.eye;
+    let lower_left_corner = origin - (u * half_width) - (v * half_height) - w;
+    let horizontal = u * 2.0 * half_width;
+    let vertical = v * 2.0 * half_height;
+
     let x = x as f32 / width as f32;
     let y = y as f32 / height as f32;
-    let aspect_ratio = x / y;
-
-    let inverse_projection = Mat4::perspective_infinite_rh(camera.fov.to_radians(), aspect_ratio, 1.0).inverse();
-    let inverse_view = Mat4::look_at_rh(camera.eye, camera.target, Vec3::Y).inverse();
-    
-    let coord = Vec2::new(x as f32 / width as f32, y as f32 / height as f32);
-
-    let target = inverse_projection * Vec4::new(coord.x, coord.y, 1.0, 1.0);
-    let normalized_target = (target.truncate() / target.w).normalize();
-    let dir = (inverse_view * normalized_target.extend(0.0)).truncate().normalize();
+    let dir = (lower_left_corner + (horizontal * x) + (vertical * y) - origin).normalize();
 
     Ray 
     { 

@@ -85,14 +85,14 @@ impl CameraEntity
     fn move_camera(&mut self, frame_state: &FrameState)
     {
         let forward = -(Vec3::new(self.camera.eye.x, 0.0, self.camera.eye.z) - Vec3::new(self.camera.target.x, 0.0, self.camera.target.z)).normalize();
-        let right = Quaternion::from_angle_y(Deg(90.0)).rotate_vector(forward).normalize();
+        let left = Quaternion::from_angle_y(Deg(90.0)).rotate_vector(forward).normalize();
 
         let mut move_dir = Vec3::from_value(0.0);
 
         if frame_state.is_key_down(VirtualKeyCode::W) { move_dir += forward; }
         if frame_state.is_key_down(VirtualKeyCode::S) { move_dir += -forward; }
-        if frame_state.is_key_down(VirtualKeyCode::A) { move_dir += -right; }
-        if frame_state.is_key_down(VirtualKeyCode::D) { move_dir += right; }
+        if frame_state.is_key_down(VirtualKeyCode::A) { move_dir += left; }
+        if frame_state.is_key_down(VirtualKeyCode::D) { move_dir += -left; }
 
         if frame_state.is_key_down(VirtualKeyCode::Space) { move_dir.y += 1.0; }
         if frame_state.is_key_down(VirtualKeyCode::LShift) { move_dir.y += -1.0; }
