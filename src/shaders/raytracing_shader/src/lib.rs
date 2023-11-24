@@ -9,7 +9,7 @@
 mod math;
 
 use spirv_std::{
-    glam::{UVec3, Vec3A, Vec4, Mat4, Vec3, Vec2},
+    glam::{UVec3, Vec3A, Vec4, Mat4, Vec3, Vec2, BVec3, IVec3},
     num_traits::Float,
     spirv, Image,
 };
@@ -59,6 +59,50 @@ const SPHERE: Sphere = Sphere { radius: 1.0, center: Vec3::new(0.0, 0.0, -5.0), 
 
 const BACKGROUND_COLOR: Vec4 = Vec4::new(0.5, 0.5, 0.5, 1.0);
 
+fn get_voxel(pos: IVec3) -> bool
+{
+    pos.x == 0 && pos.y == 0 && pos.z == 0
+}
+
+fn intersect_voxel(ray: Ray, background: Vec4) -> Vec4
+{
+    const MAX_RAY_STEPS: u32 = 64;
+    const VOXEL_COLOR: Vec4 = Vec4::new(0.1, 0.2, 0.3, 1.0);
+
+    let mut map_pos = ray.origin.floor().as_ivec3();
+    let delta_dist = (ray.dir.length() / ray.dir).abs();
+    let ray_step = ray.dir.signum().as_ivec3();
+    let mut side_dist = (ray.dir.signum() * (map_pos.as_vec3() - ray.origin) + (ray.dir.signum() * 0.5) + 0.5) * delta_dist;
+
+    let mut mask = BVec3::FALSE;
+    let mut found = false;
+    for _ in 0..MAX_RAY_STEPS
+    {
+        if get_voxel(map_pos) 
+        { 
+            found = true;
+            continue;
+        }
+        
+        let yzx = Vec3::new(side_dist.y, side_dist.z, side_dist.x);
+        let zxy = Vec3::new(side_dist.z, side_dist.x, side_dist.y);
+        mask = side_dist.cmple(yzx.min(zxy));
+
+        let v_mask = Vec3::new(mask.x as u32 as f32, mask.y as u32 as f32, mask.z as u32 as f32);
+        side_dist += v_mask * delta_dist;
+        map_pos += v_mask.as_ivec3() * ray_step;
+    }
+
+    if found
+    {
+        VOXEL_COLOR
+    }
+    else 
+    {
+        BACKGROUND_COLOR    
+    }
+}
+
 fn create_ray(x: u32, y: u32, width: u32, height: u32, camera: Camera) -> Ray 
 {
     let aspect = width as f32 / height as f32;
@@ -104,14 +148,7 @@ pub fn cs_main(
     };
 
     let ray = create_ray(id.x, id.y, *width_buffer, *height_buffer, camera);
-    let color = if SPHERE.intersect(&ray)
-    { 
-        SPHERE.color
-    }
-    else 
-    {
-        BACKGROUND_COLOR
-    };
+    let color = intersect_voxel(ray, BACKGROUND_COLOR);
 
     unsafe 
     { 
