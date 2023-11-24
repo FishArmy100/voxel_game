@@ -1,0 +1,266 @@
+module.dialect = spv.Module(version: 1.5, spv.Capability.{Shader, VulkanMemoryModel}, spv.MemoryModel.Vulkan)
+
+module.debug_info = spv.Module.DebugInfo(
+  generator: spv.Tool(id: 27),
+  source_languages: {
+    spv.SourceLanguage.Unknown(version: 0): {
+      "C:\\Users\\NateC\\.cargo\\registry\\src\\index.crates.io-6f17d22bba15001f\\spirv-std-0.9.0\\src\\image.rs":
+        "⋯"
+      ,
+      "C:\\Users\\NateC\\.cargo\\registry\\src\\index.crates.io-6f17d22bba15001f\\glam-0.24.2\\src\\f32\\vec2.rs":
+        "⋯"
+      ,
+      "C:\\Users\\NateC\\.cargo\\registry\\src\\index.crates.io-6f17d22bba15001f\\glam-0.24.2\\src\\f32\\scalar\\vec4.rs":
+        "⋯"
+      ,
+      "src\\shaders\\screen_shader\\src\\lib.rs": "⋯",
+      "C:\\Users\\NateC\\.cargo\\registry\\src\\index.crates.io-6f17d22bba15001f\\spirv-std-0.9.0\\src\\vector.rs":
+        "⋯"
+      ,
+      "⋯": "sources hidden, to show them use `RUSTGPU_CODEGEN_ARGS=--spirt-keep-debug-sources-in-dumps`",
+    },
+  },
+)
+
+type T0 = spv.OpTypeImage(SampledType: f32, spv.Dim.2D, Depth: 2, Arrayed: 0, MS: 0, Sampled: 1, spv.ImageFormat.Unknown)
+
+type T1 = spv.OpTypePointer(spv.StorageClass.UniformConstant, T0)
+
+#[spv.Decoration.Location(Location: 0)]
+global_var GV`out_uv` in spv.StorageClass.Output: f32×2
+
+#[spv.Decoration.BuiltIn(spv.BuiltIn.VertexIndex)]
+global_var GV`vertex_id` in spv.StorageClass.Input: s32
+
+#[spv.Decoration.BuiltIn(spv.BuiltIn.Position)]
+global_var GV`position` in spv.StorageClass.Output: f32×4
+
+//#IF `after lower_from_spv`
+func F0() -> spv.OpTypeVoid {
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 18, LineEnd: 18, ColStart: 4, ColEnd: 41)
+    v0 = spv.OpLoad(Pointer: &GV`vertex_id`): s32
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 16, LineEnd: 16, ColStart: 7, ColEnd: 14)
+    // spv.extinst."Rust-GPU 0.9.0".PushInlinedCallFrame(CalleeName: "screen_shader::vs_main")
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 21, LineEnd: 21, ColStart: 15, ColEnd: 31)
+    v1 = spv.OpBitcast(Operand: v0): u32
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 21, LineEnd: 21, ColStart: 14, ColEnd: 36)
+    v2 = spv.OpIAdd(v1, 2u32): u32
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 21, LineEnd: 21, ColStart: 13, ColEnd: 41)
+    v3 = spv.OpUDiv(v2, 3u32): u32
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 21, LineEnd: 21, ColStart: 12, ColEnd: 46)
+    v4 = spv.OpUMod(v3, 2u32): u32
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 21, LineEnd: 21, ColStart: 12, ColEnd: 53)
+    v5 = spv.OpConvertUToF(UnsignedValue: v4): f32
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 22, LineEnd: 22, ColStart: 15, ColEnd: 31)
+    v6 = spv.OpBitcast(Operand: v0): u32
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 22, LineEnd: 22, ColStart: 14, ColEnd: 36)
+    v7 = spv.OpIAdd(v6, 1u32): u32
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 22, LineEnd: 22, ColStart: 13, ColEnd: 41)
+    v8 = spv.OpUDiv(v7, 3u32): u32
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 22, LineEnd: 22, ColStart: 12, ColEnd: 46)
+    v9 = spv.OpUMod(v8, 2u32): u32
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 22, LineEnd: 22, ColStart: 12, ColEnd: 53)
+    v10 = spv.OpConvertUToF(UnsignedValue: v9): f32
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 24, LineEnd: 24, ColStart: 14, ColEnd: 30)
+    // spv.extinst."Rust-GPU 0.9.0".PushInlinedCallFrame(CalleeName: "glam::f32::vec2::vec2")
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "C:\\Users\\NateC\\.cargo\\registry\\src\\index.crates.io-6f17d22bba15001f\\glam-0.24.2\\src\\f32\\vec2.rs", LineStart: 13, LineEnd: 13, ColStart: 4, ColEnd: 19)
+    // spv.extinst."Rust-GPU 0.9.0".PushInlinedCallFrame(CalleeName: "<glam::f32::vec2::Vec2>::new")
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "C:\\Users\\NateC\\.cargo\\registry\\src\\index.crates.io-6f17d22bba15001f\\glam-0.24.2\\src\\f32\\vec2.rs", LineStart: 69, LineEnd: 69, ColStart: 8, ColEnd: 21)
+    v11 = spv.OpCompositeInsert(Object: v5, Composite: spv.OpUndef: f32×2, 0): f32×2
+    v12 = spv.OpCompositeInsert(Object: v10, Composite: v11, 1): f32×2
+    // spv.extinst."Rust-GPU 0.9.0".PopInlinedCallFrame()
+    // spv.extinst."Rust-GPU 0.9.0".PopInlinedCallFrame()
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 24, LineEnd: 24, ColStart: 4, ColEnd: 30)
+    spv.OpStore(Pointer: &GV`out_uv`, Object: v12)
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 25, LineEnd: 25, ColStart: 34, ColEnd: 41)
+    v13 = spv.OpFMul(v5, 2.0f32): f32
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 25, LineEnd: 25, ColStart: 27, ColEnd: 41)
+    v14 = spv.OpFAdd(-1.0f32, v13): f32
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 25, LineEnd: 25, ColStart: 50, ColEnd: 57)
+    v15 = spv.OpFMul(v10, 2.0f32): f32
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 25, LineEnd: 25, ColStart: 43, ColEnd: 57)
+    v16 = spv.OpFAdd(-1.0f32, v15): f32
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 25, LineEnd: 25, ColStart: 16, ColEnd: 68)
+    // spv.extinst."Rust-GPU 0.9.0".PushInlinedCallFrame(CalleeName: "glam::f32::scalar::vec4::vec4")
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "C:\\Users\\NateC\\.cargo\\registry\\src\\index.crates.io-6f17d22bba15001f\\glam-0.24.2\\src\\f32\\scalar\\vec4.rs", LineStart: 13, LineEnd: 13, ColStart: 4, ColEnd: 25)
+    // spv.extinst."Rust-GPU 0.9.0".PushInlinedCallFrame(CalleeName: "<glam::f32::scalar::vec4::Vec4>::new")
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "C:\\Users\\NateC\\.cargo\\registry\\src\\index.crates.io-6f17d22bba15001f\\glam-0.24.2\\src\\f32\\scalar\\vec4.rs", LineStart: 89, LineEnd: 89, ColStart: 8, ColEnd: 27)
+    v17 = spv.OpCompositeInsert(Object: v14, Composite: spv.OpUndef: f32×4, 0): f32×4
+    v18 = spv.OpCompositeInsert(Object: v16, Composite: v17, 1): f32×4
+    v19 = spv.OpCompositeInsert(Object: 0.0f32, Composite: v18, 2): f32×4
+    v20 = spv.OpCompositeInsert(Object: 1.0f32, Composite: v19, 3): f32×4
+    // spv.extinst."Rust-GPU 0.9.0".PopInlinedCallFrame()
+    // spv.extinst."Rust-GPU 0.9.0".PopInlinedCallFrame()
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 25, LineEnd: 25, ColStart: 4, ColEnd: 68)
+    spv.OpStore(Pointer: &GV`position`, Object: v20)
+    // spv.extinst."Rust-GPU 0.9.0".PopInlinedCallFrame()
+  return
+}
+//#ELSEIF `after structurize_func_cfgs`
+func F0() -> spv.OpTypeVoid {
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 18, LineEnd: 18, ColStart: 4, ColEnd: 41)
+  v0 = spv.OpLoad(Pointer: &GV`vertex_id`): s32
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 16, LineEnd: 16, ColStart: 7, ColEnd: 14)
+  // spv.extinst."Rust-GPU 0.9.0".PushInlinedCallFrame(CalleeName: "screen_shader::vs_main")
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 21, LineEnd: 21, ColStart: 15, ColEnd: 31)
+  v1 = spv.OpBitcast(Operand: v0): u32
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 21, LineEnd: 21, ColStart: 14, ColEnd: 36)
+  v2 = spv.OpIAdd(v1, 2u32): u32
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 21, LineEnd: 21, ColStart: 13, ColEnd: 41)
+  v3 = spv.OpUDiv(v2, 3u32): u32
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 21, LineEnd: 21, ColStart: 12, ColEnd: 46)
+  v4 = spv.OpUMod(v3, 2u32): u32
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 21, LineEnd: 21, ColStart: 12, ColEnd: 53)
+  v5 = spv.OpConvertUToF(UnsignedValue: v4): f32
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 22, LineEnd: 22, ColStart: 15, ColEnd: 31)
+  v6 = spv.OpBitcast(Operand: v0): u32
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 22, LineEnd: 22, ColStart: 14, ColEnd: 36)
+  v7 = spv.OpIAdd(v6, 1u32): u32
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 22, LineEnd: 22, ColStart: 13, ColEnd: 41)
+  v8 = spv.OpUDiv(v7, 3u32): u32
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 22, LineEnd: 22, ColStart: 12, ColEnd: 46)
+  v9 = spv.OpUMod(v8, 2u32): u32
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 22, LineEnd: 22, ColStart: 12, ColEnd: 53)
+  v10 = spv.OpConvertUToF(UnsignedValue: v9): f32
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 24, LineEnd: 24, ColStart: 14, ColEnd: 30)
+  // spv.extinst."Rust-GPU 0.9.0".PushInlinedCallFrame(CalleeName: "glam::f32::vec2::vec2")
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "C:\\Users\\NateC\\.cargo\\registry\\src\\index.crates.io-6f17d22bba15001f\\glam-0.24.2\\src\\f32\\vec2.rs", LineStart: 13, LineEnd: 13, ColStart: 4, ColEnd: 19)
+  // spv.extinst."Rust-GPU 0.9.0".PushInlinedCallFrame(CalleeName: "<glam::f32::vec2::Vec2>::new")
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "C:\\Users\\NateC\\.cargo\\registry\\src\\index.crates.io-6f17d22bba15001f\\glam-0.24.2\\src\\f32\\vec2.rs", LineStart: 69, LineEnd: 69, ColStart: 8, ColEnd: 21)
+  v11 = spv.OpCompositeInsert(Object: v5, Composite: spv.OpUndef: f32×2, 0): f32×2
+  v12 = spv.OpCompositeInsert(Object: v10, Composite: v11, 1): f32×2
+  // spv.extinst."Rust-GPU 0.9.0".PopInlinedCallFrame()
+  // spv.extinst."Rust-GPU 0.9.0".PopInlinedCallFrame()
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 24, LineEnd: 24, ColStart: 4, ColEnd: 30)
+  spv.OpStore(Pointer: &GV`out_uv`, Object: v12)
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 25, LineEnd: 25, ColStart: 34, ColEnd: 41)
+  v13 = spv.OpFMul(v5, 2.0f32): f32
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 25, LineEnd: 25, ColStart: 27, ColEnd: 41)
+  v14 = spv.OpFAdd(-1.0f32, v13): f32
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 25, LineEnd: 25, ColStart: 50, ColEnd: 57)
+  v15 = spv.OpFMul(v10, 2.0f32): f32
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 25, LineEnd: 25, ColStart: 43, ColEnd: 57)
+  v16 = spv.OpFAdd(-1.0f32, v15): f32
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 25, LineEnd: 25, ColStart: 16, ColEnd: 68)
+  // spv.extinst."Rust-GPU 0.9.0".PushInlinedCallFrame(CalleeName: "glam::f32::scalar::vec4::vec4")
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "C:\\Users\\NateC\\.cargo\\registry\\src\\index.crates.io-6f17d22bba15001f\\glam-0.24.2\\src\\f32\\scalar\\vec4.rs", LineStart: 13, LineEnd: 13, ColStart: 4, ColEnd: 25)
+  // spv.extinst."Rust-GPU 0.9.0".PushInlinedCallFrame(CalleeName: "<glam::f32::scalar::vec4::Vec4>::new")
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "C:\\Users\\NateC\\.cargo\\registry\\src\\index.crates.io-6f17d22bba15001f\\glam-0.24.2\\src\\f32\\scalar\\vec4.rs", LineStart: 89, LineEnd: 89, ColStart: 8, ColEnd: 27)
+  v17 = spv.OpCompositeInsert(Object: v14, Composite: spv.OpUndef: f32×4, 0): f32×4
+  v18 = spv.OpCompositeInsert(Object: v16, Composite: v17, 1): f32×4
+  v19 = spv.OpCompositeInsert(Object: 0.0f32, Composite: v18, 2): f32×4
+  v20 = spv.OpCompositeInsert(Object: 1.0f32, Composite: v19, 3): f32×4
+  // spv.extinst."Rust-GPU 0.9.0".PopInlinedCallFrame()
+  // spv.extinst."Rust-GPU 0.9.0".PopInlinedCallFrame()
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 25, LineEnd: 25, ColStart: 4, ColEnd: 68)
+  spv.OpStore(Pointer: &GV`position`, Object: v20)
+  // spv.extinst."Rust-GPU 0.9.0".PopInlinedCallFrame()
+}
+//#ENDIF
+
+#[spv.Decoration.Location(Location: 0)]
+global_var GV`uv` in spv.StorageClass.Input: f32×2
+
+#[spv.Decoration.Binding(BindingPoint: 0)]
+#[spv.Decoration.DescriptorSet(DescriptorSet: 0)]
+global_var GV`screen_texture` in spv.StorageClass.UniformConstant: T0
+
+#[spv.Decoration.Binding(BindingPoint: 1)]
+#[spv.Decoration.DescriptorSet(DescriptorSet: 0)]
+global_var GV`screen_texture_sampler` in spv.StorageClass.UniformConstant: spv.OpTypeSampler
+
+#[spv.Decoration.Location(Location: 0)]
+global_var GV`output` in spv.StorageClass.Output: f32×4
+
+//#IF `after lower_from_spv`
+#[spv.Decoration.UserTypeGOOGLE(UserType: "LC:\\Users\\NateC\\.cargo\\registry\\src\\index.crates.io-6f17d22bba15001f\\spirv-std-0.9.0\\src\\vector.rs:63:0-63:60")]
+func F`<glam::f32::scalar::vec4::Vec4 as spirv_std::vector::VectorTruncateInto<glam::f32::scalar::vec4::Vec4>>::truncate_into`(
+  v0: f32×4,
+) -> f32×4 {
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "C:\\Users\\NateC\\.cargo\\registry\\src\\index.crates.io-6f17d22bba15001f\\spirv-std-0.9.0\\src\\vector.rs", LineStart: 63, LineEnd: 63, ColStart: 0, ColEnd: 60)
+  return v0
+}
+//#ELSEIF `after structurize_func_cfgs`
+#[spv.Decoration.UserTypeGOOGLE(UserType: "LC:\\Users\\NateC\\.cargo\\registry\\src\\index.crates.io-6f17d22bba15001f\\spirv-std-0.9.0\\src\\vector.rs:63:0-63:60")]
+func F`<glam::f32::scalar::vec4::Vec4 as spirv_std::vector::VectorTruncateInto<glam::f32::scalar::vec4::Vec4>>::truncate_into`(
+  v0: f32×4,
+) -> f32×4 {
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "C:\\Users\\NateC\\.cargo\\registry\\src\\index.crates.io-6f17d22bba15001f\\spirv-std-0.9.0\\src\\vector.rs", LineStart: 63, LineEnd: 63, ColStart: 0, ColEnd: 60)
+  v0
+}
+//#ENDIF
+
+//#IF `after lower_from_spv`
+#[spv.Decoration.UserTypeGOOGLE(UserType: "LC:\\Users\\NateC\\.cargo\\registry\\src\\index.crates.io-6f17d22bba15001f\\spirv-std-0.9.0\\src\\image.rs:222:11-222:17")]
+func F`<spirv_std::image::Image<f32, 1, 2, 0, 0, 1, 0, 4>>::sample::<f32, glam::f32::vec2::Vec2>`(
+  v0: T1,
+  v1: spv.OpTypeSampler,
+  v2: f32×2,
+) -> f32×4 {
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "C:\\Users\\NateC\\.cargo\\registry\\src\\index.crates.io-6f17d22bba15001f\\spirv-std-0.9.0\\src\\image.rs", LineStart: 232, LineEnd: 244, ColStart: 12, ColEnd: 13)
+    v3 = spv.OpLoad(Pointer: v0): T0
+    v4 = spv.OpSampledImage(Image: v3, Sampler: v1): spv.OpTypeSampledImage(ImageType: T0)
+    v5 = spv.OpImageSampleImplicitLod(SampledImage: v4, Coordinate: v2): f32×4
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "C:\\Users\\NateC\\.cargo\\registry\\src\\index.crates.io-6f17d22bba15001f\\spirv-std-0.9.0\\src\\image.rs", LineStart: 245, LineEnd: 245, ColStart: 12, ColEnd: 34)
+    v6 = call F`<glam::f32::scalar::vec4::Vec4 as spirv_std::vector::VectorTruncateInto<glam::f32::scalar::vec4::Vec4>>::truncate_into`(v5):
+      f32×4
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "C:\\Users\\NateC\\.cargo\\registry\\src\\index.crates.io-6f17d22bba15001f\\spirv-std-0.9.0\\src\\image.rs", LineStart: 221, LineEnd: 221, ColStart: 4, ColEnd: 30)
+  return v6
+}
+//#ELSEIF `after structurize_func_cfgs`
+#[spv.Decoration.UserTypeGOOGLE(UserType: "LC:\\Users\\NateC\\.cargo\\registry\\src\\index.crates.io-6f17d22bba15001f\\spirv-std-0.9.0\\src\\image.rs:222:11-222:17")]
+func F`<spirv_std::image::Image<f32, 1, 2, 0, 0, 1, 0, 4>>::sample::<f32, glam::f32::vec2::Vec2>`(
+  v0: T1,
+  v1: spv.OpTypeSampler,
+  v2: f32×2,
+) -> f32×4 {
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "C:\\Users\\NateC\\.cargo\\registry\\src\\index.crates.io-6f17d22bba15001f\\spirv-std-0.9.0\\src\\image.rs", LineStart: 232, LineEnd: 244, ColStart: 12, ColEnd: 13)
+  v3 = spv.OpLoad(Pointer: v0): T0
+  v4 = spv.OpSampledImage(Image: v3, Sampler: v1): spv.OpTypeSampledImage(ImageType: T0)
+  v5 = spv.OpImageSampleImplicitLod(SampledImage: v4, Coordinate: v2): f32×4
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "C:\\Users\\NateC\\.cargo\\registry\\src\\index.crates.io-6f17d22bba15001f\\spirv-std-0.9.0\\src\\image.rs", LineStart: 245, LineEnd: 245, ColStart: 12, ColEnd: 34)
+  v6 = call F`<glam::f32::scalar::vec4::Vec4 as spirv_std::vector::VectorTruncateInto<glam::f32::scalar::vec4::Vec4>>::truncate_into`(v5):
+    f32×4
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "C:\\Users\\NateC\\.cargo\\registry\\src\\index.crates.io-6f17d22bba15001f\\spirv-std-0.9.0\\src\\image.rs", LineStart: 221, LineEnd: 221, ColStart: 4, ColEnd: 30)
+  v6
+}
+//#ENDIF
+
+//#IF `after lower_from_spv`
+#[spv.ExecutionMode.OriginUpperLeft]
+func F1() -> spv.OpTypeVoid {
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 30, LineEnd: 30, ColStart: 4, ColEnd: 12)
+    v0 = spv.OpLoad(Pointer: &GV`uv`): f32×2
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 29, LineEnd: 29, ColStart: 7, ColEnd: 14)
+    // spv.extinst."Rust-GPU 0.9.0".PushInlinedCallFrame(CalleeName: "screen_shader::fs_main")
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 35, LineEnd: 35, ColStart: 36, ColEnd: 59)
+    v1 = spv.OpLoad(Pointer: &GV`screen_texture_sampler`): spv.OpTypeSampler
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 35, LineEnd: 35, ColStart: 14, ColEnd: 64)
+    v2 = call F`<spirv_std::image::Image<f32, 1, 2, 0, 0, 1, 0, 4>>::sample::<f32, glam::f32::vec2::Vec2>`(&GV`screen_texture`, v1, v0):
+      f32×4
+    // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 35, LineEnd: 35, ColStart: 4, ColEnd: 64)
+    spv.OpStore(Pointer: &GV`output`, Object: v2)
+    // spv.extinst."Rust-GPU 0.9.0".PopInlinedCallFrame()
+  return
+}
+//#ELSEIF `after structurize_func_cfgs`
+#[spv.ExecutionMode.OriginUpperLeft]
+func F1() -> spv.OpTypeVoid {
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 30, LineEnd: 30, ColStart: 4, ColEnd: 12)
+  v0 = spv.OpLoad(Pointer: &GV`uv`): f32×2
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 29, LineEnd: 29, ColStart: 7, ColEnd: 14)
+  // spv.extinst."Rust-GPU 0.9.0".PushInlinedCallFrame(CalleeName: "screen_shader::fs_main")
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 35, LineEnd: 35, ColStart: 36, ColEnd: 59)
+  v1 = spv.OpLoad(Pointer: &GV`screen_texture_sampler`): spv.OpTypeSampler
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 35, LineEnd: 35, ColStart: 14, ColEnd: 64)
+  v2 = call F`<spirv_std::image::Image<f32, 1, 2, 0, 0, 1, 0, 4>>::sample::<f32, glam::f32::vec2::Vec2>`(&GV`screen_texture`, v1, v0): f32×4
+  // spv.extinst."Rust-GPU 0.9.0".SetDebugSrcLoc(File: "src\\shaders\\screen_shader\\src\\lib.rs", LineStart: 35, LineEnd: 35, ColStart: 4, ColEnd: 64)
+  spv.OpStore(Pointer: &GV`output`, Object: v2)
+  // spv.extinst."Rust-GPU 0.9.0".PopInlinedCallFrame()
+}
+//#ENDIF
+
+export {
+  spv.OpEntryPoint(spv.ExecutionModel.Vertex, Name: "vs_main"): F0,
+  spv.OpEntryPoint(spv.ExecutionModel.Fragment, Name: "fs_main"): F1,
+}

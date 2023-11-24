@@ -9,7 +9,7 @@
 mod math;
 
 use spirv_std::{
-    glam::{UVec3, Vec3A, Vec4, Mat4, Vec3, Vec2, BVec3, IVec3},
+    glam::{UVec3, Vec3A, Vec4, Mat4, Vec3, Vec2, BVec3, IVec3, uvec3},
     num_traits::Float,
     spirv, Image,
 };
@@ -59,9 +59,10 @@ const SPHERE: Sphere = Sphere { radius: 1.0, center: Vec3::new(0.0, 0.0, -5.0), 
 
 const BACKGROUND_COLOR: Vec4 = Vec4::new(0.5, 0.5, 0.5, 1.0);
 
-fn get_voxel(pos: IVec3) -> bool
+fn get_voxel(pos: Vec3) -> bool
 {
-    pos.x == 0 && pos.y == 0 && pos.z == 0
+    let pos = pos.floor();
+    (pos.x == 0.0) & (pos.y == 0.0) & (pos.z == 0.0)
 }
 
 fn intersect_voxel(ray: Ray, background: Vec4) -> Vec4
@@ -69,20 +70,23 @@ fn intersect_voxel(ray: Ray, background: Vec4) -> Vec4
     const MAX_RAY_STEPS: u32 = 64;
     const VOXEL_COLOR: Vec4 = Vec4::new(0.1, 0.2, 0.3, 1.0);
 
-    let mut map_pos = ray.origin.floor().as_ivec3();
+    let mut map_pos = ray.origin.floor();
     let delta_dist = (ray.dir.length() / ray.dir).abs();
-    let ray_step = ray.dir.signum().as_ivec3();
-    let mut side_dist = (ray.dir.signum() * (map_pos.as_vec3() - ray.origin) + (ray.dir.signum() * 0.5) + 0.5) * delta_dist;
+
+    
+    let ray_step: Vec3 = {
+        let v = ray.dir;
+        let v: IVec3 = (uvec3(v.x.to_bits(), v.y.to_bits(), v.z.to_bits()).as_ivec3() >> 31) | 1;
+        v.as_vec3()
+    };
+
+    let mut side_dist = (ray_step * (map_pos - ray.origin) + (ray_step * 0.5) + 0.5) * delta_dist;
 
     let mut mask = BVec3::FALSE;
     let mut found = false;
     for _ in 0..MAX_RAY_STEPS
     {
-        if get_voxel(map_pos) 
-        { 
-            found = true;
-            continue;
-        }
+        found |= get_voxel(map_pos);
         
         let yzx = Vec3::new(side_dist.y, side_dist.z, side_dist.x);
         let zxy = Vec3::new(side_dist.z, side_dist.x, side_dist.y);
@@ -90,7 +94,7 @@ fn intersect_voxel(ray: Ray, background: Vec4) -> Vec4
 
         let v_mask = Vec3::new(mask.x as u32 as f32, mask.y as u32 as f32, mask.z as u32 as f32);
         side_dist += v_mask * delta_dist;
-        map_pos += v_mask.as_ivec3() * ray_step;
+        map_pos += v_mask * ray_step;
     }
 
     if found
