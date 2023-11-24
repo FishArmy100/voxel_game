@@ -3,6 +3,8 @@ members = [
     "src/shaders/test_shader",
     "src/shaders/screen_shader",
     "src/shaders/raytracing_shader",
+    "crates/vox_engine",
+    "crates/game"
 ]
 
 [package]

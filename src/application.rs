@@ -165,7 +165,7 @@ impl AppState
     }
 
     fn on_render(&mut self) -> Result<(), wgpu::SurfaceError>
-    {        
+    {
         self.renderer.render()?;
         Ok(())
     }
