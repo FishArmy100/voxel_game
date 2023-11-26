@@ -28,6 +28,7 @@ wgpu = {version = "0.17.0", features = ["spirv"]}
 winit = "0.28.6"
 serde_yaml = "0.9.27"
 assert_approx_eq = "1.1.0"
+game = { path = "crates/game" }
 
 [build-dependencies]
 spirv-builder = "0.9"

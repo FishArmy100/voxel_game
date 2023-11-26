@@ -10,5 +10,5 @@ pub mod voxel;
 fn main() 
 {
     env_logger::init();
-    pollster::block_on(application::run());
+    game::run();
 }

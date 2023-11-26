@@ -1,16 +1,11 @@
 pub mod gpu_utils;
+pub mod utils;
+pub mod math;
+pub mod rendering;
+pub mod app;
+pub mod voxel;
 
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
-
-#[cfg(test)]
-mod tests { 
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub use winit;
+pub use wgpu;
+pub use cgmath;
+pub use egui;
