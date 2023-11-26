@@ -53,7 +53,7 @@ impl GameApp
                 });
         });
         self.gui.end_frame();
-        self.renderer.render(&mut [])?;
+        self.renderer.render(&mut [&mut self.gui])?;
         Ok(())
     }
 
