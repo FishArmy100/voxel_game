@@ -1,10 +1,9 @@
 [workspace]
 members = [
-    "src/shaders/test_shader",
-    "src/shaders/screen_shader",
-    "src/shaders/raytracing_shader",
+    "crates/vox_engine/resources/screen_shader",
+    "crates/vox_engine/resources/raytracing_shader",
     "crates/vox_engine",
-    "crates/game"
+    "crates/game",
 ]
 
 [package]

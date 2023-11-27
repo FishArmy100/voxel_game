@@ -1,5 +1,6 @@
 pub mod renderer;
 pub mod gui;
+pub mod camera;
 
 use std::sync::Arc;
 use crate::math::*;

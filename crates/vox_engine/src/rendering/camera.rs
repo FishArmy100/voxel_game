@@ -1,7 +1,6 @@
 use cgmath::{Quaternion, Rotation, Rotation3, EuclideanSpace, Array, InnerSpace, Deg, Transform, SquareMatrix};
-use winit::event::{VirtualKeyCode};
 
-use crate::{math::*, application::input::FrameState};
+use crate::{math::*, app::input::{FrameState, KeyCode}};
 
 #[derive(Debug, Clone)]
 pub struct Camera 
@@ -89,13 +88,13 @@ impl CameraEntity
 
         let mut move_dir = Vec3::from_value(0.0);
 
-        if frame_state.is_key_down(VirtualKeyCode::W) { move_dir += forward; }
-        if frame_state.is_key_down(VirtualKeyCode::S) { move_dir += -forward; }
-        if frame_state.is_key_down(VirtualKeyCode::A) { move_dir += left; }
-        if frame_state.is_key_down(VirtualKeyCode::D) { move_dir += -left; }
+        if frame_state.is_key_down(KeyCode::W) { move_dir += forward; }
+        if frame_state.is_key_down(KeyCode::S) { move_dir += -forward; }
+        if frame_state.is_key_down(KeyCode::A) { move_dir += left; }
+        if frame_state.is_key_down(KeyCode::D) { move_dir += -left; }
 
-        if frame_state.is_key_down(VirtualKeyCode::Space) { move_dir.y += 1.0; }
-        if frame_state.is_key_down(VirtualKeyCode::LShift) { move_dir.y += -1.0; }
+        if frame_state.is_key_down(KeyCode::Space) { move_dir.y += 1.0; }
+        if frame_state.is_key_down(KeyCode::LShift) { move_dir.y += -1.0; }
 
         if move_dir.x != 0.0 || move_dir.y != 0.0 || move_dir.z != 0.0
         {
