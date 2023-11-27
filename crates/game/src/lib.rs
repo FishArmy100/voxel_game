@@ -28,7 +28,7 @@ pub struct GameApp
     voxel_renderer: VoxelRenderer,
 
     frame_builder: FrameStateBuilder,
-    previous_frame: FrameState,
+    current_frame: FrameState,
 
     current_time: SystemTime,
     window_size: Vec2<u32>,
@@ -57,24 +57,25 @@ impl GameApp
                 .resizable(true)
                 .show(c, |ui| {
                     ui.label("Hello World!");
-                    ui.label(format!("Frame time: {}", self.previous_frame.delta_time()));
+                    ui.label(format!("Frame time: {}ms", self.current_frame.delta_time() * 1000.0));
                 });
         });
         self.gui.end_frame();
-        self.renderer.render(&mut [&mut self.gui, &mut self.voxel_renderer])?;
+        self.renderer.render(&mut [&mut self.voxel_renderer, &mut self.gui])?;
         Ok(())
     }
 
     fn on_update(&mut self)
     {
         let delta_time = self.current_time.elapsed().unwrap().as_secs_f32();
-        let current_frame = self.frame_builder.build(delta_time);
-        
-        self.camera_entity.update(&current_frame);
-        self.voxel_renderer.update(self.camera_entity.camera(), self.gpu_state.queue());
+        let frame_state = self.frame_builder.build(delta_time);
 
+        self.camera_entity.update(&frame_state);
+        self.voxel_renderer.update(self.camera_entity.camera(), &self.gpu_state.queue());
         self.current_time = SystemTime::now();
-        self.previous_frame = current_frame;
+
+        self.current_frame = frame_state.clone();
+        self.frame_builder = FrameStateBuilder::new(self.window.clone(), frame_state);
     }
 }
 
@@ -126,7 +127,7 @@ impl App for GameApp
             gui,
             voxel_renderer,
             frame_builder,
-            previous_frame: start_frame,
+            current_frame: start_frame,
             current_time: SystemTime::now(),
             window_size,
             camera_entity
