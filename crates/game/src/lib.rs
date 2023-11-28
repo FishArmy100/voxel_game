@@ -1,6 +1,10 @@
+pub mod world;
+pub mod renderer;
+
 use std::sync::Arc;
 use std::time::SystemTime;
 
+use renderer::{GameRenderer, RenderData};
 use vox_engine::app::input::{FrameStateBuilder, FrameState, KeyCode};
 use vox_engine::app::{App, WinitWindow, self};
 use vox_engine::math::{Color, Vec2, Vec3};
@@ -14,26 +18,24 @@ use vox_engine::winit::event_loop::{EventLoop, ControlFlow};
 use vox_engine::winit::window::Window;
 use vox_engine::gpu_utils::WgpuState;
 use vox_engine::egui::Window as GuiWindow;
+use world::GameWorld;
 
-const GUI_SAVE_PATH: &str = "gui_data.json";
-const WINDOW_TITLE: &str = "Voxel Game";
+pub const GUI_SAVE_PATH: &str = "gui_data.json";
+pub const WINDOW_TITLE: &str = "Voxel Game";
 
 pub struct GameApp
 {
     window: Arc<WinitWindow>,
     gpu_state: WgpuState,
 
-    renderer: Renderer,
-    gui: GuiRenderer,
-    voxel_renderer: VoxelRenderer,
+    world: GameWorld,
+    renderer: GameRenderer,
 
     frame_builder: FrameStateBuilder,
     current_frame: FrameState,
 
     current_time: SystemTime,
     window_size: Vec2<u32>,
-
-    camera_entity: CameraEntity
 }
 
 impl GameApp
@@ -43,26 +45,16 @@ impl GameApp
         if new_size.x > 0 && new_size.y > 0
         {
             self.gpu_state.resize(Vec2::new(new_size.x, new_size.y));
-            self.renderer.resize(&self.gpu_state.surface_config());
-            self.voxel_renderer.resize(self.gpu_state.queue(), self.gpu_state.device(), self.gpu_state.surface_config());
-            self.camera_entity.mut_camera().aspect = new_size.x as f32 / new_size.y as f32;
+            self.renderer.on_resize(new_size, &self.gpu_state);
         }
     }
 
     fn on_render(&mut self) -> Result<(), vox_engine::wgpu::SurfaceError>
     {
-        self.gui.begin_frame();
-        self.gui.draw_ui(|c| {
-            GuiWindow::new("Basic Window")
-                .resizable(true)
-                .show(c, |ui| {
-                    ui.label("Hello World!");
-                    ui.label(format!("Frame time: {}ms", self.current_frame.delta_time() * 1000.0));
-                });
-        });
-        self.gui.end_frame();
-        self.renderer.render(&mut [&mut self.voxel_renderer, &mut self.gui])?;
-        Ok(())
+        self.renderer.render_world(&mut self.world, RenderData {
+            frame_state: &self.current_frame,
+            gpu_state: &self.gpu_state
+        })
     }
 
     fn on_update(&mut self)
@@ -70,8 +62,7 @@ impl GameApp
         let delta_time = self.current_time.elapsed().unwrap().as_secs_f32();
         let frame_state = self.frame_builder.build(delta_time);
 
-        self.camera_entity.update(&frame_state);
-        self.voxel_renderer.update(self.camera_entity.camera(), &self.gpu_state.queue());
+        self.world.on_update(&frame_state);
         self.current_time = SystemTime::now();
 
         self.current_frame = frame_state.clone();
@@ -87,56 +78,31 @@ impl App for GameApp
         window.set_title(WINDOW_TITLE);
         let window = Arc::new(window);
         let gpu_state = pollster::block_on(WgpuState::new(&window));
-        let renderer = Renderer::new(gpu_state.device().clone(), gpu_state.surface().clone(), gpu_state.queue().clone(), &gpu_state.surface_config(), Color::new(0.2, 0.2, 0.2, 1.0));
+
+        let world = GameWorld::new();
+        let renderer = GameRenderer::new(&gpu_state, event_loop, window.clone(), world.main_camera.camera());
         
-        let mut gui = GuiRenderer::new(GuiRendererDescriptor { 
-            event_loop, 
-            device: &gpu_state.device(), 
-            rt_format: gpu_state.surface_config().format,
-            window: window.clone()
-        });
-
-        gui.load(GUI_SAVE_PATH);
-
-        let aspect = gpu_state.surface_config().width as f32 / gpu_state.surface_config().height as f32;
-        
-        let camera = Camera
-        {
-            eye: (0.0, 0.0, 0.0).into(),
-            target: (0.0, 0.0, 1.0).into(),
-            up: Vec3::unit_y(),
-            aspect,
-            fov: 45.0,
-            near: 0.1,
-            far: 100000.0
-        };
-
-        let camera_entity = CameraEntity::new(camera, 20.0, 50.0, 80.0);
-
-        let voxel_renderer = VoxelRenderer::new(&gpu_state.device(), camera_entity.camera(), gpu_state.surface_config());
-
         let start_frame = FrameState::new(&window);
         let frame_builder = FrameStateBuilder::new(window.clone(), start_frame.clone());
+
         let window_size = [window.inner_size().width, window.inner_size().height].into();
 
         Self 
         { 
             window, 
-            gpu_state, 
+            gpu_state,
+            world,
             renderer,
-            gui,
-            voxel_renderer,
             frame_builder,
             current_frame: start_frame,
             current_time: SystemTime::now(),
             window_size,
-            camera_entity
         }
     }
 
     fn on_event<'a, T>(&mut self, event: Event<'a, T>, control_flow: &mut ControlFlow) 
     {
-        if self.gui.handle_event(&event)
+        if self.renderer.gui_handle_event(&event)
         {
             return;
         }
@@ -189,7 +155,7 @@ impl App for GameApp
             },
 
             Event::LoopDestroyed => {
-                self.gui.save(GUI_SAVE_PATH);
+                self.renderer.on_exit()
             }
             _ => {}
         }

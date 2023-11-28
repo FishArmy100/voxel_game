@@ -9,6 +9,8 @@ use super::{get_command_encoder, get_render_pass};
 
 pub const DEFAULT_SAVE_PATH: &str = "gui_data.yaml";
 
+pub type GuiWindow<'open> = egui::Window<'open>;
+
 pub struct GuiRenderer
 {
     context: egui::Context, 

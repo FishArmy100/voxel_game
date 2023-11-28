@@ -4,6 +4,7 @@ pub mod math;
 pub mod rendering;
 pub mod app;
 pub mod voxel;
+pub mod prelude;
 
 pub use winit;
 pub use wgpu;
