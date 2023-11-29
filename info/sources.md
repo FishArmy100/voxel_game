@@ -17,6 +17,8 @@
 - Voxel Ray Tracing
   - [Brickmap](https://github.com/stijnherfst/BrickMap)
   - [Branchless 3D DDA Algorithm](https://www.shadertoy.com/view/4dX3zl)
+    - Not nessecaroly that fast
+  - [Teardown Breakdown](https://acko.net/blog/teardown-frame-teardown/)
 - Ray Tracing:
   - [C++](https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-generating-camera-rays/generating-camera-rays.html#:~:text=If%20we%20know%200%20%28the,computed%20as%20P%27%2DO)
   - [Rust](https://bheisler.github.io/post/writing-raytracer-in-rust-part-1/)
