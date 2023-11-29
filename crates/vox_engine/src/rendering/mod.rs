@@ -1,16 +1,11 @@
 pub mod renderer;
-pub mod debug_rendering;
-pub mod mesh;
 pub mod gui;
+pub mod camera;
 
 use std::sync::Arc;
-
-use crate::voxel::VoxelRenderer;
-use crate::{math::*, camera::Camera};
+use crate::math::*;
 use crate::gpu_utils::*;
 use wgpu::{VertexBufferLayout, BindGroupLayout};
-
-use self::{renderer::Renderer, debug_rendering::{DebugRenderStage, DebugObject}, mesh::{MeshRenderStage, Mesh, MeshInstance}, gui::{GuiRenderer, GuiRendererDescriptor}};
 
 pub use crate::rendering::renderer::*;
 
@@ -183,103 +178,4 @@ pub fn build_render_pass<'a>(info: RenderPassInfo<'a>) -> wgpu::RenderPass<'a>
     }
 
     render_pass
-}
-
-pub struct GameRenderer
-{
-    renderer: Renderer,
-    debug_stage: DebugRenderStage,
-    mesh_stage: MeshRenderStage,
-    gui_stage: GuiRenderer,
-    voxel_stage: VoxelRenderer,
-    device: Arc<wgpu::Device>,
-    queue: Arc<wgpu::Queue>,
-    delta_time: f32,
-    camera: Camera
-}
-
-impl GameRenderer
-{
-    pub fn new<T>(camera: Camera, device: Arc<wgpu::Device>, surface: Arc<wgpu::Surface>, queue: Arc<wgpu::Queue>, config: &wgpu::SurfaceConfiguration, event_loop: &winit::event_loop::EventLoop<T>, window: Arc<winit::window::Window>) -> Self
-        where T : 'static
-    {
-        let clear_color = Color::new(0.1, 0.2, 0.3, 1.0);
-        let renderer = Renderer::new(device.clone(), surface, queue.clone(), config, clear_color);
-
-        let debug_stage = DebugRenderStage::new(device.clone(), config, camera.clone(), &[]);
-        let mesh_stage = MeshRenderStage::new(Mesh::cube(Color::RED), &[MeshInstance::from_position([0.0, 2.0, 0.0].into())], camera.clone(), &device, config);
-
-        let mut gui_stage = GuiRenderer::new(GuiRendererDescriptor {
-            event_loop: &event_loop,
-            device: &device,
-            rt_format: config.format,
-            window,
-        });
-
-        gui_stage.load(gui::DEFAULT_SAVE_PATH);
-
-        let voxel_stage = VoxelRenderer::new(&device, &camera, config);
-
-        Self 
-        { 
-            renderer, 
-            debug_stage, 
-            mesh_stage,
-            gui_stage,
-            voxel_stage,
-            device,
-            queue,
-            delta_time: 0.0,
-            camera
-        }
-    }
-
-    pub fn update(&mut self, camera: &Camera, debug_objects: &[DebugObject], delta_time: f32)
-    {
-        self.debug_stage.update(debug_objects, camera.clone());
-        self.mesh_stage.update(camera.clone());
-        self.voxel_stage.update(camera, &self.queue);
-        self.delta_time = delta_time;
-        self.camera = camera.clone();
-    }
-
-    pub fn handle_event<T>(&mut self, event: &winit::event::Event<T>) -> bool 
-    {
-        self.gui_stage.handle_event(event)
-    }
-
-    pub fn render(&mut self) -> Result<(), wgpu::SurfaceError>
-    {
-        self.gui_stage.begin_frame();
-        self.gui_stage.draw_ui(|ctx| Self::basic_ui(ctx, &self.camera, self.delta_time));
-        self.gui_stage.end_frame();
-
-        self.renderer.render(&mut [&mut self.mesh_stage, &mut self.voxel_stage, &mut self.gui_stage])
-    }
-
-    pub fn resize(&mut self, config: &wgpu::SurfaceConfiguration)
-    {
-        self.renderer.resize(config);
-        self.voxel_stage.resize(&self.queue, &self.device, config)
-    }
-
-    pub fn on_close(&mut self)
-    {
-        self.gui_stage.save(gui::DEFAULT_SAVE_PATH);
-    }
-
-    fn basic_ui(context: &egui::Context, camera: &Camera, delta_time: f32)
-    {
-        egui::Window::new("Info")
-            .vscroll(true)
-            .resizable(true)
-            .default_size([250.0, 150.0])
-            .anchor(egui::Align2::RIGHT_TOP, egui::Vec2::default())
-            .show(context, |ui| 
-            {
-                ui.label(format!("Frame time: {:.2}ms", delta_time * 1000.0));
-                ui.label(format!("Position ({:.2}, {:.2}, {:.2})", camera.eye.x, camera.eye.y, camera.eye.z));
-                ui.label(format!("Target ({:.2}, {:.2}, {:.2})", camera.target.x, camera.target.y, camera.target.z));
-            });
-    }
 }

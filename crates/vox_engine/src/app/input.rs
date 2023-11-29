@@ -1,14 +1,15 @@
 use std::sync::Arc;
 
 use cgmath::Zero;
-use winit::event::{VirtualKeyCode, MouseButton, MouseScrollDelta, Event, KeyboardInput, ElementState, DeviceEvent};
-use super::{WindowEvent, WindowSize, WinitWindow};
+use winit::event::{VirtualKeyCode, MouseScrollDelta, Event, KeyboardInput, ElementState, DeviceEvent, WindowEvent};
+use super::WinitWindow;
 
 use crate::math::Vec2;
 
+pub type KeyCode = VirtualKeyCode;
+pub type MouseButton = winit::event::MouseButton;
 
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FrameState
 {
     keys_pressed: Vec<VirtualKeyCode>,
@@ -23,7 +24,8 @@ pub struct FrameState
     mouse_buttons_down: Vec<MouseButton>,
     mouse_scroll_delta: Option<MouseScrollDelta>,
 
-    window_size: WindowSize,
+    window_size: Vec2<u32>,
+    window_size_change: bool,
     delta_time: f32
 }
 
@@ -42,6 +44,10 @@ impl FrameState
     pub fn mouse_position(&self) -> Vec2<f32> { self.mouse_position }
     pub fn mouse_delta(&self) -> Vec2<f32> { self.mouse_delta }
 
+    pub fn mouse_scroll_delta(&self) -> Option<MouseScrollDelta> { self.mouse_scroll_delta }
+    pub fn window_size(&self) -> Vec2<u32> { self.window_size }
+    pub fn window_size_change(&self) -> bool { self.window_size_change }
+
     pub fn new(window: &WinitWindow) -> Self
     {
         Self 
@@ -54,7 +60,8 @@ impl FrameState
             mouse_buttons_released: vec![], 
             mouse_buttons_down: vec![], 
             mouse_scroll_delta: None, 
-            window_size: window.inner_size(),
+            window_size: Vec2::new(window.inner_size().width, window.inner_size().height),
+            window_size_change: false,
             delta_time: 0.0,
             mouse_position: Vec2::new(0.0, 0.0)
         }
@@ -74,9 +81,11 @@ pub struct FrameStateBuilder
     mouse_buttons_down: Vec<MouseButton>,
     mouse_scroll_delta: Option<MouseScrollDelta>,
 
-    window_size: WindowSize,
+    window_size: Vec2<u32>,
     current_mouse_position: Vec2<f32>,
-    mouse_delta: Vec2<f32>
+    mouse_delta: Vec2<f32>,
+
+    previous_window_size: Vec2<u32>
 }
 
 impl FrameStateBuilder
@@ -97,9 +106,10 @@ impl FrameStateBuilder
             mouse_buttons_released: vec![], 
             mouse_buttons_down, 
             mouse_scroll_delta: None, 
-            window_size,
+            window_size: Vec2::new(window_size.width, window_size.height),
             current_mouse_position: previous_frame.mouse_position,
-            mouse_delta: Vec2::zero()
+            mouse_delta: Vec2::zero(),
+            previous_window_size: previous_frame.window_size
         }
     }
 
@@ -222,6 +232,7 @@ impl FrameStateBuilder
             mouse_buttons_down: self.mouse_buttons_down.clone(), 
             mouse_scroll_delta: self.mouse_scroll_delta, 
             window_size: self.window_size,
+            window_size_change: self.window_size != self.previous_window_size,
             delta_time
         }
     }

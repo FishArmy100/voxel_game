@@ -1,7 +1,7 @@
 use cgmath::EuclideanSpace;
 use wgpu::*;
 
-use crate::{math::{Color, Vec2, Vec4, Mat4x4}, rendering::{RenderStage, get_command_encoder, construct_render_pipeline, RenderPipelineInfo, get_render_pass}, gpu_utils::{Uniform, Entry, GPUVec4}, camera::{Camera, CameraUniform}};
+use crate::{math::{Color, Vec2, Vec4, Mat4x4}, rendering::{RenderStage, get_command_encoder, construct_render_pipeline, RenderPipelineInfo, get_render_pass, camera::Camera}, gpu_utils::{Uniform, Entry, GPUVec4}};
 
 pub enum Visibility { Opaque, Empty }
 

@@ -1,8 +1,9 @@
 [workspace]
 members = [
-    "src/shaders/test_shader",
-    "src/shaders/screen_shader",
-    "src/shaders/raytracing_shader",
+    "crates/vox_engine/resources/screen_shader",
+    "crates/vox_engine/resources/raytracing_shader",
+    "crates/vox_engine",
+    "crates/game",
 ]
 
 [package]
@@ -26,6 +27,7 @@ wgpu = {version = "0.17.0", features = ["spirv"]}
 winit = "0.28.6"
 serde_yaml = "0.9.27"
 assert_approx_eq = "1.1.0"
+game = { path = "crates/game" }
 
 [build-dependencies]
 spirv-builder = "0.9"

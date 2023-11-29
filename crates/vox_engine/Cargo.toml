@@ -1,0 +1,22 @@
+[package]
+name = "vox_engine"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bytemuck = "1.13.1"
+egui-wgpu = "0.23.0"
+egui-winit = "0.23.0"
+egui = {version = "0.23.0", features = ["default_fonts", "persistence"]}
+env_logger = "0.10.0"
+futures-intrusive = "0.5.0"
+pollster = "0.3.0"
+wgpu = {version = "0.17.0", features = ["spirv"]}
+winit = "0.28.6"
+serde_json = "1.0.108"
+cgmath = "0.18.0"
+
+[build-dependencies]
+spirv-builder = "0.9"

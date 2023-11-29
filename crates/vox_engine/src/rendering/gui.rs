@@ -9,6 +9,8 @@ use super::{get_command_encoder, get_render_pass};
 
 pub const DEFAULT_SAVE_PATH: &str = "gui_data.yaml";
 
+pub type GuiWindow<'open> = egui::Window<'open>;
+
 pub struct GuiRenderer
 {
     context: egui::Context, 
@@ -61,7 +63,7 @@ impl GuiRenderer
     pub fn save(&self, path: &str)
     {
         let yaml = self.context.memory(|m| {
-            serde_yaml::to_string(m).expect("Could not serialize gui context memory")
+            serde_json::to_string(m).expect("Could not serialize gui context memory")
         });
 
         let mut file = File::create(path)
@@ -78,7 +80,7 @@ impl GuiRenderer
             let mut yaml = String::new();
             file.read_to_string(&mut yaml).expect(format!("Could not read file {}", path).as_str());
 
-            let memory: egui::Memory = serde_yaml::from_str(&yaml)
+            let memory: egui::Memory = serde_json::from_str(&yaml)
                 .expect("Could not deserialize gui context memory");
 
             self.context.memory_mut(|m| {
