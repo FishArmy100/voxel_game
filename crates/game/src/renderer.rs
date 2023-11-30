@@ -28,7 +28,6 @@ pub struct GameRenderer
     renderer: Renderer,
     gui_renderer: GuiRenderer,
     voxel_renderer: VoxelRenderer,
-    window: Arc<WinitWindow>
 }
 
 impl GameRenderer
@@ -42,7 +41,7 @@ impl GameRenderer
             event_loop, 
             device: &gpu_state.device(), 
             rt_format: gpu_state.surface_config().format,
-            window: window.clone()
+            window
         });
 
         gui_renderer.load(GUI_SAVE_PATH);
@@ -54,7 +53,6 @@ impl GameRenderer
             renderer, 
             gui_renderer, 
             voxel_renderer,
-            window,
         }
     }
 

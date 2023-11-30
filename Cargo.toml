@@ -4,6 +4,7 @@ members = [
     "crates/vox_engine/resources/raytracing_shader",
     "crates/vox_engine",
     "crates/game",
+    "crates/vox_core"
 ]
 
 [package]
