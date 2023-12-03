@@ -1,7 +1,8 @@
-use cgmath::EuclideanSpace;
+use glam::UVec2;
 use wgpu::*;
 
-use crate::{math::{Color, Vec2, Vec4, Mat4x4}, rendering::{RenderStage, get_command_encoder, construct_render_pipeline, RenderPipelineInfo, get_render_pass, camera::Camera}, gpu_utils::{Uniform, Entry, GPUVec4}};
+use crate::{math::{Color}, rendering::{RenderStage, get_command_encoder, construct_render_pipeline, RenderPipelineInfo, get_render_pass, camera::Camera}, gpu_utils::{Uniform, Entry}};
+use glam::Vec4;
 
 pub enum Visibility { Opaque, Empty }
 
@@ -19,8 +20,8 @@ struct VoxelRendererData
     width_uniform: Uniform<u32>,
     height_uniform: Uniform<u32>,
 
-    camera_eye: Uniform<GPUVec4<f32>>,
-    camera_target: Uniform<GPUVec4<f32>>,
+    camera_eye: Uniform<Vec4>,
+    camera_target: Uniform<Vec4>,
     camera_fov: Uniform<f32>
 }
 
@@ -39,7 +40,7 @@ pub struct VoxelRenderer
 
     data: VoxelRendererData,
 
-    screen_size: Vec2<u32>
+    screen_size: UVec2
 }
 
 impl VoxelRenderer
@@ -66,8 +67,8 @@ impl VoxelRenderer
         let width_uniform = Uniform::new(config.width, ShaderStages::COMPUTE, device);
         let height_uniform = Uniform::new(config.height, ShaderStages::COMPUTE, device);
 
-        let camera_eye = Uniform::new(GPUVec4::from_point3(&camera.eye), ShaderStages::COMPUTE, device);
-        let camera_target = Uniform::new(GPUVec4::from_point3(&camera.target), ShaderStages::COMPUTE, device);
+        let camera_eye = Uniform::new(camera.eye.extend(0.0), ShaderStages::COMPUTE, device);
+        let camera_target = Uniform::new(camera.target.extend(0.0), ShaderStages::COMPUTE, device);
         let camera_fov = Uniform::new(camera.fov, ShaderStages::COMPUTE, device);
     
 
@@ -109,7 +110,7 @@ impl VoxelRenderer
             render_bind_group, 
             render_bind_group_layout,
             data,
-            screen_size: Vec2::new(config.width, config.height)
+            screen_size: UVec2::new(config.width, config.height)
         }
     }
 
@@ -122,13 +123,13 @@ impl VoxelRenderer
         self.indirect_texture_view = get_texture_view(&self.indirect_texture);
         self.render_bind_group = create_render_bind_group(device, &self.render_bind_group_layout, &self.indirect_texture_view, &self.indirect_texture_sampler);
         self.compute_bind_group = create_compute_bind_group(device, &self.compute_bind_group_layout, &self.indirect_texture_view, &self.data);
-        self.screen_size = Vec2::new(config.width, config.height);
+        self.screen_size = UVec2::new(config.width, config.height);
     }
 
     pub fn update(&mut self, camera: &Camera, queue: &Queue)
     {
-        self.data.camera_eye.enqueue_write(GPUVec4::from_point3(&camera.eye), queue);
-        self.data.camera_target.enqueue_write(GPUVec4::from_point3(&camera.target), queue);
+        self.data.camera_eye.enqueue_write(camera.eye.extend(0.0), queue);
+        self.data.camera_target.enqueue_write(camera.target.extend(0.0), queue);
         self.data.camera_fov.enqueue_write(camera.fov, queue);
     }
 }

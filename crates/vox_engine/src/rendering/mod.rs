@@ -9,30 +9,6 @@ use wgpu::{VertexBufferLayout, BindGroupLayout};
 
 pub use crate::rendering::renderer::*;
 
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
-pub struct ModelUniform
-{
-    pub model: Mat4x4<f32>
-}
-
-impl ModelUniform
-{
-    pub fn new(mat: Mat4x4<f32>) -> Self
-    {
-        Self { model: mat }
-    }
-
-    pub fn from_position(position: Point3D<f32>) -> Self
-    {
-        let mat = Mat4x4::from_translation(Vec3::new(position.x, position.y, position.z));
-        Self::new(mat)
-    }
-}
-
-unsafe impl bytemuck::Pod for ModelUniform {}
-unsafe impl bytemuck::Zeroable for ModelUniform {}
-
 pub struct RenderPipelineInfo<'a>
 {
     pub shader: &'a wgpu::ShaderModule,

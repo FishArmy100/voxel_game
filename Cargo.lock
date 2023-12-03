@@ -795,7 +795,9 @@ version = "0.24.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b5418c17512bdf42730f9032c74e1ae39afc408745ebb2acf72fbc4691c17945"
 dependencies = [
+ "bytemuck",
  "libm",
+ "serde",
 ]
 
 [[package]]
@@ -1631,6 +1633,7 @@ name = "raytracing_shader"
 version = "0.1.0"
 dependencies = [
  "spirv-std",
+ "vox_core",
 ]
 
 [[package]]
@@ -2238,18 +2241,22 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 [[package]]
 name = "vox_core"
 version = "0.1.0"
+dependencies = [
+ "glam",
+ "num-traits",
+]
 
 [[package]]
 name = "vox_engine"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "cgmath",
  "egui",
  "egui-wgpu",
  "egui-winit",
  "env_logger",
  "futures-intrusive",
+ "glam",
  "pollster",
  "serde_json",
  "spirv-builder",

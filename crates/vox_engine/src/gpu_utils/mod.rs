@@ -3,8 +3,9 @@ pub mod buffer;
 pub mod texture;
 use std::sync::Arc;
 
-use crate::math::{Vec4, Vec2, Point3D};
-use crate::{utils::Byteable, math::Vec3};
+use crate::math::{Vec4, Vec3};
+use glam::UVec2;
+use crate::utils::Byteable;
 
 pub use self::bind_group::*;
 pub use self::buffer::*;
@@ -86,7 +87,7 @@ impl WgpuState
         }
     }
 
-    pub fn resize(&mut self, size: Vec2<u32>)
+    pub fn resize(&mut self, size: UVec2)
     {
         if size.x > 0 && size.y > 0
         {
@@ -95,85 +96,5 @@ impl WgpuState
             self.device.poll(wgpu::MaintainBase::Wait); // to fix crash on dx12 with wgpu 0.17
             self.surface.configure(&self.device, &self.surface_config);
         }
-    }
-}
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct GPUVec3<T> where T : Byteable
-{
-    pub x: T,
-    pub y: T,
-    pub z: T
-}
-
-unsafe impl<T> bytemuck::Pod for GPUVec3<T> where T : Byteable {}
-unsafe impl<T> bytemuck::Zeroable for GPUVec3<T> where T : Byteable {}
-
-impl<T> GPUVec3<T> where T : Byteable 
-{
-    pub fn new(x: T, y: T, z: T) -> Self
-    {
-        Self 
-        { 
-            x, 
-            y, 
-            z 
-        }
-    }
-}
-
-impl<T> From<Vec3<T>> for GPUVec3<T> where T : Byteable
-{
-    fn from(value: Vec3<T>) -> Self 
-    {
-        GPUVec3::new(value.x, value.y, value.z)
-    }
-}
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct GPUVec4<T> where T : Byteable
-{
-    pub x: T,
-    pub y: T,
-    pub z: T,
-    pub w: T
-}
-
-unsafe impl<T> bytemuck::Pod for GPUVec4<T> where T : Byteable {}
-unsafe impl<T> bytemuck::Zeroable for GPUVec4<T> where T : Byteable {}
-
-impl<T> GPUVec4<T> where T : Byteable 
-{
-    pub fn new(x: T, y: T, z: T, w: T) -> Self
-    {
-        Self 
-        { 
-            x, 
-            y, 
-            z,
-            w
-        }
-    }
-
-    pub fn from_vec3(v: &Vec3<T>) -> Self 
-        where T : Default
-    {
-        Self::new(v.x, v.y, v.z, T::default())
-    }
-
-    pub fn from_point3(p: &Point3D<T>) -> Self 
-        where T : Default
-    {
-        Self::new(p.x, p.y, p.z, T::default())
-    }
-}
-
-impl<T> From<Vec4<T>> for GPUVec4<T> where T : Byteable
-{
-    fn from(value: Vec4<T>) -> Self 
-    {
-        GPUVec4::new(value.x, value.y, value.z, value.w)
     }
 }

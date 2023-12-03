@@ -4,7 +4,7 @@ use std::sync::Arc;
 use vox_engine::app::WinitWindow;
 use vox_engine::app::input::FrameState;
 use vox_engine::gpu_utils::WgpuState;
-use vox_engine::math::{Color, Vec2};
+use vox_engine::math::Color;
 use vox_engine::rendering::Renderer;
 use vox_engine::rendering::camera::Camera;
 use vox_engine::voxel::VoxelRenderer;
@@ -12,6 +12,7 @@ use vox_engine::wgpu::SurfaceError;
 use vox_engine::winit::event_loop::EventLoop;
 use vox_engine::winit::event::Event;
 use vox_engine::rendering::gui::{GuiRenderer, GuiRendererDescriptor};
+use vox_engine::glam::UVec2;
 
 use crate::GUI_SAVE_PATH;
 use crate::world::GameWorld;
@@ -61,7 +62,7 @@ impl GameRenderer
         self.gui_renderer.save(GUI_SAVE_PATH);
     }
 
-    pub fn on_resize(&mut self, new_size: Vec2<u32>, gpu_state: &WgpuState)
+    pub fn on_resize(&mut self, new_size: UVec2, gpu_state: &WgpuState)
     {
         if new_size.x > 0 && new_size.y > 0
         {

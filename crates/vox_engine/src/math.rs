@@ -1,20 +1,10 @@
-
-pub type Vec2<T> = cgmath::Vector2<T>;
-pub type Vec3<T> = cgmath::Vector3<T>;
-pub type Vec4<T> = cgmath::Vector4<T>;
-
-pub type Point3D<T> = cgmath::Point3<T>;
-pub type Point2D<T> = cgmath::Point2<T>;
-
-pub type Mat4x4<T> = cgmath::Matrix4<T>;
-
-#[rustfmt::skip]
-pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
-    1.0, 0.0, 0.0, 0.0,
-    0.0, 1.0, 0.0, 0.0,
-    0.0, 0.0, 0.5, 0.0,
-    0.0, 0.0, 0.5, 1.0,
-);
+pub use glam::Vec3;
+pub use glam::Vec4;
+pub use glam::UVec3;
+pub use glam::IVec3;
+pub use glam::Vec3A;
+pub use glam::U64Vec3;
+pub use glam::I64Vec3;
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
@@ -43,12 +33,12 @@ impl Color
         Color { r, g, b, a }
     }
 
-    pub fn rgb(self) -> Vec3<f32>
+    pub fn rgb(self) -> Vec3
     {
         Vec3::new(self.r, self.g, self.b)
     }
 
-    pub fn rgba(self) -> Vec4<f32>
+    pub fn rgba(self) -> Vec4
     {
         Vec4::new(self.r, self.g, self.b, self.a)
     }

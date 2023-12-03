@@ -6,15 +6,14 @@
 
 #![no_std]
 
-mod math;
+use vox_core::Intersectable;
+use vox_core::Ray;
 
 use spirv_std::{
     glam::{UVec3, Vec3A, Vec4, Mat4, Vec3, Vec2, BVec3, IVec3, uvec3},
     num_traits::Float,
     spirv, Image,
 };
-
-use math::{Ray, Intersectable};
 
 #[derive(Clone, Copy)]
 struct Camera

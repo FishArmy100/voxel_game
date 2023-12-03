@@ -7,18 +7,17 @@ use std::time::SystemTime;
 use renderer::{GameRenderer, RenderData};
 use vox_engine::app::input::{FrameStateBuilder, FrameState, KeyCode};
 use vox_engine::app::{App, WinitWindow, self};
-use vox_engine::math::{Color, Vec2, Vec3};
+use vox_engine::math::{Color, Vec3};
 use vox_engine::rendering::Renderer;
 use vox_engine::rendering::camera::{CameraEntity, Camera};
-use vox_engine::rendering::gui::{GuiRenderer, GuiRendererDescriptor};
-use vox_engine::voxel::VoxelRenderer;
+use vox_engine::rendering::gui::GuiRendererDescriptor;
 use vox_engine::wgpu::SurfaceError;
 use vox_engine::winit::event::{Event, WindowEvent, ElementState, KeyboardInput};
 use vox_engine::winit::event_loop::{EventLoop, ControlFlow};
 use vox_engine::winit::window::Window;
 use vox_engine::gpu_utils::WgpuState;
-use vox_engine::egui::Window as GuiWindow;
 use world::GameWorld;
+use vox_engine::glam::UVec2;
 
 pub const GUI_SAVE_PATH: &str = "gui_data.json";
 pub const WINDOW_TITLE: &str = "Voxel Game";
@@ -35,16 +34,16 @@ pub struct GameApp
     current_frame: FrameState,
 
     current_time: SystemTime,
-    window_size: Vec2<u32>,
+    window_size: UVec2,
 }
 
 impl GameApp
 {
-    fn resize(&mut self, new_size: Vec2<u32>)
+    fn resize(&mut self, new_size: UVec2)
     {
         if new_size.x > 0 && new_size.y > 0
         {
-            self.gpu_state.resize(Vec2::new(new_size.x, new_size.y));
+            self.gpu_state.resize(UVec2::new(new_size.x, new_size.y));
             self.renderer.on_resize(new_size, &self.gpu_state);
         }
     }

@@ -16,7 +16,7 @@ pollster = "0.3.0"
 wgpu = {version = "0.17.0", features = ["spirv"]}
 winit = "0.28.6"
 serde_json = "1.0.108"
-cgmath = "0.18.0"
+glam = { version = "0.24.2", features = ["bytemuck", "serde"] }
 
 [build-dependencies]
 spirv-builder = "0.9"

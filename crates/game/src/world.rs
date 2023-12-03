@@ -17,7 +17,7 @@ impl GameWorld
         {
             eye: (0.0, 0.0, 0.0).into(),
             target: (0.0, 0.0, 1.0).into(),
-            up: Vec3::unit_y(),
+            up: Vec3::Y,
             aspect: 1.0, // is set on update
             fov: 45.0,
             near: 0.1,

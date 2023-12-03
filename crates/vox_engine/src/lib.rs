@@ -8,5 +8,5 @@ pub mod prelude;
 
 pub use winit;
 pub use wgpu;
-pub use cgmath;
+pub use glam;
 pub use egui;

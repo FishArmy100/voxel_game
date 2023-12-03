@@ -8,3 +8,4 @@ crate-type = ["dylib"]
 
 [dependencies]
 spirv-std = { version = "0.9" }
+vox_core = { path = "../../../vox_core" }
