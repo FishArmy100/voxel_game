@@ -1,10 +1,17 @@
 use glam::UVec2;
+use vox_core::RTCameraInfo;
 use wgpu::*;
 
-use crate::{math::{Color}, rendering::{RenderStage, get_command_encoder, construct_render_pipeline, RenderPipelineInfo, get_render_pass, camera::Camera}, gpu_utils::{Uniform, Entry}};
+use crate::{math::{Color}, rendering::{RenderStage, get_command_encoder, construct_render_pipeline, RenderPipelineInfo, get_render_pass, camera::Camera}, gpu_utils::{Uniform, Entry}, prelude::FrameState};
 use glam::Vec4;
 
 pub enum Visibility { Opaque, Empty }
+
+#[derive(Clone, Copy)]
+struct RTWrapper(RTCameraInfo);
+
+unsafe impl bytemuck::Pod for RTWrapper {}
+unsafe impl bytemuck::Zeroable for RTWrapper {}
 
 pub struct VoxelIndex(u16);
 
@@ -13,16 +20,6 @@ pub struct Voxel
     pub color: Color,
     pub name: &'static str,
     pub visibility: Visibility
-}
-
-struct VoxelRendererData
-{
-    width_uniform: Uniform<u32>,
-    height_uniform: Uniform<u32>,
-
-    camera_eye: Uniform<Vec4>,
-    camera_target: Uniform<Vec4>,
-    camera_fov: Uniform<f32>
 }
 
 pub struct VoxelRenderer
@@ -38,9 +35,9 @@ pub struct VoxelRenderer
     render_bind_group: wgpu::BindGroup,
     render_bind_group_layout: wgpu::BindGroupLayout,
 
-    data: VoxelRendererData,
+    rt_camera_uniform: Uniform<RTWrapper>,
 
-    screen_size: UVec2
+    current_camera: RTCameraInfo
 }
 
 impl VoxelRenderer
@@ -64,24 +61,11 @@ impl VoxelRenderer
             label: None
         });
 
-        let width_uniform = Uniform::new(config.width, ShaderStages::COMPUTE, device);
-        let height_uniform = Uniform::new(config.height, ShaderStages::COMPUTE, device);
-
-        let camera_eye = Uniform::new(camera.eye.extend(0.0), ShaderStages::COMPUTE, device);
-        let camera_target = Uniform::new(camera.target.extend(0.0), ShaderStages::COMPUTE, device);
-        let camera_fov = Uniform::new(camera.fov, ShaderStages::COMPUTE, device);
-    
-
-        let data = VoxelRendererData { 
-            width_uniform,
-            height_uniform,
-            camera_eye,
-            camera_target,
-            camera_fov
-        };
+        let rt_info = camera.get_rt_info(config.width, config.height);
+        let rt_camera_uniform = Uniform::new(RTWrapper(rt_info), ShaderStages::COMPUTE, device);
         
-        let compute_bind_group_layout = create_compute_bind_group_layout(device, &data);
-        let compute_bind_group = create_compute_bind_group(device, &compute_bind_group_layout, &view, &data);
+        let compute_bind_group_layout = create_compute_bind_group_layout(device, &rt_camera_uniform);
+        let compute_bind_group = create_compute_bind_group(device, &compute_bind_group_layout, &view, &rt_camera_uniform);
 
         let compute_shader = &device.create_shader_module(include_spirv!(env!("raytracing_shader.spv")));
 
@@ -109,28 +93,28 @@ impl VoxelRenderer
             indirect_texture_sampler: sampler, 
             render_bind_group, 
             render_bind_group_layout,
-            data,
-            screen_size: UVec2::new(config.width, config.height)
+            rt_camera_uniform,
+            current_camera: rt_info,
         }
     }
 
     pub fn resize(&mut self, queue: &Queue, device: &Device, config: &SurfaceConfiguration)
     {
-        self.data.width_uniform.enqueue_write(config.width, queue);
-        self.data.height_uniform.enqueue_write(config.height, queue);
+        self.current_camera.width = config.width;
+        self.current_camera.height = config.height;
+        self.rt_camera_uniform.enqueue_write(RTWrapper(self.current_camera), queue);
 
         self.indirect_texture = get_texture(device, config);
         self.indirect_texture_view = get_texture_view(&self.indirect_texture);
         self.render_bind_group = create_render_bind_group(device, &self.render_bind_group_layout, &self.indirect_texture_view, &self.indirect_texture_sampler);
-        self.compute_bind_group = create_compute_bind_group(device, &self.compute_bind_group_layout, &self.indirect_texture_view, &self.data);
-        self.screen_size = UVec2::new(config.width, config.height);
+        self.compute_bind_group = create_compute_bind_group(device, &self.compute_bind_group_layout, &self.indirect_texture_view, &self.rt_camera_uniform);
     }
 
     pub fn update(&mut self, camera: &Camera, queue: &Queue)
     {
-        self.data.camera_eye.enqueue_write(camera.eye.extend(0.0), queue);
-        self.data.camera_target.enqueue_write(camera.target.extend(0.0), queue);
-        self.data.camera_fov.enqueue_write(camera.fov, queue);
+        let rt_info = camera.get_rt_info(self.current_camera.width, self.current_camera.height);
+        self.rt_camera_uniform.enqueue_write(RTWrapper(rt_info), queue);
+        self.current_camera = rt_info;
     }
 }
 
@@ -145,7 +129,7 @@ impl RenderStage for VoxelRenderer
             });
             compute_pass.set_bind_group(0, &self.compute_bind_group, &[]);
             compute_pass.set_pipeline(&self.compute_pipeline);
-            compute_pass.dispatch_workgroups(self.screen_size.x, self.screen_size.y, 1);
+            compute_pass.dispatch_workgroups(self.current_camera.width, self.current_camera.height, 1);
         }
         {
             let mut render_pass = get_render_pass(&mut encoder, view, Some(depth_texture));
@@ -158,7 +142,7 @@ impl RenderStage for VoxelRenderer
     }
 }
 
-fn create_compute_bind_group(device: &Device, layout: &BindGroupLayout, view: &TextureView, data: &VoxelRendererData) -> BindGroup
+fn create_compute_bind_group(device: &Device, layout: &BindGroupLayout, view: &TextureView, data: &Uniform<RTWrapper>) -> BindGroup
 {
     let bind_group = device.create_bind_group(&BindGroupDescriptor { 
         label: None, 
@@ -170,23 +154,7 @@ fn create_compute_bind_group(device: &Device, layout: &BindGroupLayout, view: &T
             },
             BindGroupEntry {
                 binding: 1,
-                resource: data.width_uniform.get_resource()
-            },
-            BindGroupEntry {
-                binding: 2,
-                resource: data.height_uniform.get_resource()
-            },
-            BindGroupEntry {
-                binding: 3,
-                resource: data.camera_eye.get_resource()
-            },
-            BindGroupEntry {
-                binding: 4,
-                resource: data.camera_target.get_resource()
-            },
-            BindGroupEntry {
-                binding: 5,
-                resource: data.camera_fov.get_resource()
+                resource: data.get_resource()
             },
         ] 
     });
@@ -194,7 +162,7 @@ fn create_compute_bind_group(device: &Device, layout: &BindGroupLayout, view: &T
     bind_group
 }
 
-fn create_compute_bind_group_layout(device: &Device, data: &VoxelRendererData) -> BindGroupLayout
+fn create_compute_bind_group_layout(device: &Device, data: &Uniform<RTWrapper>) -> BindGroupLayout
 {
     let layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor { 
         label: None, 
@@ -209,11 +177,7 @@ fn create_compute_bind_group_layout(device: &Device, data: &VoxelRendererData) -
                 },
                 count: None
             },
-            data.width_uniform  .get_layout(1),
-            data.height_uniform .get_layout(2),
-            data.camera_eye     .get_layout(3),
-            data.camera_target  .get_layout(4),
-            data.camera_fov     .get_layout(5),
+            data.get_layout(1)
         ] 
     });
 

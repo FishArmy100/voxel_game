@@ -17,6 +17,7 @@ wgpu = {version = "0.17.0", features = ["spirv"]}
 winit = "0.28.6"
 serde_json = "1.0.108"
 glam = { version = "0.24.2", features = ["bytemuck", "serde"] }
+vox_core = { path = "../vox_core" }
 
 [build-dependencies]
 spirv-builder = "0.9"

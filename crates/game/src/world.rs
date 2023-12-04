@@ -17,11 +17,7 @@ impl GameWorld
         {
             eye: (0.0, 0.0, 0.0).into(),
             target: (0.0, 0.0, 1.0).into(),
-            up: Vec3::Y,
-            aspect: 1.0, // is set on update
             fov: 45.0,
-            near: 0.1,
-            far: 100000.0
         };
 
         let camera_entity = CameraEntity::new(camera, 20.0, 50.0, 80.0);
@@ -34,8 +30,6 @@ impl GameWorld
 
     pub fn on_update(&mut self, frame_state: &FrameState)
     {
-        let aspect = frame_state.window_size().x as f32 / frame_state.window_size().y as f32;
-        self.main_camera.mut_camera().aspect = aspect;
         self.main_camera.update(frame_state);
     }
 
