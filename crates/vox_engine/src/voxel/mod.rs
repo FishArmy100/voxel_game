@@ -83,7 +83,8 @@ impl VoxelRenderer
         let compute_bind_group_layout = create_compute_bind_group_layout(device, &data);
         let compute_bind_group = create_compute_bind_group(device, &compute_bind_group_layout, &view, &data);
 
-        let compute_shader = &device.create_shader_module(include_spirv!(env!("raytracing_shader.spv")));
+        // let compute_shader = &device.create_shader_module(include_spirv!(env!("raytracing_shader.spv")));
+        let compute_shader = &device.create_shader_module(include_wgsl!("raytracing_shader.wgsl"));
 
         let compute_pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor { 
             label: None,

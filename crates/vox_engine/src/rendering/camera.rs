@@ -48,7 +48,7 @@ impl CameraEntity
     {
         let forward = -(Vec3::new(self.camera.eye.x, 0.0, self.camera.eye.z) - Vec3::new(self.camera.target.x, 0.0, self.camera.target.z)).normalize();
         // let left = Quaternion::from_angle_y(Deg(90.0)).rotate_vector(forward).normalize();
-        let left = Vec3::new(-1.0, 0.0, 0.0);
+        let left = Vec3::new(1.0, 0.0, 0.0);
 
         let mut move_dir = Vec3::ZERO;
 
