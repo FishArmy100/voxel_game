@@ -1,9 +1,3 @@
-/*
- * Copyright (c) 2023, SkillerRaptor
- *
- * SPDX-License-Identifier: MIT
-*/
-
 #![no_std]
 
 use vox_core::{Ray, Intersectable, RTCameraInfo};

@@ -1714,6 +1714,7 @@ name = "screen_shader"
 version = "0.1.0"
 dependencies = [
  "spirv-std",
+ "vox_core",
 ]
 
 [[package]]
