@@ -47,7 +47,7 @@ impl GameRenderer
 
         gui_renderer.load(GUI_SAVE_PATH);
 
-        let voxel_renderer = VoxelRenderer::new(&gpu_state.device(), camera, gpu_state.surface_config());
+        let voxel_renderer = VoxelRenderer::new(&gpu_state, camera);
 
         Self 
         { 
@@ -86,6 +86,9 @@ impl GameRenderer
 
         self.voxel_renderer.update(world.main_camera.camera(), &render_data.gpu_state.queue());
         
+        let _ = self.voxel_renderer.get_profiling_info();
+        
         self.renderer.render(&mut [&mut self.voxel_renderer, &mut self.gui_renderer])
+
     }
 }

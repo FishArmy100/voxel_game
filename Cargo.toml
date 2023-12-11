@@ -15,19 +15,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bytemuck = "1.13.1"
-cgmath = "0.18.0"
-egui-wgpu = "0.23.0"
-egui-winit = "0.23.0"
-egui = {version = "0.23.0", features = ["default_fonts", "persistence"]}
 env_logger = "0.10.0"
-futures-intrusive = "0.5.0"
-noise = "0.8.2"
-pollster = "0.3.0"
-wgpu = {version = "0.17.0", features = ["spirv"]}
-winit = "0.28.6"
-serde_yaml = "0.9.27"
-assert_approx_eq = "1.1.0"
 game = { path = "crates/game" }
 
 [build-dependencies]

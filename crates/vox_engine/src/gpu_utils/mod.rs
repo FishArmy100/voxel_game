@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use crate::math::{Vec4, Vec3};
 use glam::UVec2;
+use wgpu::Adapter;
 use crate::utils::Byteable;
 
 pub use self::bind_group::*;
@@ -13,6 +14,7 @@ pub use self::texture::*;
 
 pub struct WgpuState
 {
+    adapter: Arc<Adapter>,
     device: Arc<wgpu::Device>,
     queue: Arc<wgpu::Queue>,
     surface: Arc<wgpu::Surface>,
@@ -21,6 +23,7 @@ pub struct WgpuState
 
 impl WgpuState
 {
+    pub fn adapter(&self) -> &Adapter { &self.adapter }
     pub fn device(&self) -> &Arc<wgpu::Device> { &self.device }
     pub fn queue(&self) -> &Arc<wgpu::Queue> { &self.queue }
     pub fn surface(&self) -> &Arc<wgpu::Surface> { &self.surface }
@@ -45,7 +48,9 @@ impl WgpuState
             }
         ).await.unwrap();
 
-        let features = wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
+        let features = wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES | 
+                       wgpu::Features::TIMESTAMP_QUERY | 
+                       wgpu::Features::TIMESTAMP_QUERY_INSIDE_PASSES;
 
         let (device, queue) = adapter.request_device( 
             &wgpu::DeviceDescriptor
@@ -74,12 +79,14 @@ impl WgpuState
 
         surface.configure(&device, &config);
 
+        let adapter = Arc::new(adapter);
         let device = Arc::new(device);
         let queue = Arc::new(queue);
         let surface = Arc::new(surface);
 
         Self
         {
+            adapter,
             device,
             queue,
             surface,

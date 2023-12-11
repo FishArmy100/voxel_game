@@ -1,8 +1,9 @@
 use glam::UVec2;
 use vox_core::RTCameraInfo;
 use wgpu::*;
+use wgpu_profiler::{wgpu_profiler, GpuProfiler};
 
-use crate::{math::{Color}, rendering::{RenderStage, get_command_encoder, construct_render_pipeline, RenderPipelineInfo, get_render_pass, camera::Camera}, gpu_utils::{Uniform, Entry}, prelude::FrameState};
+use crate::{math::{Color}, rendering::{RenderStage, get_command_encoder, construct_render_pipeline, RenderPipelineInfo, get_render_pass, camera::Camera}, gpu_utils::{Uniform, Entry, WgpuState}, prelude::FrameState};
 use glam::Vec4;
 
 pub enum Visibility { Opaque, Empty }
@@ -37,16 +38,21 @@ pub struct VoxelRenderer
 
     rt_camera_uniform: Uniform<RTWrapper>,
 
-    current_camera: RTCameraInfo
+    current_camera: RTCameraInfo,
+
+    profiler: GpuProfiler,
 }
 
 impl VoxelRenderer
 {
-    pub fn new(device: &wgpu::Device, camera: &Camera, config: &wgpu::SurfaceConfiguration) -> Self 
+    pub fn new(gpu_state: &WgpuState, camera: &Camera) -> Self 
     {
-        let texture = get_texture(device, config);
+        let device = &gpu_state.device();
+        let config = gpu_state.surface_config();
+
+        let texture = get_texture(&device, config);
         let view = get_texture_view(&texture);
-        let sampler = get_sampler(device);
+        let sampler = get_sampler(&device);
 
         let render_bind_group_layout = create_render_bind_group_layout(device);
         let render_bind_group = create_render_bind_group(device, &render_bind_group_layout, &view, &sampler);
@@ -82,6 +88,8 @@ impl VoxelRenderer
             entry_point: "cs_main"
         });
 
+        let profiler = GpuProfiler::new(gpu_state.adapter(), device, &gpu_state.queue(), 4);
+
         Self 
         { 
             compute_pipeline, 
@@ -95,6 +103,7 @@ impl VoxelRenderer
             render_bind_group_layout,
             rt_camera_uniform,
             current_camera: rt_info,
+            profiler
         }
     }
 
@@ -116,6 +125,21 @@ impl VoxelRenderer
         self.rt_camera_uniform.enqueue_write(RTWrapper(rt_info), queue);
         self.current_camera = rt_info;
     }
+
+    pub fn get_profiling_info(&mut self) -> Option<f32>
+    {
+        if let Some(profiling_data) = self.profiler.process_finished_frame() 
+        {
+            let range = profiling_data.first().unwrap().time.clone();
+            let time = (range.end - range.start) as f32;
+            println!("gpu time for {}: {}ms", profiling_data.first().unwrap().label, time * 1000.0);
+            Some(time)
+        }
+        else 
+        {
+            None
+        }
+    }
 }
 
 impl RenderStage for VoxelRenderer
@@ -123,6 +147,7 @@ impl RenderStage for VoxelRenderer
     fn on_draw(&mut self, device: &Device, queue: &Queue, view: &TextureView, depth_texture: &crate::gpu_utils::Texture) 
     {
         let mut encoder = get_command_encoder(device);
+        wgpu_profiler!("raytracer scope", &mut self.profiler, &mut encoder, &device, 
         {
             let mut compute_pass = encoder.begin_compute_pass(&ComputePassDescriptor { 
                 label: None 
@@ -130,7 +155,10 @@ impl RenderStage for VoxelRenderer
             compute_pass.set_bind_group(0, &self.compute_bind_group, &[]);
             compute_pass.set_pipeline(&self.compute_pipeline);
             compute_pass.dispatch_workgroups(self.current_camera.width, self.current_camera.height, 1);
-        }
+        });
+
+        self.profiler.resolve_queries(&mut encoder);
+
         {
             let mut render_pass = get_render_pass(&mut encoder, view, Some(depth_texture));
             render_pass.set_bind_group(0, &self.render_bind_group, &[]);
@@ -139,6 +167,7 @@ impl RenderStage for VoxelRenderer
         }
 
         queue.submit(Some(encoder.finish()));
+        self.profiler.end_frame().unwrap();
     }
 }
 
