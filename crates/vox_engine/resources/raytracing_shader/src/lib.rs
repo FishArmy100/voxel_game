@@ -1,9 +1,3 @@
-/*
- * Copyright (c) 2023, SkillerRaptor
- *
- * SPDX-License-Identifier: MIT
-*/
-
 #![no_std]
 
 use vox_core::{Ray, Intersectable, RTCameraInfo};
@@ -61,23 +55,19 @@ const BACKGROUND_COLOR: Vec4 = Vec4::new(0.5, 0.5, 0.5, 1.0);
 fn get_voxel(pos: Vec3) -> bool
 {
     let pos = pos.floor();
-    pos.x == 0.0 && pos.y == 0.0 && pos.z == 0.0
+    (pos.x == 0.0) & (pos.y == 0.0) & (pos.z == 0.0)
 }
 
 fn intersect_voxel(ray: Ray) -> Vec4
 {
-    const MAX_RAY_STEPS: u32 = 64;
+    const MAX_RAY_STEPS: u32 = 32;
     const VOXEL_COLOR: Vec4 = Vec4::new(0.1, 0.2, 0.3, 1.0);
 
     let mut map_pos = ray.origin.floor();
     let delta_dist = (ray.dir.length() / ray.dir).abs();
 
     
-    let ray_step: Vec3 = {
-        let v = ray.dir;
-        let v: IVec3 = (uvec3(v.x.to_bits(), v.y.to_bits(), v.z.to_bits()).as_ivec3() >> 31) | 1;
-        v.as_vec3()
-    };
+    let ray_step = ray.dir.signum();
 
     let mut side_dist = (ray_step * (map_pos - ray.origin) + (ray_step * 0.5) + 0.5) * delta_dist;
 
