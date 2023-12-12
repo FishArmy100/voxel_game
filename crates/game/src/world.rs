@@ -35,12 +35,14 @@ impl GameWorld
 
     pub fn on_gui(&mut self, frame_state: &FrameState, gui_context: &egui::Context)
     {
+        let camera_pos = self.main_camera.camera().eye;
+
         GuiWindow::new("Basic Window")
             .resizable(true)
             .show(gui_context, |ui| {
                 ui.label("Hello World!");
-                ui.label(format!("Frame time: {}ms", frame_state.delta_time() * 1000.0));
-                ui.label(RichText::new("With new stuff"));
+                ui.label(format!("Frame time: {:.2}ms", frame_state.delta_time() * 1000.0));
+                ui.label(format!("Camera: [{:.2}, {:.2}, {:.2}]", camera_pos.x, camera_pos.y, camera_pos.z));
             });
     }
 }

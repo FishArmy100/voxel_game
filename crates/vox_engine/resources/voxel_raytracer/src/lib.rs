@@ -6,13 +6,60 @@
 
 #![no_std]
 
-use vox_core::{Ray, Intersectable, camera::RTCameraInfo, AABB, glam::vec4};
+use vox_core::{Ray, Intersectable, camera::RTCameraInfo, AABB, glam::vec4, HitInfo};
 
 use spirv_std::{
     glam::{UVec3, Vec3A, Vec4, Mat4, Vec3, Vec2, BVec3, IVec3, uvec3},
     num_traits::Float,
     spirv, Image, image::Image2d, Sampler,
 };
+
+const TEST_SPHERE: Sphere = Sphere {
+    center: Vec3A::ZERO,
+    radius: 2.0
+};
+
+pub struct Sphere
+{
+    pub center: Vec3A,
+    pub radius: f32
+}
+
+impl Intersectable for Sphere
+{
+    fn intersect(&self, ray: &Ray) -> HitInfo 
+    {
+        const T_MIN: f32 = 1.0;
+        const T_MAX: f32 = 1000.0;
+        let oc = ray.origin - self.center;
+        let a = ray.dir.length_squared();
+        let half_b = oc.dot(ray.dir);
+        let c = oc.length_squared() - self.radius * self.radius;
+        let disc = half_b * half_b - a * c;
+        if disc < 0.0 {
+            return HitInfo {
+                hit: false,
+                hit_pos: Vec3A::ZERO
+            };
+        }
+        let sqrtd = disc.sqrt();
+        let mut root = (-half_b - sqrtd) / a;
+        if root < T_MIN || T_MAX < root {
+            root = (-half_b + sqrtd) / a;
+            if root < T_MIN || T_MAX < root {
+                return HitInfo {
+                    hit: false,
+                    hit_pos: Vec3A::ZERO
+                };
+            }
+        }
+
+        HitInfo {
+            hit: true,
+            hit_pos: Vec3A::ZERO
+        }
+    }
+}
 
 const BACKGROUND_COLOR: Vec4 = Vec4::new(0.5, 0.5, 0.5, 1.0);
 
@@ -90,9 +137,19 @@ pub fn fs_main(
 
     let ray = camera.get_ray(x, y);
 
-    // let b = AABB::from_extents(Vec3A::ZERO, Vec3A::ONE * 2.0);
+    let b = AABB::from_extents(Vec3A::ZERO, Vec3A::ONE * 2.0);
+    if b.intersect(&ray).hit
+    {
+        *output = vec4(0.1, 0.2, 0.3, 1.0);
+    }
+    else 
+    {
+        *output = vec4(0.5, 0.5, 0.5, 1.0);
+    }
 
-    // if b.intersect(&ray).hit
+    // *output = intersect_voxel(ray);
+
+    // if TEST_SPHERE.intersect(&ray).hit
     // {
     //     *output = vec4(0.1, 0.2, 0.3, 1.0);
     // }
@@ -100,6 +157,4 @@ pub fn fs_main(
     // {
     //     *output = vec4(0.5, 0.5, 0.5, 1.0);
     // }
-
-    *output = intersect_voxel(ray);
 }

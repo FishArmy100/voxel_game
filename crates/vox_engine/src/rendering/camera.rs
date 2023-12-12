@@ -37,8 +37,7 @@ impl CameraEntity
     fn move_camera(&mut self, frame_state: &FrameState)
     {
         let forward = -(Vec3::new(self.camera.eye.x, 0.0, self.camera.eye.z) - Vec3::new(self.camera.target.x, 0.0, self.camera.target.z)).normalize();
-        // let left = Quaternion::from_angle_y(Deg(90.0)).rotate_vector(forward).normalize();
-        let left = Vec3::new(1.0, 0.0, 0.0);
+        let left = Quat::from_axis_angle(Vec3::Y, (90.0 as f32).to_radians()) * forward;
 
         let mut move_dir = Vec3::ZERO;
 
@@ -64,17 +63,13 @@ impl CameraEntity
         self.current_vertical_look = (self.current_vertical_look + frame_state.mouse_delta().y * self.turn_rate * frame_state.delta_time()).clamp(-self.max_vertical_look, self.max_vertical_look);
         let horizontal_angle = -frame_state.mouse_delta().x * self.turn_rate * frame_state.delta_time();
         
-        // let horizontal_rotation = Quaternion::from_angle_y(Deg(-frame_state.mouse_delta().x * self.turn_rate * frame_state.delta_time()));
         let horizontal_rotation = Quat::from_axis_angle(Vec3::Y, horizontal_angle.to_radians());
 
         let forward = -(Vec3::new(self.camera.eye.x, 0.0, self.camera.eye.z) - Vec3::new(self.camera.target.x, 0.0, self.camera.target.z)).normalize();
-        // let right = Quaternion::from_angle_y(Deg(90.0)).rotate_vector(forward).normalize();
         let right = -forward.cross(Vec3::Y).normalize();
 
-        // let vertical_rotation = Quaternion::from_axis_angle(right, Deg(self.current_vertical_look));
         let vertical_rotation = Quat::from_axis_angle(right, self.current_vertical_look.to_radians());
         
-        // let rotation = vertical_rotation * horizontal_rotation;
         let rotation = vertical_rotation * horizontal_rotation;
 
         let target_relative = rotation * forward;

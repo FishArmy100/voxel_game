@@ -92,7 +92,7 @@ impl VoxelRenderer
         {
             let range = profiling_data.first().unwrap().time.clone();
             let time = (range.end - range.start) as f32;
-            println!("gpu time for {}: {}ms", profiling_data.first().unwrap().label, time * 1000.0);
+            // println!("gpu time for {}: {}ms", profiling_data.first().unwrap().label, time * 1000.0);
             Some(time)
         }
         else

@@ -108,7 +108,7 @@ impl Intersectable for AABB
 
         HitInfo 
         { 
-            hit: !(near > far), 
+            hit: !(near > far) && far >= 0.0, 
             hit_pos: Vec3A::ZERO 
         }
     }
