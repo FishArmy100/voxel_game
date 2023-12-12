@@ -1,30 +1,34 @@
 #![no_std]
 
+pub mod camera;
+
 pub use glam;
 pub use num_traits::Float;
-use glam::{f32::Vec3, Vec3A};
+use glam::f32::Vec3A;
+
 
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct Ray 
 {
-    pub origin: Vec3,
-    pub dir: Vec3
+    pub origin: Vec3A,
+    pub dir: Vec3A
 }
 
 impl Ray 
 {
-    pub fn new(origin: Vec3, dir: Vec3) -> Self 
+    pub fn new<T>(origin: T, dir: T) -> Self 
+        where T : Into<Vec3A>
     {
         Self 
         { 
-            origin, 
-            dir
+            origin: origin.into(), 
+            dir: dir.into(),
         }
     }
 
     pub fn from_points<T>(origin: T, destination: T) -> Self
-        where T : Into<Vec3> + Copy
+        where T : Into<Vec3A> + Copy
     {
         Self 
         {
@@ -34,9 +38,9 @@ impl Ray
     }
 
     pub fn from_points_normalized<T>(origin: T, destination: T) -> Self
-        where T : Into<Vec3> + Copy
+        where T : Into<Vec3A> + Copy
     {
-        let dir: Vec3 = origin.into() - destination.into();
+        let dir: Vec3A = origin.into() - destination.into();
         Self 
         {
             origin: origin.into(),
@@ -45,75 +49,67 @@ impl Ray
     }
 }
 
+#[derive(Clone, Copy)]
+pub struct HitInfo 
+{
+    pub hit: bool,
+    pub hit_pos: Vec3A
+}
+
 pub trait Intersectable 
 {
-    fn intersect(&self, ray: &Ray) -> bool;
+    fn intersect(&self, ray: &Ray) -> HitInfo;
 }
 
-#[repr(C)]
 #[derive(Clone, Copy)]
-pub struct Camera
+pub struct AABB
 {
-    pub eye: Vec3A,
-    pub target: Vec3A,
-    pub fov: f32,
+    pub min: Vec3A,
+    pub max: Vec3A,
 }
 
-impl Camera
+impl AABB 
 {
-    pub fn get_rt_info(&self, width: u32, height: u32) -> RTCameraInfo
+    pub fn new<T>(min: T, max: T) -> Self
+        where T : Into<Vec3A>
     {
-        let aspect = width as f32 / height as f32;
-        let theta = self.fov.to_radians();
-        let half_height = (theta / 2.0).tan();
-        let half_width = aspect * half_height;
+        Self
+        {
+            min: min.into(),
+            max: max.into(),
+        }
+    }
 
-        let w = (self.eye - self.target).normalize();
-        let u = Vec3A::Y.cross(w).normalize();
-        let v = w.cross(u);
+    pub fn from_extents<T>(pos: T, extents: T) -> Self
+        where T : Into<Vec3A> + Copy
+    {
+        let min = pos.into() - extents.into();
+        let max = pos.into() + extents.into();
 
-        let origin = self.eye;
-        let lower_left_corner = origin - (u * half_width) - (v * half_height) - w;
-        let horizontal = u * 2.0 * half_width;
-        let vertical = v * 2.0 * half_height;
-
-        RTCameraInfo 
-        { 
-            eye: self.eye, 
-            target: self.target, 
-            horizontal, 
-            vertical, 
-            width, 
-            height,
-            lower_left_corner
+        Self 
+        {
+            min,
+            max,
         }
     }
 }
 
-#[derive(Copy, Clone)]
-pub struct RTCameraInfo
+impl Intersectable for AABB
 {
-    pub eye: Vec3A,
-    pub target: Vec3A,
-    pub horizontal: Vec3A,
-    pub vertical: Vec3A,
-    pub width: u32,
-    pub height: u32,
-    pub lower_left_corner: Vec3A,
-}
-
-impl RTCameraInfo
-{
-    pub fn get_ray(&self, x: u32, y: u32) -> Ray
+    fn intersect(&self, ray: &Ray) -> HitInfo 
     {
-        let x = x as f32 / self.width as f32;
-        let y = y as f32 / self.height as f32;
-        let dir = (self.lower_left_corner + (self.horizontal * x) + (self.vertical * y) - self.eye).normalize();
+        let t_min = (self.min - ray.origin) / ray.dir;
+        let t_max = (self.max - ray.origin) / ray.dir;
 
-        Ray 
+        let t1 = t_min.min(t_max);
+        let t2 = t_min.max(t_max);
+        let near = t1.max_element();
+        let far = t2.min_element();
+
+        HitInfo 
         { 
-            origin: self.eye.into(), 
-            dir: dir.into()
+            hit: !(near > far), 
+            hit_pos: Vec3A::ZERO 
         }
     }
 }

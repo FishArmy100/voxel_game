@@ -1,5 +1,5 @@
 use glam::UVec2;
-use vox_core::RTCameraInfo;
+use vox_core::camera::RTCameraInfo;
 use wgpu::*;
 use wgpu_profiler::{wgpu_profiler, GpuProfiler};
 

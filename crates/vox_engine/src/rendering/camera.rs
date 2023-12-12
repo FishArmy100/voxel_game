@@ -1,6 +1,6 @@
 use crate::{math::*, app::input::{FrameState, KeyCode}};
 use glam::Quat;
-pub use vox_core::Camera;
+pub use vox_core::camera::Camera;
 
 #[derive(Clone)]
 pub struct CameraEntity
