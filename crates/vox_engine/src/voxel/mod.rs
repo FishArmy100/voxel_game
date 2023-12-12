@@ -3,8 +3,7 @@ use vox_core::RTCameraInfo;
 use wgpu::*;
 use wgpu_profiler::{wgpu_profiler, GpuProfiler};
 
-use crate::{math::{Color}, rendering::{RenderStage, get_command_encoder, construct_render_pipeline, RenderPipelineInfo, get_render_pass, camera::Camera}, gpu_utils::{Uniform, Entry, WgpuState}, prelude::FrameState};
-use glam::Vec4;
+use crate::{math::Color, rendering::{RenderStage, get_command_encoder, construct_render_pipeline, RenderPipelineInfo, get_render_pass, camera::Camera}, gpu_utils::{Uniform, Entry, WgpuState}, prelude::FrameState};
 
 pub enum Visibility { Opaque, Empty }
 
@@ -48,7 +47,7 @@ impl VoxelRenderer
 
         let render_bind_group_layout = create_render_bind_group_layout(device);
         let render_bind_group = create_render_bind_group(device, &render_bind_group_layout, &rt_camera_uniform);
-        let render_shader = &device.create_shader_module(include_spirv!(env!("screen_shader.spv")));
+        let render_shader = &device.create_shader_module(include_spirv!(env!("voxel_raytracer.spv")));
 
         let render_pipeline = construct_render_pipeline(device, config, &RenderPipelineInfo { 
             shader: render_shader, 
@@ -96,7 +95,7 @@ impl VoxelRenderer
             println!("gpu time for {}: {}ms", profiling_data.first().unwrap().label, time * 1000.0);
             Some(time)
         }
-        else 
+        else
         {
             None
         }

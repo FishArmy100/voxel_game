@@ -111,7 +111,8 @@ pub fn vs_main(
     out_uv: &mut Vec2,
     #[spirv(vertex_index)] vertex_id: i32,
     #[spirv(position)] position: &mut Vec4,
-) {
+) 
+{
     let x = (((vertex_id as u32 + 2) / 3) % 2) as f32;
     let y = (((vertex_id as u32 + 1) / 3) % 2) as f32;
 

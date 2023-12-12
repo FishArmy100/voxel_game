@@ -1526,14 +1526,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2ff9a1f06a88b01621b7ae906ef0211290d1c8a168a15542486a8f61c0833b9"
 
 [[package]]
-name = "raytracing_shader"
-version = "0.1.0"
-dependencies = [
- "spirv-std",
- "vox_core",
-]
-
-[[package]]
 name = "redox_syscall"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1708,14 +1700,6 @@ name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
-
-[[package]]
-name = "screen_shader"
-version = "0.1.0"
-dependencies = [
- "spirv-std",
- "vox_core",
-]
 
 [[package]]
 name = "sctk-adwaita"
@@ -2152,6 +2136,14 @@ dependencies = [
  "env_logger",
  "game",
  "spirv-builder",
+]
+
+[[package]]
+name = "voxel_raytracer"
+version = "0.1.0"
+dependencies = [
+ "spirv-std",
+ "vox_core",
 ]
 
 [[package]]
