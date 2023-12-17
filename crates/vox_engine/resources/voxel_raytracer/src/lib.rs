@@ -5,8 +5,7 @@
 */
 
 #![no_std]
-
-use vox_core::{Ray, Intersectable, camera::RTCameraInfo, AABB, glam::vec4, HitInfo};
+use vox_core::{Ray, Intersectable, camera::RTCameraInfo, AABB, glam::vec4, HitInfo, VoxelVolume};
 
 use spirv_std::{
     glam::{UVec3, Vec3A, Vec4, Mat4, Vec3, Vec2, BVec3, IVec3, uvec3},
@@ -14,10 +13,8 @@ use spirv_std::{
     spirv, Image, image::Image2d, Sampler,
 };
 
-const TEST_SPHERE: Sphere = Sphere {
-    center: Vec3A::ZERO,
-    radius: 2.0
-};
+const VOXELS: [u32; 8] = [1, 0, 0, 0, 0, 2, 0, 0];
+const VOXEL_COLORS: [Vec4; 3] = [vec4(1.0, 0.0, 0.0, 1.0), vec4(0.0, 1.0, 0.0, 1.0), vec4(0.0, 0.0, 1.0, 1.0)];
 
 pub struct Sphere
 {
@@ -137,24 +134,15 @@ pub fn fs_main(
 
     let ray = camera.get_ray(x, y);
 
-    let b = AABB::from_extents(Vec3A::ZERO, Vec3A::ONE * 2.0);
-    if b.intersect(&ray).hit
+    let voxel_copy = VOXELS;
+    let voxel_volume = VoxelVolume::new(Vec3A::new(0.0, 0.0, 0.0), 10.0, 2, 2, 2);
+    let hit = voxel_volume.intersect(&ray, &voxel_copy);
+    if hit.hit
     {
-        *output = vec4(0.1, 0.2, 0.3, 1.0);
+        *output = VOXEL_COLORS[hit.value as usize];
     }
-    else 
+    else
     {
-        *output = vec4(0.5, 0.5, 0.5, 1.0);
+        *output = BACKGROUND_COLOR;
     }
-
-    // *output = intersect_voxel(ray);
-
-    // if TEST_SPHERE.intersect(&ray).hit
-    // {
-    //     *output = vec4(0.1, 0.2, 0.3, 1.0);
-    // }
-    // else 
-    // {
-    //     *output = vec4(0.5, 0.5, 0.5, 1.0);
-    // }
 }
