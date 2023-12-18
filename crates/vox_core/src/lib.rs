@@ -9,7 +9,6 @@ use glam::{f32::Vec3A, IVec3, Vec3, vec3a, uvec3, ivec3, UVec3};
 
 use crate::utils::flatten_index;
 
-
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct Ray 
@@ -162,6 +161,8 @@ impl VoxelVolume
     pub fn origin(&self) -> Vec3A { self.origin }
     pub fn aabb(&self) -> AABB { self.aabb }
 
+    pub fn num_voxels(&self) -> u32 { self.dim_x * self.dim_y * self.dim_z }
+
     pub fn new<T>(origin: T, voxel_size: f32, dim_x: u32, dim_y: u32, dim_z: u32) -> Self
         where T : Into<Vec3A> + Copy
     {
@@ -181,7 +182,7 @@ impl VoxelVolume
         }
     }
     
-    pub fn intersect<const S: usize>(&self, ray: &Ray, voxels: &[u32; S]) -> VolumeHit
+    pub fn intersect(&self, ray: &Ray, voxels: &[u32]) -> VolumeHit
     {
         let hit = self.aabb.intersect(ray);
         if hit.hit
@@ -203,9 +204,9 @@ impl VoxelVolume
         }
     }
 
-    fn dda_intersect<const S: usize>(&self, ray: &Ray, voxels: &[u32; S]) -> VolumeHit
+    fn dda_intersect(&self, ray: &Ray, voxels: &[u32]) -> VolumeHit
     {
-        const MAX_RAY_STEPS: u32 = 64; // TODO: check at runtime
+        const MAX_RAY_STEPS: u32 = 256; // TODO: compute at runtime
 
         let relative_origin = (ray.origin - self.origin) / self.voxel_size;
 
@@ -218,7 +219,7 @@ impl VoxelVolume
         let mut i = 0;
         loop
         {
-            if i == MAX_RAY_STEPS { break VolumeHit::hit(0); }
+            if i == MAX_RAY_STEPS { break VolumeHit::NONE; }
             
             i += 1;
 

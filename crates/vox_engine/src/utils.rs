@@ -3,9 +3,6 @@ use std::time::SystemTime;
 
 use glam::U64Vec3;
 
-use crate::math::Vec3; 
-
-
 pub fn index_3d_to_index_1d(width: usize, height: usize, depth: usize, position: U64Vec3) -> u64
 {
     (position.z as u64 * width as u64 * height as u64) + (position.y as u64 * width as u64) + position.x as u64
@@ -37,9 +34,9 @@ pub struct Array3D<T>
 
 impl<T> Array3D<T>
 {
-    pub fn width(&self) -> usize {self.width}
-    pub fn height(&self) -> usize {self.height}
-    pub fn depth(&self) -> usize {self.depth}
+    pub fn width(&self) -> usize { self.width }
+    pub fn height(&self) -> usize { self.height }
+    pub fn depth(&self) -> usize { self.depth }
 
     pub fn new<F>(width: usize, height: usize, depth: usize, mut gen: F) -> Self
         where F : FnMut(usize, usize, usize) -> T
@@ -144,6 +141,15 @@ pub fn replace_option<T>(value: &mut Option<T>) -> T
 
 pub unsafe trait Byteable : bytemuck::Pod + bytemuck::Zeroable {}
 unsafe impl<T> Byteable for T where T : bytemuck::Pod + bytemuck::Zeroable {}
+
+pub unsafe trait Wrappable : Copy {}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct Wrapper<T>(pub T) where T : Wrappable;
+
+unsafe impl<T> bytemuck::Pod for Wrapper<T> where T : Wrappable + 'static {}
+unsafe impl<T> bytemuck::Zeroable for Wrapper<T> where T : Wrappable {}
 
 pub fn time_call<F, R>(f: F, name: &str) -> R
     where F : FnOnce() -> R

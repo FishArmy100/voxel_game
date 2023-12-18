@@ -126,6 +126,8 @@ pub fn vs_main(
 pub fn fs_main(
     uv: Vec2,
     #[spirv(uniform, descriptor_set = 0, binding = 0)] camera: &RTCameraInfo,
+    #[spirv(uniform, descriptor_set = 0, binding = 1)] volume: &VoxelVolume,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] voxels: &[u32],
     output: &mut Vec4,
 ) 
 {
@@ -134,9 +136,7 @@ pub fn fs_main(
 
     let ray = camera.get_ray(x, y);
 
-    let voxel_copy = VOXELS;
-    let voxel_volume = VoxelVolume::new(Vec3A::new(0.0, 0.0, 0.0), 10.0, 2, 2, 2);
-    let hit = voxel_volume.intersect(&ray, &voxel_copy);
+    let hit = volume.intersect(&ray, voxels);
     if hit.hit
     {
         *output = VOXEL_COLORS[hit.value as usize];
