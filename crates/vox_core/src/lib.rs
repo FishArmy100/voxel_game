@@ -56,7 +56,8 @@ impl Ray
 pub struct HitInfo 
 {
     pub hit: bool,
-    pub hit_pos: Vec3A
+    pub hit_pos: Vec3A,
+    pub distance: f32,
 }
 
 pub trait Intersectable 
@@ -113,76 +114,107 @@ impl Intersectable for AABB
         HitInfo 
         { 
             hit: !(near > far) && far >= 0.0, 
-            hit_pos: ray.origin + ray.dir * near
+            hit_pos: ray.origin + ray.dir * near,
+            distance: near
         }
     }
 }
 
 #[repr(C)]
-pub struct VolumeHit
+pub struct VoxelModelHit
 {
     pub hit: bool,
-    pub value: u32
+    pub value: u32,
+    pub distance: f32,
 }
 
-impl VolumeHit
+impl VoxelModelHit
 {
-    pub const NONE: Self = Self { hit: false, value: 0 };
+    pub const NONE: Self = Self { hit: false, value: 0, distance: 0.0 };
 
-    pub const fn hit(value: u32) -> Self
+    pub const fn hit(value: u32, distance: f32) -> Self
     {
         Self 
         {
             hit: true,
-            value
+            value,
+            distance
         }
     }
 }
 
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct VoxelVolume
+pub struct VoxelModel
 {
     dim_x: u32,
     dim_y: u32,
     dim_z: u32,
-    aabb: AABB,
-    voxel_size: f32,
-    origin: Vec3A
+    data_ptr: u32, 
 }
 
-impl VoxelVolume
+impl VoxelModel
 {
     pub fn dim_x(&self) -> u32 { self.dim_x }
     pub fn dim_y(&self) -> u32 { self.dim_y }
     pub fn dim_z(&self) -> u32 { self.dim_z }
+    pub fn data_ptr(&self) -> u32 { self.data_ptr }
 
-    pub fn voxel_size(&self) -> f32 { self.voxel_size }
-    pub fn origin(&self) -> Vec3A { self.origin }
-    pub fn aabb(&self) -> AABB { self.aabb }
+    pub fn num_voxels(&self) -> u32 { self.dim_x() * self.dim_y() * self.dim_z() }
 
-    pub fn num_voxels(&self) -> u32 { self.dim_x * self.dim_y * self.dim_z }
-
-    pub fn new<T>(origin: T, voxel_size: f32, dim_x: u32, dim_y: u32, dim_z: u32) -> Self
-        where T : Into<Vec3A> + Copy
+    pub fn new(dim_x: u32, dim_y: u32, dim_z: u32, data_ptr: u32) -> Self
     {
-        let aabb = AABB {
-            min: origin.into(),
-            max: origin.into() + vec3a(dim_x as f32, dim_y as f32, dim_z as f32) * voxel_size
-        };
-
         Self 
         {
             dim_x,
             dim_y,
             dim_z,
+            data_ptr
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct VoxelModelInstance
+{
+    model: VoxelModel,
+    aabb: AABB,
+    voxel_size: f32,
+    origin: Vec3A
+}
+
+impl VoxelModelInstance
+{
+    pub fn dim_x(&self) -> u32 { self.model.dim_x() }
+    pub fn dim_y(&self) -> u32 { self.model.dim_y() }
+    pub fn dim_z(&self) -> u32 { self.model.dim_z() }
+    pub fn data_ptr(&self) -> u32 { self.model.data_ptr() }
+
+    pub fn voxel_size(&self) -> f32 { self.voxel_size }
+    pub fn origin(&self) -> Vec3A { self.origin }
+    pub fn aabb(&self) -> AABB { self.aabb }
+
+    pub fn num_voxels(&self) -> u32 { self.model.num_voxels() }
+
+    pub fn new<T>(origin: T, voxel_size: f32, model: VoxelModel) -> Self
+        where T : Into<Vec3A> + Copy
+    {
+        let aabb = AABB {
+            min: origin.into(),
+            max: origin.into() + vec3a(model.dim_x as f32, model.dim_y as f32, model.dim_z as f32) * voxel_size
+        };
+
+        Self 
+        {
+            model,
             aabb,
             voxel_size,
             origin: origin.into()
         }
     }
     
-    pub fn intersect(&self, ray: &Ray, voxels: &[u32]) -> VolumeHit
+    pub fn intersect(&self, ray: &Ray, voxels: &[u32]) -> VoxelModelHit
     {
         let hit = self.aabb.intersect(ray);
         if hit.hit
@@ -192,21 +224,17 @@ impl VoxelVolume
                 dir: ray.dir
             };
 
-            self.dda_intersect(&ray, voxels)
+            self.dda_intersect(&ray, hit.distance, voxels)
         }
         else 
         {
-            VolumeHit 
-            { 
-                hit: false, 
-                value: 0
-            }
+            VoxelModelHit::NONE
         }
     }
 
-    fn dda_intersect(&self, ray: &Ray, voxels: &[u32]) -> VolumeHit
+    fn dda_intersect(&self, ray: &Ray, ray_dist: f32, voxels: &[u32]) -> VoxelModelHit
     {
-        const MAX_RAY_STEPS: u32 = 256; // TODO: compute at runtime
+        let max_steps = self.dim_x() + self.dim_y() + self.dim_z() + 1; // TODO: compute at runtime
 
         let relative_origin = (ray.origin - self.origin) / self.voxel_size;
 
@@ -219,7 +247,7 @@ impl VoxelVolume
         let mut i = 0;
         loop
         {
-            if i == MAX_RAY_STEPS { break VolumeHit::NONE; }
+            if i == max_steps { break VoxelModelHit::NONE; }
             
             i += 1;
 
@@ -231,18 +259,21 @@ impl VoxelVolume
             side_dist += mask.as_vec3a() * delta_dist;
             map_pos += mask * ray_step;
 
-            if  map_pos.x < 0 || map_pos.x >= self.dim_x as i32 ||
-                map_pos.y < 0 || map_pos.y >= self.dim_y as i32 ||
-                map_pos.z < 0 || map_pos.z >= self.dim_z as i32
+            if  map_pos.x < 0 || map_pos.x >= self.dim_x() as i32 ||
+                map_pos.y < 0 || map_pos.y >= self.dim_y() as i32 ||
+                map_pos.z < 0 || map_pos.z >= self.dim_z() as i32
             {
                 continue;
             }
 
-            let index = flatten_index(map_pos.as_uvec3(), uvec3(self.dim_x, self.dim_y, self.dim_z));
-            let value = voxels[index as usize];
+            let index = flatten_index(map_pos.as_uvec3(), uvec3(self.dim_x(), self.dim_y(), self.dim_z()));
+            let value = voxels[(index + self.data_ptr()) as usize];
             if value != 0
             {
-                break VolumeHit::hit(value);
+                let hit_pos = ((side_dist - ray.origin) + 0.5 - (ray_step.as_vec3a())) * delta_dist;
+                let dda_distance = (ray.origin - hit_pos).length();
+
+                break VoxelModelHit::hit(value, dda_distance + ray_dist);
             }
         }
     }

@@ -1,5 +1,5 @@
-use glam::{UVec2, Vec3, uvec3};
-use vox_core::{camera::RTCameraInfo, VoxelVolume, utils::flatten_index};
+use glam::{UVec2, Vec3, uvec3, vec3};
+use vox_core::{camera::RTCameraInfo, VoxelModelInstance, utils::flatten_index, VoxelModel};
 use wgpu::*;
 use wgpu_profiler::{wgpu_profiler, GpuProfiler};
 
@@ -21,7 +21,7 @@ use crate::{
 };
 
 unsafe impl Wrappable for RTCameraInfo {}
-unsafe impl Wrappable for VoxelVolume {}
+unsafe impl Wrappable for VoxelModelInstance {}
 
 pub struct VoxelRenderer
 {
@@ -33,7 +33,7 @@ pub struct VoxelRenderer
 
     // Temp
     voxel_storage: Storage<u32>,
-    volume_uniform: Uniform<Wrapper<VoxelVolume>>,
+    instance_storage: Storage<Wrapper<VoxelModelInstance>>,
 
     profiler: GpuProfiler,
 }
@@ -48,22 +48,32 @@ impl VoxelRenderer
         let rt_info = camera.get_rt_info(config.width, config.height);
         let rt_camera_uniform = Uniform::new(Wrapper(rt_info), ShaderStages::FRAGMENT, device);
 
-        let (volume, voxels) = build_vox_model(include_bytes!("../../resources/teapot.vox"), Vec3::ZERO, 1.0, |i| {
-            if i == 84
+        let vox_files: [&[u8]; 2] = 
+        [
+            include_bytes!("../../resources/teapot.vox"),
+            include_bytes!("../../resources/3x3x3.vox"),
+        ];
+
+        let (models, voxels) = load_voxel_models(&vox_files, |i| {
+            match i
             {
-                2
-            }
-            else
-            {
-                1
+                79 => 1,
+                85 => 2,
+                _ => 1
             }
         }).unwrap();
-        println!("Volume: \n\t- Size: [{}, {}, {}];", volume.dim_x(), volume.dim_y(), volume.dim_z());
+        
+        
+        let teapot = models[0];
+        let holy_cube = models[1];
 
-        let volume_uniform = Uniform::new(Wrapper(volume), wgpu::ShaderStages::FRAGMENT, &device);
+        let instance1 = VoxelModelInstance::new(Vec3::ZERO, 1.0 / 16.0, teapot);
+        let instance2 = VoxelModelInstance::new(vec3(40.0, 0.0, 0.0), 10.0, holy_cube);
+
+        let instance_storage = Storage::new(&[Wrapper(instance1), Wrapper(instance2)], wgpu::ShaderStages::FRAGMENT, &device);
         let voxel_storage = Storage::new(voxels.as_slice(), wgpu::ShaderStages::FRAGMENT, &device);
 
-        let bind_group = BindGroup::new(&[&rt_camera_uniform, &volume_uniform, &voxel_storage], device);
+        let bind_group = BindGroup::new(&[&rt_camera_uniform, &instance_storage, &voxel_storage], device);
        
         let render_shader = &device.create_shader_module(include_spirv!(env!("voxel_raytracer.spv")));
 
@@ -84,7 +94,7 @@ impl VoxelRenderer
             bind_group,
             rt_camera_uniform,
             current_camera: rt_info,
-            volume_uniform,
+            instance_storage,
             voxel_storage,
             profiler
         }
@@ -138,7 +148,7 @@ impl RenderStage for VoxelRenderer
     }
 }
 
-pub fn build_vox_model<F>(bytes: &[u8], origin: Vec3, voxel_size: f32, mut index_converter: F) -> Result<(VoxelVolume, Array3D<u32>), &'static str>
+pub fn build_vox_model<F>(bytes: &[u8], start_index: u32, mut index_converter: F) -> Result<(VoxelModel, Array3D<u32>), &'static str>
     where F : FnMut(u8) -> u32
 {
     let data = match dot_vox::load_bytes(bytes)
@@ -152,14 +162,30 @@ pub fn build_vox_model<F>(bytes: &[u8], origin: Vec3, voxel_size: f32, mut index
         Some(m) => m,
         None => return Err(".vox data does not have a model"),
     };
-
-    let volume = VoxelVolume::new(origin, voxel_size, model.size.x, model.size.z, model.size.y);
-    let mut voxel_array = Array3D::new_with_value(volume.dim_x() as usize, volume.dim_y() as usize, volume.dim_z() as usize, 0);
+    
+    let voxel_model = VoxelModel::new(model.size.x, model.size.z, model.size.y, start_index);
+    let mut voxel_array = Array3D::new_with_value(voxel_model.dim_x() as usize, voxel_model.dim_y() as usize, voxel_model.dim_z() as usize, 0);
     for v in &model.voxels
     {
         let index = (v.x as usize, v.z as usize, v.y as usize);
         voxel_array[index] = index_converter(v.i);
     }
 
-    Ok((volume, voxel_array))
+    Ok((voxel_model, voxel_array))
+}
+
+pub fn load_voxel_models<F>(vox_files: &[&[u8]], mut index_converter: F) -> Result<(Vec<VoxelModel>, Vec<u32>), &'static str>
+    where F : FnMut(u8) -> u32
+{
+    let mut models = vec![];
+    let mut voxels = vec![];
+
+    for f in vox_files
+    {
+        let (model, vs) = build_vox_model(f, voxels.len() as u32, &mut index_converter)?;
+        models.push(model);
+        voxels.extend(vs.as_slice());
+    }
+
+    Ok((models, voxels))
 }

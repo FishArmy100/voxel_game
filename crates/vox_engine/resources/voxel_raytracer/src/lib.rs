@@ -5,7 +5,7 @@
 */
 
 #![no_std]
-use vox_core::{Ray, Intersectable, camera::RTCameraInfo, AABB, glam::vec4, HitInfo, VoxelVolume};
+use vox_core::{Ray, Intersectable, camera::RTCameraInfo, AABB, glam::vec4, HitInfo, VoxelModelInstance};
 
 use spirv_std::{
     glam::{UVec3, Vec3A, Vec4, Mat4, Vec3, Vec2, BVec3, IVec3, uvec3},
@@ -36,7 +36,8 @@ impl Intersectable for Sphere
         if disc < 0.0 {
             return HitInfo {
                 hit: false,
-                hit_pos: Vec3A::ZERO
+                hit_pos: Vec3A::ZERO,
+                distance: 0.0
             };
         }
         let sqrtd = disc.sqrt();
@@ -46,14 +47,16 @@ impl Intersectable for Sphere
             if root < T_MIN || T_MAX < root {
                 return HitInfo {
                     hit: false,
-                    hit_pos: Vec3A::ZERO
+                    hit_pos: Vec3A::ZERO,
+                    distance: 0.0
                 };
             }
         }
 
         HitInfo {
             hit: true,
-            hit_pos: Vec3A::ZERO
+            hit_pos: Vec3A::ZERO,
+            distance: 0.0
         }
     }
 }
@@ -126,7 +129,7 @@ pub fn vs_main(
 pub fn fs_main(
     uv: Vec2,
     #[spirv(uniform, descriptor_set = 0, binding = 0)] camera: &RTCameraInfo,
-    #[spirv(uniform, descriptor_set = 0, binding = 1)] volume: &VoxelVolume,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] instances: &[VoxelModelInstance],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] voxels: &[u32],
     output: &mut Vec4,
 ) 
@@ -136,12 +139,21 @@ pub fn fs_main(
 
     let ray = camera.get_ray(x, y);
 
-    let hit = volume.intersect(&ray, voxels);
-    if hit.hit
+    let mut closest = (false, f32::infinity(), 0);
+    for i in 0..instances.len()
     {
-        *output = VOXEL_COLORS[hit.value as usize];
+        let hit = instances[i].intersect(&ray, voxels);
+        if hit.hit && hit.distance < closest.1
+        {
+            closest = (true, hit.distance, hit.value)
+        }
     }
-    else
+
+    if closest.0
+    {
+        *output = VOXEL_COLORS[closest.2 as usize];
+    }
+    else 
     {
         *output = BACKGROUND_COLOR;
     }
