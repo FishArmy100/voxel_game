@@ -57,9 +57,9 @@ impl VoxelRenderer
         let (models, voxels) = load_voxel_models(&vox_files, |i| {
             match i
             {
-                79 => 1,
-                85 => 2,
-                _ => 1
+                120 => 1,
+                84 => 2,
+                _ => 3 // Error color
             }
         }).unwrap();
         
@@ -162,14 +162,23 @@ pub fn build_vox_model<F>(bytes: &[u8], start_index: u32, mut index_converter: F
         Some(m) => m,
         None => return Err(".vox data does not have a model"),
     };
+
+    let mut unique = vec![];
     
     let voxel_model = VoxelModel::new(model.size.x, model.size.z, model.size.y, start_index);
     let mut voxel_array = Array3D::new_with_value(voxel_model.dim_x() as usize, voxel_model.dim_y() as usize, voxel_model.dim_z() as usize, 0);
     for v in &model.voxels
     {
+        if !unique.contains(&(v.i as u32))
+        {
+            unique.push(v.i as u32)
+        }
+
         let index = (v.x as usize, v.z as usize, v.y as usize);
         voxel_array[index] = index_converter(v.i);
     }
+
+    println!("unique voxel ids: {:?}", unique);
 
     Ok((voxel_model, voxel_array))
 }
