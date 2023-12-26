@@ -1,7 +1,7 @@
 use std::ops::{IndexMut, Index};
 use std::time::SystemTime;
 
-use glam::U64Vec3;
+use glam::{U64Vec3, Vec4};
 
 pub fn index_3d_to_index_1d(width: usize, height: usize, depth: usize, position: U64Vec3) -> u64
 {

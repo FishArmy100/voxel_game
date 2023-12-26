@@ -1,4 +1,4 @@
-use glam::{UVec2, Vec3, uvec3, vec3};
+use glam::{UVec2, Vec3, uvec3, vec3, Vec4, vec4};
 use vox_core::{camera::RTCameraInfo, VoxelModelInstance, utils::flatten_index, VoxelModel};
 use wgpu::*;
 use wgpu_profiler::{wgpu_profiler, GpuProfiler};
@@ -17,11 +17,82 @@ use crate::{
         Uniform, 
         Entry, 
         WgpuState, GBuffer, Storage, BindGroup
-    }, prelude::Array3D, utils::{Wrapper, Wrappable},
+    }, prelude::Array3D, utils::{Wrapper, Wrappable },
 };
 
 unsafe impl Wrappable for RTCameraInfo {}
 unsafe impl Wrappable for VoxelModelInstance {}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Voxel 
+{
+    pub name: &'static str,
+    pub id: u32,
+    pub color: Vec4
+}
+
+pub const VOXELS: &[Voxel] = &[
+    Voxel {
+        name: "air",
+        id: 0,
+        color: vec4(1.0, 1.0, 1.0, 1.0)
+    },
+    Voxel {
+        name: "dirt",
+        id: 1,
+        color: vec4(69.0 / 255.0, 45.0 / 255.0, 45.0 / 255.0, 1.0)
+    },
+    Voxel {
+        name: "grass",
+        id: 2,
+        color: vec4(93.0 / 255.0, 146.0 / 255.0, 77.0 / 255.0, 1.0)
+    },
+    Voxel {
+        name: "granite",
+        id: 3,
+        color: vec4(136.0 / 255.0, 140.0 / 255.0, 141.0 / 255.0, 1.0)
+    },
+    Voxel {
+        name: "sandstone",
+        id: 4,
+        color: vec4(184.0 / 255.0, 176.0 / 255.0, 155.0 / 255.0, 1.0)
+    },
+    Voxel {
+        name: "tree bark",
+        id: 5,
+        color: vec4(105.0 / 255.0, 75.0 / 255.0, 53.0 / 255.0, 1.0)
+    },
+    Voxel {
+        name: "tree leaves",
+        id: 6,
+        color: vec4(95.0 / 255.0, 146.0 / 255.0, 106.0 / 255.0, 1.0)
+    },
+    Voxel {
+        name: "water",
+        id: 7,
+        color: vec4(28.0 / 255.0, 163.0 / 255.0, 236.0 / 255.0, 1.0)
+    },
+    Voxel {
+        name: "error",
+        id: 8,
+        color: vec4(1.0, 0.0, 1.0, 1.0)
+    }
+];
+
+pub const AIR:          &Voxel = &VOXELS[0];
+pub const DIRT:         &Voxel = &VOXELS[1];
+pub const GRASS:        &Voxel = &VOXELS[2];
+pub const GRANITE:      &Voxel = &VOXELS[3];
+pub const SANDSTONE:    &Voxel = &VOXELS[4];
+pub const TREE_BARK:    &Voxel = &VOXELS[5];
+pub const TREE_LEAVES:  &Voxel = &VOXELS[6];
+pub const WATER:        &Voxel = &VOXELS[7];
+pub const ERROR:        &Voxel = &VOXELS[8];
+
+pub fn voxel_colors() -> Vec<Vec4>
+{
+    VOXELS.iter().map(|v| v.color).collect()
+}
 
 pub struct VoxelRenderer
 {
@@ -48,32 +119,41 @@ impl VoxelRenderer
         let rt_info = camera.get_rt_info(config.width, config.height);
         let rt_camera_uniform = Uniform::new(Wrapper(rt_info), ShaderStages::FRAGMENT, device);
 
-        let vox_files: [&[u8]; 2] = 
+        let vox_files: [&[u8]; 3] = 
         [
             include_bytes!("../../resources/teapot.vox"),
             include_bytes!("../../resources/3x3x3.vox"),
+            include_bytes!("../../resources/monu2.vox"),
         ];
 
         let (models, voxels) = load_voxel_models(&vox_files, |i| {
+            let i = i + 1;
             match i
             {
-                120 => 1,
-                84 => 2,
-                _ => 3 // Error color
+                121 => SANDSTONE.id,
+                122 => TREE_BARK.id,
+                123 => GRANITE.id,
+                81 => TREE_LEAVES.id,
+                97 => WATER.id,
+                _ => ERROR.id
             }
         }).unwrap();
         
         
         let teapot = models[0];
         let holy_cube = models[1];
+        let monument = models[2];
 
-        let instance1 = VoxelModelInstance::new(Vec3::ZERO, 1.0 / 16.0, teapot);
-        let instance2 = VoxelModelInstance::new(vec3(40.0, 0.0, 0.0), 10.0, holy_cube);
+        let teapot_instance = VoxelModelInstance::new(vec3(24.0, 24.0, 48.0), 1.0 / 16.0, teapot);
+        let monument_instance = VoxelModelInstance::new(vec3(0.0, 0.0, 0.0), 1.0, monument);
 
-        let instance_storage = Storage::new(&[Wrapper(instance1), Wrapper(instance2)], wgpu::ShaderStages::FRAGMENT, &device);
+        let instances = &[Wrapper(monument_instance)/*, Wrapper(teapot_instance) */];
+
+        let instance_storage = Storage::new(instances, wgpu::ShaderStages::FRAGMENT, &device);
         let voxel_storage = Storage::new(voxels.as_slice(), wgpu::ShaderStages::FRAGMENT, &device);
+        let voxel_color_storage = Storage::new(&voxel_colors(), wgpu::ShaderStages::FRAGMENT, &device);
 
-        let bind_group = BindGroup::new(&[&rt_camera_uniform, &instance_storage, &voxel_storage], device);
+        let bind_group = BindGroup::new(&[&rt_camera_uniform, &instance_storage, &voxel_storage, &voxel_color_storage], device);
        
         let render_shader = &device.create_shader_module(include_spirv!(env!("voxel_raytracer.spv")));
 

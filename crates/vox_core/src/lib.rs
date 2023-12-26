@@ -56,8 +56,8 @@ impl Ray
 pub struct HitInfo 
 {
     pub hit: bool,
-    pub near: f32,
-    pub far: f32,
+    pub hit_pos: Vec3A,
+    pub hit_dist: f32
 }
 
 pub trait Intersectable 
@@ -108,14 +108,19 @@ impl Intersectable for AABB
 
         let t1 = t_min.min(t_max);
         let t2 = t_min.max(t_max);
+        
         let near = t1.max_element();
         let far = t2.min_element();
 
+        let hit = !(near > far) && far >= 0.0;
+        let hit_pos = ray.origin + ray.dir * near;
+        let hit_dist = (hit_pos - ray.origin).length();
+
         HitInfo 
         { 
-            hit: !(near > far) && far >= 0.0, 
-            near,
-            far
+            hit,
+            hit_pos,
+            hit_dist
         }
     }
 }
@@ -126,19 +131,21 @@ pub struct VoxelModelHit
     pub hit: bool,
     pub value: u32,
     pub distance: f32,
+    pub normal: Vec3A,
 }
 
 impl VoxelModelHit
 {
-    pub const NONE: Self = Self { hit: false, value: 0, distance: 0.0 };
+    pub const NONE: Self = Self { hit: false, value: 0, distance: 0.0, normal: Vec3A::ZERO };
 
-    pub const fn hit(value: u32, distance: f32) -> Self
+    pub const fn hit(value: u32, distance: f32, normal: Vec3A) -> Self
     {
         Self 
         {
             hit: true,
             value,
-            distance
+            distance,
+            normal
         }
     }
 }
@@ -219,14 +226,14 @@ impl VoxelModelInstance
         let hit = self.aabb.intersect(ray);
         if hit.hit
         {
-            let hit_pos = ray.origin + ray.dir * hit.near;
+            let aabb_dist = (hit.hit_pos - ray.origin).length();
+
             let ray = Ray {
-                origin: hit_pos - ray.dir * 0.01,
+                origin: hit.hit_pos - ray.dir * 0.01, // fix for voxels on the edge of the aabb volume not rendering properly
                 dir: ray.dir
             };
 
-            let distance = (hit_pos - self.origin).length();
-            self.dda_intersect(&ray, distance, voxels)
+            self.dda_intersect(&ray, aabb_dist, voxels)
         }
         else 
         {
@@ -234,7 +241,7 @@ impl VoxelModelInstance
         }
     }
 
-    fn dda_intersect(&self, ray: &Ray, ray_dist: f32, voxels: &[u32]) -> VoxelModelHit
+    fn dda_intersect(&self, ray: &Ray, aabb_dist: f32, voxels: &[u32]) -> VoxelModelHit
     {
         let max_steps = self.dim_x() + self.dim_y() + self.dim_z() + 3;
 
@@ -272,10 +279,12 @@ impl VoxelModelInstance
             let value = voxels[(index + self.data_ptr()) as usize];
             if value != 0
             {
-                let hit_pos = ((side_dist - ray.origin) + 0.5 - (ray_step.as_vec3a())) * delta_dist;
-                let dda_distance = (ray.origin - hit_pos).length();
+                let voxel_world = (map_pos.as_vec3a() + 0.5) * self.voxel_size + self.origin; // TODO: get actual hit position
+                let dda_dist = (voxel_world - ray.origin).length();
 
-                break VoxelModelHit::hit(value, dda_distance + ray_dist);
+                let dist = dda_dist + aabb_dist;
+                
+                break VoxelModelHit::hit(value, dist, mask.as_vec3a());
             }
         }
     }

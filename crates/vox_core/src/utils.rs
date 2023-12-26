@@ -1,4 +1,4 @@
-use glam::{UVec3, uvec3};
+use glam::{UVec3, uvec3, Vec4};
 
 
 pub fn flatten_index(index: UVec3, dim: UVec3) -> u32 

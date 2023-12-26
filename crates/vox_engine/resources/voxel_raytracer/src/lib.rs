@@ -5,23 +5,15 @@
 */
 
 #![no_std]
-use vox_core::{Ray, Intersectable, camera::RTCameraInfo, AABB, glam::vec4, HitInfo, VoxelModelInstance};
+use vox_core::{Ray, Intersectable, camera::RTCameraInfo, AABB, glam::vec4, HitInfo, VoxelModelInstance, VoxelModelHit};
 
 use spirv_std::{
     glam::{UVec3, Vec3A, Vec4, Mat4, Vec3, Vec2, BVec3, IVec3, uvec3},
     num_traits::Float,
-    spirv, Image, image::Image2d, Sampler,
+    spirv, Image, image::Image2d, Sampler, arch::IndexUnchecked,
 };
 
-const VOXEL_COLORS: [Vec4; 4] = 
-[
-    vec4(1.0, 0.0, 0.0, 1.0), 
-    vec4(0.0, 1.0, 0.0, 1.0), 
-    vec4(0.0, 0.0, 1.0, 1.0),
-    vec4(1.0, 0.0, 1.0, 1.0) // ERROR
-];
-
-const BACKGROUND_COLOR: Vec4 = vec4(0.5, 0.5, 0.5, 1.0);
+const BACKGROUND_COLOR: Vec4 = vec4(0.0, 0.0, 0.0, 1.0);
 
 #[spirv(vertex)]
 pub fn vs_main(
@@ -43,6 +35,7 @@ pub fn fs_main(
     #[spirv(uniform, descriptor_set = 0, binding = 0)] camera: &RTCameraInfo,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] instances: &[VoxelModelInstance],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] voxels: &[u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] voxel_colors: &[Vec4],
     output: &mut Vec4,
 ) 
 {
@@ -51,19 +44,38 @@ pub fn fs_main(
 
     let ray = camera.get_ray(x, y);
 
-    let mut closest = (false, f32::infinity(), 0);
+    let mut closest = VoxelModelHit {
+        hit: false,
+        value: 0,
+        distance: f32::infinity(),
+        normal: Vec3A::ZERO
+    };
+
     for i in 0..instances.len()
     {
         let hit = instances[i].intersect(&ray, voxels);
-        if hit.hit && hit.distance < closest.1
+        if hit.hit && hit.distance < closest.distance
         {
-            closest = (true, hit.distance, hit.value)
+            closest = hit;
         }
     }
 
-    if closest.0
+    if closest.hit
     {
-        *output = VOXEL_COLORS[closest.2 as usize];
+        let mut modifier = 1.0;
+        if closest.normal.x != 0.0 {
+            modifier = 0.5;
+        }
+        if closest.normal.y != 0.0 {
+            modifier = 1.0;
+        }
+        if closest.normal.z != 0.0 {
+            modifier = 0.75;
+        }
+
+        let mut color = voxel_colors[closest.value as usize];
+        color *= modifier;
+        *output = color;
     }
     else 
     {
