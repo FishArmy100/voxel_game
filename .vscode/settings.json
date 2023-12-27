@@ -8,6 +8,7 @@
         "Byteable",
         "bytemuck",
         "cgmath",
+        "cmpge",
         "cmple",
         "egui",
         "mipmap",

@@ -7,7 +7,7 @@ use vox_engine::gpu_utils::WgpuState;
 use vox_engine::math::Color;
 use vox_engine::rendering::Renderer;
 use vox_engine::rendering::camera::Camera;
-use vox_engine::voxel::VoxelRenderer;
+use vox_engine::voxel::voxel_renderer::VoxelRenderer;
 use vox_engine::wgpu::SurfaceError;
 use vox_engine::winit::event_loop::EventLoop;
 use vox_engine::winit::event::Event;

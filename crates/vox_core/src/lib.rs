@@ -97,12 +97,29 @@ impl AABB
             max,
         }
     }
+
+    pub fn contains_point<P>(&self, point: P) -> bool 
+        where P : Into<Vec3A>
+    {
+        let p: Vec3A = point.into();
+        p.cmpge(self.min).all() && p.cmple(self.max).all()
+    }
 }
 
 impl Intersectable for AABB
 {
     fn intersect(&self, ray: &Ray) -> HitInfo 
     {
+        if self.contains_point(ray.origin) // to fix issue when the origin is inside the bounding box (mirrored inside out weirdness)
+        {
+            return HitInfo
+            {
+                hit: true,
+                hit_pos: ray.origin,
+                hit_dist: 0.0
+            }
+        }
+
         let t_min = (self.min - ray.origin) / ray.dir;
         let t_max = (self.max - ray.origin) / ray.dir;
 
@@ -114,7 +131,7 @@ impl Intersectable for AABB
 
         let hit = !(near > far) && far >= 0.0;
         let hit_pos = ray.origin + ray.dir * near;
-        let hit_dist = (hit_pos - ray.origin).length();
+        let hit_dist = near;
 
         HitInfo 
         { 
@@ -226,7 +243,7 @@ impl VoxelModelInstance
         let hit = self.aabb.intersect(ray);
         if hit.hit
         {
-            let aabb_dist = (hit.hit_pos - ray.origin).length();
+            let aabb_dist = hit.hit_dist;
 
             let ray = Ray {
                 origin: hit.hit_pos - ray.dir * 0.01, // fix for voxels on the edge of the aabb volume not rendering properly
