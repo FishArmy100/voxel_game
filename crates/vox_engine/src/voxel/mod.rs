@@ -1,5 +1,6 @@
 pub mod prefab;
 pub mod voxel_renderer;
+pub mod terrain;
 
 use glam::{Vec4, vec4};
 use vox_core::{camera::RTCameraInfo, VoxelModelInstance, VoxelModel};
@@ -77,6 +78,10 @@ pub const TREE_BARK:    &Voxel = &VOXELS[5];
 pub const TREE_LEAVES:  &Voxel = &VOXELS[6];
 pub const WATER:        &Voxel = &VOXELS[7];
 pub const ERROR:        &Voxel = &VOXELS[8];
+
+pub const MODEL_3X3X3: &[u8] = include_bytes!("../../resources/3x3x3.vox");
+pub const MODEL_TEAPOT: &[u8] = include_bytes!("../../resources/teapot.vox");
+pub const MODEL_MONUMENT: &[u8] = include_bytes!("../../resources/monu2.vox");
 
 pub fn voxel_colors() -> Vec<Vec4>
 {

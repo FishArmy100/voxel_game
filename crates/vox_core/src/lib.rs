@@ -2,6 +2,7 @@
 
 pub mod camera;
 pub mod utils;
+pub mod terrain;
 
 pub use glam;
 pub use num_traits::Float;

@@ -29,15 +29,12 @@ pub struct VoxelRenderer
     rt_camera_uniform: Uniform<Wrapper<RTCameraInfo>>,
     current_camera: RTCameraInfo,
 
-    voxel_storage: Storage<u32>,
-    instance_storage: Storage<Wrapper<VoxelModelInstance>>,
-
     profiler: GpuProfiler,
 }
 
 impl VoxelRenderer
 {
-    pub fn new(gpu_state: &WgpuState, camera: &Camera) -> Self 
+    pub fn new(gpu_state: &WgpuState, camera: &Camera, voxels: &[u32], instances: &[Wrapper<VoxelModelInstance>]) -> Self 
     {
         let device = gpu_state.device();
         let config = gpu_state.surface_config();
@@ -45,37 +42,8 @@ impl VoxelRenderer
         let rt_info = camera.get_rt_info(config.width, config.height);
         let rt_camera_uniform = Uniform::new(Wrapper(rt_info), ShaderStages::FRAGMENT, device);
 
-        let vox_files: [&[u8]; 3] = 
-        [
-            include_bytes!("../../resources/teapot.vox"),
-            include_bytes!("../../resources/3x3x3.vox"),
-            include_bytes!("../../resources/monu2.vox"),
-        ];
-
-        let (models, voxels) = build_voxel_models(&vox_files, |i| {
-            match i
-            {
-                121 => SANDSTONE.id,
-                122 => TREE_BARK.id,
-                123 => GRANITE.id,
-                81 => TREE_LEAVES.id,
-                97 => WATER.id,
-                _ => ERROR.id
-            }
-        }).unwrap();
-        
-        
-        let teapot = models[0];
-        let holy_cube = models[1];
-        let monument = models[2];
-
-        let teapot_instance = VoxelModelInstance::new(vec3(24.0, 24.0, 48.0), 1.0 / 16.0, teapot);
-        let monument_instance = VoxelModelInstance::new(vec3(0.0, 0.0, 0.0), 1.0, monument);
-
-        let instances = &[Wrapper(monument_instance), Wrapper(teapot_instance)];
-
         let instance_storage = Storage::new(instances, wgpu::ShaderStages::FRAGMENT, &device);
-        let voxel_storage = Storage::new(voxels.as_slice(), wgpu::ShaderStages::FRAGMENT, &device);
+        let voxel_storage = Storage::new(voxels, wgpu::ShaderStages::FRAGMENT, &device);
         let voxel_color_storage = Storage::new(&voxel_colors(), wgpu::ShaderStages::FRAGMENT, &device);
 
         let bind_group = BindGroup::new(&[&rt_camera_uniform, &instance_storage, &voxel_storage, &voxel_color_storage], device);
@@ -99,8 +67,6 @@ impl VoxelRenderer
             bind_group,
             rt_camera_uniform,
             current_camera: rt_info,
-            instance_storage,
-            voxel_storage,
             profiler
         }
     }

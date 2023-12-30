@@ -17,7 +17,7 @@ wgpu = {version = "0.17.0", features = ["spirv"]}
 wgpu-profiler = "0.14.2"
 winit = "0.28.6"
 serde_json = "1.0.108"
-glam = { version = "0.24.2", features = ["bytemuck", "serde"] }
+glam = { version = "0.24.2", features = ["bytemuck", "serde", "cuda"] }
 vox_core = { path = "../vox_core" }
 dot_vox = "5.1.1"
 

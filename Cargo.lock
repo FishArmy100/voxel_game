@@ -1967,6 +1967,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "terrain_gen"
+version = "0.1.0"
+dependencies = [
+ "spirv-std",
+ "vox_core",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.49"
 source = "registry+https://github.com/rust-lang/crates.io-index"

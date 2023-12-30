@@ -1,9 +1,10 @@
 [workspace]
 members = [
-    "crates/vox_engine/resources/voxel_raytracer",
     "crates/vox_engine",
     "crates/game",
-    "crates/vox_core"
+    "crates/vox_core",
+    "crates/vox_engine/resources/voxel_raytracer",
+    "crates/vox_engine/resources/terrain_gen",
 ]
 
 [package]
